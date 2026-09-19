@@ -1,6 +1,6 @@
 # SA Command
 
-Owner-facing desktop operations software for SA Production. This repository implements Phase 1: the final visual shell, owner authentication, People, attendance, leave and audit foundations.
+Owner-facing desktop operations software for SA Production. Phase 2 adds persisted productions, crew scheduling, work, a unified calendar, meetings, payroll, operational employee views, and a real aggregate Command dashboard to the Phase 1 people and attendance foundation.
 
 ## Requirements
 
@@ -22,15 +22,15 @@ The demo account is documented in [docs/demo.md](docs/demo.md). The API defaults
 
 ## Verification
 
-- Backend: `mvn -f apps/backend/pom.xml "-Dapi.version=1.44" verify`
+- Backend: set `DOCKER_HOST=npipe:////./pipe/dockerDesktopLinuxEngine` on current Docker Desktop for Windows, then run `mvn -f apps/backend/pom.xml verify`
 - Frontend: `npm --prefix apps/desktop test -- --run`
 - Type/build: `npm --prefix apps/desktop run build`
 - E2E: `npm --prefix apps/desktop run test:e2e`
 
 Testcontainers and end-to-end tests require Docker and installed Playwright browsers respectively.
 
-The Docker API override supports this host's Docker 29 engine with the pinned Testcontainers version. Browser tests use a stateful mock API; the backend PostgreSQL application test separately verifies real authenticated HTTP and persistence workflows. See [Phase 1 closure evidence](docs/phase-1-closure.md) for the approved visual checks, exact results and native packaging prerequisites.
+`apps/backend/src/test/resources/docker-java.properties` selects Docker API 1.44 for Docker Engine 29 compatibility. Browser tests use a stateful API harness for deterministic interaction and screenshots; PostgreSQL/Testcontainers suites separately verify migrations, real persistence, linked-domain behavior and authenticated HTTP. See the [Phase 2 checklist](docs/phase-2-checklist.md), [payroll policy](docs/payroll.md), and [Phase 1 closure evidence](docs/phase-1-closure.md).
 
 ## Scope boundary
 
-Productions, Work, Calendar, Finance and Communications are visible only as intentional later-phase destinations. Their business domains are not implemented in Phase 1.
+Communications remains an explicit Phase 3 boundary. Phase 2 does not implement WhatsApp, provider webhooks, an outbox, message simulation, or notification automation.

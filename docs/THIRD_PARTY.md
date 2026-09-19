@@ -20,3 +20,5 @@ SA Command uses packages as dependencies and does not vendor Aceternity or CodeF
 | Spring Boot | https://github.com/spring-projects/spring-boot | Apache-2.0 | Maven lock by resolved POM | Backend runtime, web, validation, data and security |
 | Flyway | https://github.com/flyway/flyway | Apache-2.0 | Maven dependency | Append-only PostgreSQL migrations |
 | Testcontainers | https://github.com/testcontainers/testcontainers-java | MIT | Maven test dependency | PostgreSQL integration tests |
+| Schedule-X | https://github.com/schedule-x/schedule-x | MIT | npm lockfile; `CalendarPage.tsx`, `phase2.css` | Accessible month, week and agenda calendar engine, fully restyled to the SA visual system |
+| Temporal polyfill | https://github.com/fullcalendar/temporal-polyfill | MIT | npm lockfile; `CalendarPage.tsx` | Zoned date/time values supplied to Schedule-X |

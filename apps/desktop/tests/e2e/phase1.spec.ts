@@ -14,6 +14,9 @@ async function mockApi(page:Page,mock:MockState){await page.route('**/api/v1/**'
   const request=route.request();const method=request.method();const path=new URL(request.url()).pathname;
   if(path.endsWith('/auth/me'))return mock.session?fulfill(route,{id:'owner',email:'owner@sa.local',displayName:'Owner',role:'OWNER'}):fulfill(route,null,401);
   if(path.endsWith('/auth/login')&&method==='POST'){mock.session=true;return fulfill(route,{id:'owner',email:'owner@sa.local',displayName:'Owner',role:'OWNER'});}
+  if(path.endsWith('/dashboard')&&method==='GET')return fulfill(route,{team:{employees:1,present:1,late:0,absent:0,leave:0,incomplete:0},today:[{id:'event-1',type:'INTERNAL',title:'Daily operations review',startsAt:fixedNow.toISOString(),endsAt:new Date(fixedNow.getTime()+3600000).toISOString()}],productions:[{id:'production-1',title:'Sharma Wedding',status:'PRODUCTION',progressPercent:78,eventDate:'2026-09-26'}],workload:[{employeeId:baseEmployee.id,employeeName:baseEmployee.displayName,active:2,overdue:0}],payroll:{id:'payroll-1',year:2026,month:9,status:'CALCULATED',totalMinor:4200000,paidMinor:0,pendingMinor:4200000},attention:[{code:'ATTENDANCE_COMPLETE',title:'Attendance is complete',detail:'All active employees have a status.',tone:'neutral',href:'/attendance'}],communicationsAvailable:false});
+  if(path.endsWith('/productions')&&method==='GET')return fulfill(route,[]);
+  if(path.endsWith('/tasks')&&method==='GET')return fulfill(route,[]);
   if(path.match(/\/employees\/[^/]+\/attendance$/)&&method==='GET'){
     const id=path.split('/').at(-2)!;const status=mock.attendance[id];const records=status?[{id:`attendance-${id}`,employeeId:id,date:fixedDate,status,checkInTime:status==='PRESENT'?'09:28':null,checkOutTime:null,minutesLate:0,notes:null,updatedAt:fixedNow.toISOString()}]:[];
     return fulfill(route,{employeeId:id,from:'2026-09-01',to:'2026-09-30',records,summary:{PRESENT:status==='PRESENT'?1:0,LATE:0,ABSENT:status==='ABSENT'?1:0,HALF_DAY:0,LEAVE:status==='LEAVE'?1:0,HOLIDAY:0}});
@@ -73,8 +76,8 @@ test('Phase 1 shell, navigation, theme and command palette',async({page})=>{
   await page.getByRole('link',{name:'Attendance'}).click();await expect(page.getByText('Mark remaining present')).toBeVisible();await visual(page,'attendance.png');
   await page.getByLabel('Quick create').click();await expect(page.getByRole('heading',{name:'Quick create'})).toBeVisible();await visual(page,'quick-create.png');
   await page.keyboard.press('Escape');await expect(page.getByRole('dialog')).toHaveCount(0);await expect(page.locator('.modal-overlay')).toHaveCount(0);
-  await page.keyboard.press('Control+K');await expect(page.getByPlaceholder('Search people or actions…')).toBeVisible();await visual(page,'command-palette.png');
-  await page.getByPlaceholder('Search people or actions…').fill('Open People');await page.keyboard.press('Enter');await expect(page.getByRole('heading',{name:'People',exact:true})).toBeVisible();await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.keyboard.press('Control+K');await expect(page.getByPlaceholder('Search people, productions, tasks or actions…')).toBeVisible();await visual(page,'command-palette.png');
+  await page.getByPlaceholder('Search people, productions, tasks or actions…').fill('Open People');await page.keyboard.press('Enter');await expect(page.getByRole('heading',{name:'People',exact:true})).toBeVisible();await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
 test('reduced motion preserves navigation, hover and overlay dismissal',async({page})=>{

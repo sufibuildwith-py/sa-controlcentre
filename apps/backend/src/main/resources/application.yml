@@ -38,8 +38,11 @@ management:
 app:
   mode: ${APP_MODE:demo}
   demo-seed: ${DEMO_SEED:true}
+  time-zone: ${APP_TIME_ZONE:Asia/Kolkata}
+  payroll:
+    policy: ${PAYROLL_POLICY:PER_WORKING_DAY}
+    working-days: ${PAYROLL_WORKING_DAYS:26}
   desktop-origins: ${DESKTOP_ORIGINS:http://localhost:1420,tauri://localhost,http://tauri.localhost}
 logging:
   pattern:
     level: "%5p [traceId=%X{traceId:-}]"
-

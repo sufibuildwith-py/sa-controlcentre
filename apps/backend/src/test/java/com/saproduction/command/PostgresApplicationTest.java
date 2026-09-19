@@ -31,20 +31,24 @@ class PostgresApplicationTest {
   }
   @Autowired JdbcTemplate jdbc;
   @Autowired @Qualifier("demoData") CommandLineRunner seed;
+  @Autowired @Qualifier("phase2DemoData") CommandLineRunner phase2Seed;
   @Autowired ObjectMapper json;
   @LocalServerPort int port;
 
   @Test void realApplicationValidatesSchemaAndBootstrapIsIdempotent() throws Exception {
     assertSeed();
     seed.run();
+    phase2Seed.run();
     assertSeed();
     assertThat(jdbc.queryForObject("select count(*) from employees where salary_currency='INR'",Integer.class)).isEqualTo(12);
+    assertPhase2Seed();
     verifyHttpWorkflows();
   }
   private void verifyHttpWorkflows() throws Exception {
     var client=HttpClient.newBuilder().cookieHandler(new CookieManager(null,CookiePolicy.ACCEPT_ALL)).build();
     call(client,"POST","/auth/login","{\"email\":\"owner@saproduction.local\",\"password\":\"SADemo!2026\"}");
     assertThat(call(client,"GET","/auth/me",null).path("email").asText()).isEqualTo("owner@saproduction.local");
+    assertThat(call(client,"GET","/employees",null).size()).isEqualTo(12);
     String today=LocalDate.now().toString();
     var day=call(client,"GET","/attendance?date="+today,null);
     assertThat(day.path("rows").size()).isEqualTo(12);
@@ -67,6 +71,15 @@ class PostgresApplicationTest {
     String rejected=call(client,"POST","/leave-requests",leave).path("id").asText();
     assertThat(call(client,"POST","/leave-requests/"+rejected+"/reject","{}").path("status").asText()).isEqualTo("REJECTED");
     assertThat(jdbc.queryForObject("select count(*) from audit_logs",Integer.class)).isGreaterThanOrEqualTo(7);
+    assertThat(call(client,"GET","/productions",null).size()).isEqualTo(4);
+    assertThat(call(client,"GET","/tasks",null).size()).isEqualTo(25);
+    assertThat(call(client,"GET","/calendar-events",null).size()).isEqualTo(34);
+    assertThat(call(client,"GET","/meetings",null).size()).isEqualTo(4);
+    assertThat(call(client,"GET","/payroll",null).size()).isEqualTo(2);
+    var dashboard=call(client,"GET","/dashboard",null);
+    assertThat(dashboard.path("productions").isArray()).isTrue();
+    assertThat(dashboard.path("workload").isArray()).isTrue();
+    assertThat(dashboard.path("communicationsAvailable").asBoolean()).isFalse();
   }
   private JsonNode call(HttpClient client,String method,String path,String body) throws Exception {
     var request=HttpRequest.newBuilder(URI.create("http://localhost:"+port+"/api/v1"+path)).header("Content-Type","application/json")
@@ -80,5 +93,13 @@ class PostgresApplicationTest {
     assertThat(jdbc.queryForObject("select count(*) from employees",Integer.class)).isEqualTo(12);
     assertThat(jdbc.queryForObject("select count(*) from attendance_records",Integer.class)).isEqualTo(12);
     assertThat(jdbc.queryForObject("select count(*) from leave_requests",Integer.class)).isEqualTo(1);
+  }
+  private void assertPhase2Seed(){
+    assertThat(jdbc.queryForObject("select count(*) from productions",Integer.class)).isEqualTo(4);
+    assertThat(jdbc.queryForObject("select count(*) from tasks",Integer.class)).isEqualTo(25);
+    assertThat(jdbc.queryForObject("select count(*) from meetings",Integer.class)).isEqualTo(4);
+    assertThat(jdbc.queryForObject("select count(*) from calendar_events",Integer.class)).isEqualTo(34);
+    assertThat(jdbc.queryForObject("select count(*) from payroll_periods",Integer.class)).isEqualTo(2);
+    assertThat(jdbc.queryForObject("select count(*) from payroll_periods where status='LOCKED'",Integer.class)).isEqualTo(1);
   }
 }

@@ -6,4 +6,5 @@ import {App} from './app/App';
 import './styles/index.css';
 import './styles/features.css';
 import './styles/closure.css';
+import './styles/phase2.css';
 createRoot(document.getElementById('root')!).render(<StrictMode><BrowserRouter><AppProviders><App/></AppProviders></BrowserRouter></StrictMode>);

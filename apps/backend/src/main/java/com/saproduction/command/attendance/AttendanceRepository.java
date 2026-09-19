@@ -8,5 +8,5 @@ public interface AttendanceRepository extends JpaRepository<AttendanceRecord, UU
   Optional<AttendanceRecord> findByEmployeeIdAndDate(UUID employeeId, LocalDate date);
   List<AttendanceRecord> findAllByDate(LocalDate date);
   List<AttendanceRecord> findAllByEmployeeIdAndDateBetweenOrderByDateDesc(UUID employeeId, LocalDate from, LocalDate to);
+  List<AttendanceRecord> findAllByEmployeeIdAndDateBetween(UUID employeeId,LocalDate from,LocalDate to);
 }
-

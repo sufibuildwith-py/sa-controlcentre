@@ -7,14 +7,17 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+  private static final Logger log=LoggerFactory.getLogger(GlobalExceptionHandler.class);
   record ErrorBody(String code, String message, String traceId, Map<String,String> fields) {}
   record ErrorEnvelope(ErrorBody error) {}
 
   @ExceptionHandler(ApiException.class)
-  ResponseEntity<ErrorEnvelope> api(ApiException ex){ return ResponseEntity.status(ex.status).body(body(ex.code,ex.getMessage(),Map.of())); }
+  ResponseEntity<ErrorEnvelope> api(ApiException ex){ return ResponseEntity.status(ex.status).body(body(ex.code,ex.getMessage(),ex.fields)); }
 
   @ExceptionHandler(MethodArgumentNotValidException.class)
   ResponseEntity<ErrorEnvelope> validation(MethodArgumentNotValidException ex){
@@ -27,8 +30,7 @@ public class GlobalExceptionHandler {
   ResponseEntity<ErrorEnvelope> credentials(){ return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body("INVALID_CREDENTIALS","Email or password is incorrect.",Map.of())); }
 
   @ExceptionHandler(Exception.class)
-  ResponseEntity<ErrorEnvelope> fallback(Exception ex){ return ResponseEntity.internalServerError().body(body("INTERNAL_ERROR","Something went wrong. Please try again.",Map.of())); }
+  ResponseEntity<ErrorEnvelope> fallback(Exception ex){ log.error("Unhandled request failure",ex); return ResponseEntity.internalServerError().body(body("INTERNAL_ERROR","Something went wrong. Please try again.",Map.of())); }
 
   private ErrorEnvelope body(String code,String message,Map<String,String> fields){ return new ErrorEnvelope(new ErrorBody(code,message,MDC.get("traceId"),fields)); }
 }
-

@@ -1,21 +1,267 @@
-import {useQuery} from '@tanstack/react-query';
-import {ArrowUpRight,CalendarClock,MessageCircle,Users} from 'lucide-react';
-import {WorkspaceHeader} from '../../components/layout/AppShell';
-import {CardHeader,SABentoCard,SABentoGrid,SAProgress,SARadialMetric,StatusBadge} from '../../components/ui/sa';
-import {api} from '../../lib/api';
-import type {AttendanceDay,Employee} from '../../types/domain';
-import {commandMock} from './mockData';
-const today=()=>new Date().toISOString().slice(0,10);
-export function CommandPage(){const employees=useQuery({queryKey:['employees'],queryFn:()=>api<Employee[]>('/employees')});const attendance=useQuery({queryKey:['attendance',today()],queryFn:()=>api<AttendanceDay>(`/attendance?date=${today()}`)});const now=new Date();const total=employees.data?.filter(e=>e.status!=='INACTIVE').length??0;const present=(attendance.data?.summary.PRESENT??0)+(attendance.data?.summary.LATE??0);const attendancePct=total?Math.round(present/total*100):0;return <><WorkspaceHeader title={`${greeting()}, Owner.`} subtitle="Here’s the operating picture for today."/><SABentoGrid className="command-grid">
-  <SABentoCard className="time-card"><span className="eyebrow">Local time</span><strong className="hero-time">{now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</strong><p>{now.toLocaleDateString([],{weekday:'long',month:'long',day:'numeric'})}</p><div className="time-marker"><CalendarClock size={15}/>Next review at 11:30</div></SABentoCard>
-  <SABentoCard className="today-card"><CardHeader eyebrow="Schedule preview" title="Today" action={<ArrowUpRight size={16}/>}/><div className="timeline">{commandMock.today.map(item=><div key={item.time}><time>{item.time}</time><span/><div><strong>{item.title}</strong><small>{item.kind}</small></div></div>)}</div></SABentoCard>
-  <SABentoCard className="team-card"><CardHeader eyebrow="Live Phase 1 data" title="Team status"/><div className="team-content"><SARadialMetric value={attendancePct} label={`${present} of ${total} accounted`}/><div className="team-breakdown"><div><span>Present</span><strong>{attendance.data?.summary.PRESENT??'—'}</strong></div><div><span>Late</span><strong>{attendance.data?.summary.LATE??'—'}</strong></div><div><span>Absent</span><strong>{attendance.data?.summary.ABSENT??'—'}</strong></div><div><span>Leave</span><strong>{attendance.data?.summary.LEAVE??'—'}</strong></div></div></div></SABentoCard>
-  <SABentoCard className="attendance-card"><CardHeader eyebrow="Attendance" title="Today"/><strong className="compact-metric">{present}</strong><span className="muted">present or checked in</span><div className="mini-footer"><Users size={15}/>{total} active people</div></SABentoCard>
-  <SABentoCard className="comms-card"><CardHeader eyebrow="Later-phase preview" title="Communications"/><div className="donut-mini"><MessageCircle size={19}/><strong>{commandMock.communications.delivered}</strong><span>delivered</span></div><div className="inline-stats"><span>{commandMock.communications.waiting} waiting</span><span className="danger-text">{commandMock.communications.failed} failed</span></div></SABentoCard>
-  <SABentoCard className="productions-card"><CardHeader eyebrow="Later-phase preview" title="Active productions" action={<StatusBadge tone="neutral">Typed mock</StatusBadge>}/><div className="production-list">{commandMock.productions.slice(0,2).map(p=><div key={p.name}><div><strong>{p.name}</strong><span>{p.stage} · {p.date}</span></div><div><b>{p.progress}%</b><SAProgress value={p.progress}/></div></div>)}</div></SABentoCard>
-  <SABentoCard className="workload-card"><CardHeader eyebrow="Later-phase preview" title="Workload"/><div className="workload-ring"><SARadialMetric value={commandMock.workload.capacity} label="team capacity"/></div><p><strong>{commandMock.workload.overloaded}</strong> crew members need review</p></SABentoCard>
-  <SABentoCard className="payroll-card"><CardHeader eyebrow="Later-phase preview" title="Payroll"/><strong className="compact-metric">{money(commandMock.payroll.estimateMinor)}</strong><span className="muted">{commandMock.payroll.period} estimate</span><StatusBadge tone="neutral">{commandMock.payroll.state}</StatusBadge></SABentoCard>
-  <SABentoCard className="attention-card"><CardHeader eyebrow="Owner queue" title="Needs attention"/><div className="attention-list">{commandMock.attention.map(item=><div key={item.title}><StatusBadge tone={item.tone}>{item.tone==='neutral'?'Waiting':'Review'}</StatusBadge><div><strong>{item.title}</strong><span>{item.detail}</span></div><ArrowUpRight size={15}/></div>)}</div></SABentoCard>
-  </SABentoGrid></>}
-function greeting(){const h=new Date().getHours();return h<12?'Good morning':h<17?'Good afternoon':'Good evening'}
-function money(minor:number){return new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:0}).format(minor/100)}
+import { useQuery } from "@tanstack/react-query";
+import {
+  ArrowUpRight,
+  CalendarClock,
+  MessageCircle,
+  Users,
+} from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { WorkspaceHeader } from "../../components/layout/AppShell";
+import {
+  CardHeader,
+  EmptyState,
+  SABentoCard,
+  SABentoGrid,
+  SAProgress,
+  SARadialMetric,
+  SkeletonCard,
+  StatusBadge,
+} from "../../components/ui/sa";
+import { api } from "../../lib/api";
+import type { Dashboard } from "../../types/domain";
+export function CommandPage() {
+  const navigate = useNavigate();
+  const dashboard = useQuery({
+    queryKey: ["dashboard"],
+    queryFn: () => api<Dashboard>("/dashboard"),
+  });
+  const now = new Date();
+  if (dashboard.isPending)
+    return (
+      <>
+        <WorkspaceHeader
+          title={`${greeting()}, Owner.`}
+          subtitle="Loading the operating picture…"
+        />
+        <SkeletonCard />
+      </>
+    );
+  if (dashboard.isError || !dashboard.data)
+    return (
+      <EmptyState
+        title="Command unavailable"
+        description="Operational aggregates could not be loaded."
+      />
+    );
+  const d = dashboard.data,
+    total = d.team.employees,
+    present = d.team.present + d.team.late,
+    attendancePct = total
+      ? Math.round(((total - d.team.incomplete) / total) * 100)
+      : 0;
+  const load = d.workload.reduce((sum, x) => sum + x.active, 0),
+    overloaded = d.workload.filter(
+      (x) => x.active >= 4 || x.overdue > 0,
+    ).length;
+  return (
+    <>
+      <WorkspaceHeader
+        title={`${greeting()}, Owner.`}
+        subtitle="Here’s the live operating picture for today."
+      />
+      <SABentoGrid className="command-grid">
+        <SABentoCard className="time-card">
+          <span className="eyebrow">Local time</span>
+          <strong className="hero-time">
+            {now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          </strong>
+          <p>
+            {now.toLocaleDateString([], {
+              weekday: "long",
+              month: "long",
+              day: "numeric",
+            })}
+          </p>
+          <div className="time-marker">
+            <CalendarClock size={15} />
+            {d.today.length ? `Next: ${d.today[0].title}` : "Schedule is clear"}
+          </div>
+        </SABentoCard>
+        <SABentoCard
+          interactive
+          className="today-card"
+          onClick={() => navigate("/calendar")}
+        >
+          <CardHeader
+            eyebrow="Live schedule"
+            title="Today"
+            action={<ArrowUpRight size={16} />}
+          />
+          <div className="timeline">
+            {d.today.length ? (
+              d.today.slice(0, 3).map((item) => (
+                <div key={item.id}>
+                  <time>
+                    {new Date(item.startsAt).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </time>
+                  <span />
+                  <div>
+                    <strong>{item.title}</strong>
+                    <small>{item.type}</small>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="muted">No scheduled commitments today.</p>
+            )}
+          </div>
+        </SABentoCard>
+        <SABentoCard className="team-card">
+          <CardHeader eyebrow="Live attendance" title="Team status" />
+          <div className="team-content">
+            <SARadialMetric
+              value={attendancePct}
+              label={`${total - d.team.incomplete} of ${total} accounted`}
+            />
+            <div className="team-breakdown">
+              <div>
+                <span>Present</span>
+                <strong>{d.team.present}</strong>
+              </div>
+              <div>
+                <span>Late</span>
+                <strong>{d.team.late}</strong>
+              </div>
+              <div>
+                <span>Absent</span>
+                <strong>{d.team.absent}</strong>
+              </div>
+              <div>
+                <span>Leave</span>
+                <strong>{d.team.leave}</strong>
+              </div>
+            </div>
+          </div>
+        </SABentoCard>
+        <SABentoCard
+          interactive
+          className="attendance-card"
+          onClick={() => navigate("/attendance")}
+        >
+          <CardHeader eyebrow="Attendance" title="Today" />
+          <strong className="compact-metric">{present}</strong>
+          <span className="muted">present or checked in</span>
+          <div className="mini-footer">
+            <Users size={15} />
+            {total} active people
+          </div>
+        </SABentoCard>
+        <SABentoCard className="comms-card">
+          <CardHeader eyebrow="Phase 3 boundary" title="Communications" />
+          <div className="donut-mini">
+            <MessageCircle size={19} />
+            <strong>—</strong>
+            <span>provider unavailable</span>
+          </div>
+          <div className="inline-stats">
+            <span>No fabricated delivery metrics</span>
+          </div>
+        </SABentoCard>
+        <SABentoCard
+          interactive
+          className="productions-card"
+          onClick={() => navigate("/productions")}
+        >
+          <CardHeader
+            eyebrow="Live operations"
+            title="Active productions"
+            action={<StatusBadge tone="success">Real data</StatusBadge>}
+          />
+          <div className="production-list">
+            {d.productions.slice(0, 2).map((p) => (
+              <div key={p.id}>
+                <div>
+                  <strong>{p.title}</strong>
+                  <span>
+                    {p.status.replaceAll("_", " ")} ·{" "}
+                    {new Date(`${p.eventDate}T00:00`).toLocaleDateString(
+                      "en-IN",
+                      { day: "2-digit", month: "short" },
+                    )}
+                  </span>
+                </div>
+                <div>
+                  <b>{p.progressPercent}%</b>
+                  <SAProgress value={p.progressPercent} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </SABentoCard>
+        <SABentoCard
+          interactive
+          className="workload-card"
+          onClick={() => navigate("/work")}
+        >
+          <CardHeader eyebrow="Live tasks" title="Workload" />
+          <div className="workload-ring">
+            <SARadialMetric
+              value={Math.min(
+                100,
+                Math.round((load / Math.max(total * 4, 1)) * 100),
+              )}
+              label={`${load} active tasks`}
+            />
+          </div>
+          <p>
+            <strong>{overloaded}</strong> crew members need review
+          </p>
+        </SABentoCard>
+        <SABentoCard
+          interactive
+          className="payroll-card"
+          onClick={() => navigate("/payroll")}
+        >
+          <CardHeader eyebrow="Financial record" title="Payroll" />
+          <strong className="compact-metric">
+            {d.payroll ? money(d.payroll.totalMinor) : "Not calculated"}
+          </strong>
+          <span className="muted">
+            {d.payroll
+              ? `${month(d.payroll.month)} ${d.payroll.year}`
+              : "Current period"}
+          </span>
+          <StatusBadge
+            tone={d.payroll?.status === "LOCKED" ? "success" : "neutral"}
+          >
+            {d.payroll?.status ?? "ACTION NEEDED"}
+          </StatusBadge>
+        </SABentoCard>
+        <SABentoCard className="attention-card">
+          <CardHeader eyebrow="Owner queue" title="Needs attention" />
+          <div className="attention-list">
+            {d.attention.slice(0, 3).map((item) => (
+              <div key={item.code} onClick={() => navigate(item.href)}>
+                <StatusBadge tone={item.tone}>
+                  {item.tone === "danger" ? "Urgent" : "Review"}
+                </StatusBadge>
+                <div>
+                  <strong>{item.title}</strong>
+                  <span>{item.detail}</span>
+                </div>
+                <ArrowUpRight size={15} />
+              </div>
+            ))}
+          </div>
+        </SABentoCard>
+      </SABentoGrid>
+    </>
+  );
+}
+function greeting() {
+  const h = new Date().getHours();
+  return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+}
+const money = (minor: number) =>
+  new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(minor / 100);
+const month = (n: number) =>
+  new Intl.DateTimeFormat("en-IN", { month: "long" }).format(
+    new Date(2026, n - 1, 1),
+  );

@@ -2,8 +2,10 @@ package com.saproduction.command.employee;
 
 import com.saproduction.command.audit.AuditService;
 import com.saproduction.command.shared.ApiException;
+import jakarta.persistence.criteria.Predicate;
 import java.util.*;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -11,7 +13,21 @@ import org.springframework.transaction.annotation.Transactional;
 public class EmployeeService {
   private final EmployeeRepository employees; private final AuditService audit;
   public EmployeeService(EmployeeRepository employees,AuditService audit){this.employees=employees;this.audit=audit;}
-  @Transactional(readOnly=true) public List<EmployeeDtos.View> list(String search,Employee.Status status){ return employees.search(blank(search)?null:search.trim(),status).stream().map(EmployeeDtos::view).toList(); }
+  @Transactional(readOnly=true) public List<EmployeeDtos.View> list(String search,Employee.Status status){
+    return employees.findAll((root,query,cb)->{
+      List<Predicate> filters=new ArrayList<>();
+      if(status!=null) filters.add(cb.equal(root.get("status"),status));
+      if(!blank(search)){
+        String pattern="%"+search.trim().toLowerCase(Locale.ROOT)+"%";
+        filters.add(cb.or(
+          cb.like(cb.lower(root.get("displayName")),pattern),
+          cb.like(cb.lower(root.get("employeeCode")),pattern),
+          cb.like(cb.lower(root.get("roleTitle")),pattern)
+        ));
+      }
+      return cb.and(filters.toArray(Predicate[]::new));
+    },Sort.by(Sort.Direction.ASC,"displayName")).stream().map(EmployeeDtos::view).toList();
+  }
   @Transactional(readOnly=true) public Employee getEntity(UUID id){ return org.hibernate.Hibernate.unproxy(employees.findById(id).orElseThrow(()->ApiException.notFound("EMPLOYEE_NOT_FOUND","Employee was not found.")),Employee.class); }
   @Transactional(readOnly=true) public EmployeeDtos.View get(UUID id){return EmployeeDtos.view(getEntity(id));}
   @Transactional public EmployeeDtos.View create(EmployeeDtos.Input in){

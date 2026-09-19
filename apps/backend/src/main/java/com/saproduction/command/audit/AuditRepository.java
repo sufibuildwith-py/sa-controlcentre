@@ -1,7 +1,6 @@
 package com.saproduction.command.audit;
 
-import java.util.UUID;
+import java.util.*;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface AuditRepository extends JpaRepository<AuditLog, UUID> {}
-
+public interface AuditRepository extends JpaRepository<AuditLog, UUID> {List<AuditLog> findAllByEntityTypeAndEntityIdOrderByCreatedAtDesc(String entityType,String entityId);}
