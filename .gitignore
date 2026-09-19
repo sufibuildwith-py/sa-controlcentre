@@ -1,0 +1,14 @@
+.env
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+node_modules/
+dist/
+target/
+playwright-report/
+test-results/
+.visual-review/
+*.log
+*.tsbuildinfo
+apps/desktop/src-tauri/target/

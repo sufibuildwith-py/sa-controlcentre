@@ -1,0 +1,73 @@
+/* Calibrated against docs/reference/sa-command-ui-reference.png at 1440 × 900. */
+.workspace-page{opacity:1;transform:none;pointer-events:auto;animation:sa-page-in 280ms ease-out}
+.sa-card-enter{opacity:1;animation:sa-card-in 220ms ease-out}
+@keyframes sa-page-in{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+@keyframes sa-card-in{from{opacity:0;transform:translateY(8px) scale(.985)}to{opacity:1;transform:none}}
+.app-frame{padding:72px 44px 28px}
+.app-shell{min-height:620px;padding:44px;overflow:visible}
+.workspace-shell{padding:22px 24px 24px}
+.top-switcher{top:-25px;box-shadow:0 6px 18px rgba(0,0,0,.06)}
+.operational-dock{left:-26px;top:50%;transform:translateY(-50%);width:52px;border-radius:26px;padding:7px}
+.operational-dock button,.operational-dock a,.brand-mark{width:36px;height:36px;border-radius:50%}
+.workspace-header{align-items:center;margin-bottom:20px}
+.workspace-header h1,.page-title h1{font-size:25px;font-weight:580}
+.workspace-header p{font-size:12px;max-width:480px;line-height:1.45}
+.header-actions{gap:10px}
+.header-actions .search-field input{width:270px;height:42px;border-radius:999px}
+.owner-profile{display:flex;align-items:center;gap:9px;min-width:152px;padding:5px 14px 5px 5px;background:var(--surface);border:1px solid var(--border-soft);border-radius:999px}
+.owner-profile .owner-avatar{width:32px;height:32px;font-size:10px;flex-shrink:0}
+.owner-profile>span{display:flex;flex-direction:column;gap:2px}
+.owner-profile strong{font-size:11px;font-weight:600}
+.owner-profile small{font-size:9px;color:var(--text-3)}
+.command-grid{grid-template-rows:190px 176px 160px}
+.hero-time{font-size:40px;margin-top:20px}
+.sa-card__header h2{font-size:15px}
+[data-theme=charcoal]{--workspace-bg:#191919;--surface:#292929;--border-soft:rgba(255,255,255,.065);--shadow-shell:none;--shadow-floating:0 8px 22px rgba(0,0,0,.12)}
+[data-theme=charcoal] .top-switcher .create,[data-theme=charcoal] .brand-mark{background:#383838;color:var(--text-1)}
+[data-theme=charcoal] .owner-avatar{background:var(--surface-soft);color:var(--text-1)}
+.team-card .sa-card__header{margin-bottom:10px}
+.team-card .radial{width:106px;height:106px;flex-shrink:0}
+.team-card .radial strong{font-size:28px}
+.team-card .radial span{font-size:10px}
+.workload-card .sa-card__header{margin-bottom:10px}
+.workload-card .radial{width:84px;height:84px}
+.workload-card .radial:before{inset:9px}
+.workload-card .radial strong{font-size:23px}
+.workload-card .radial span{font-size:9px}
+.workload-card>p{margin-top:7px}
+.app-shell,.workspace-shell,.top-switcher,.operational-dock,.sa-card,.modal,.command-dialog{
+  transition:background-color 180ms ease,border-color 180ms ease,color 180ms ease,box-shadow 150ms ease;
+}
+.operational-dock a,.operational-dock button,.top-switcher a,.top-switcher button{
+  transition:background-color 140ms ease,color 140ms ease,transform 140ms ease;
+}
+.operational-dock a:hover,.operational-dock button:not(:disabled):hover{background:var(--surface-soft);color:var(--text-1);transform:translateY(-1px)}
+.top-switcher a:hover,.top-switcher button:not(:disabled):not(.create):hover{background:var(--surface-soft);color:var(--text-1)}
+.command-input input:focus{box-shadow:none}
+.command-input:focus-within{box-shadow:inset 0 -2px var(--accent)}
+.modal-overlay[data-state=open]{animation:sa-fade-in 180ms ease-out}
+.modal-overlay[data-state=closed]{animation:sa-fade-out 160ms ease-in}
+.modal[data-state=open]{animation:sa-modal-in 300ms cubic-bezier(.2,.7,.2,1)}
+.modal[data-state=closed]{animation:sa-modal-out 180ms ease-in}
+.drawer[data-state=open]{animation:sa-drawer-in 280ms cubic-bezier(.2,.7,.2,1)}
+.drawer[data-state=closed]{animation:sa-drawer-out 180ms ease-in}
+.command-dialog[data-state=open]{animation:sa-palette-in 180ms ease-out}
+.command-dialog[data-state=closed]{animation:sa-fade-out 140ms ease-in}
+@keyframes sa-fade-in{from{opacity:0}to{opacity:1}}
+@keyframes sa-fade-out{from{opacity:1}to{opacity:0}}
+@keyframes sa-modal-in{from{opacity:0;transform:translate(-50%,calc(-50% + 8px)) scale(.985)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+@keyframes sa-modal-out{from{opacity:1;transform:translate(-50%,-50%)}to{opacity:0;transform:translate(-50%,calc(-50% + 4px)) scale(.99)}}
+@keyframes sa-drawer-in{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:translateX(0)}}
+@keyframes sa-drawer-out{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(8px)}}
+@keyframes sa-palette-in{from{opacity:0;transform:translate(-50%,4px)}to{opacity:1;transform:translate(-50%,0)}}
+@media(max-width:1260px){
+  .app-frame{padding:60px 36px 24px}
+  .app-shell{min-height:620px;padding:36px 30px}
+  .workspace-shell{padding:22px}
+  .header-actions .search-field input{width:210px}
+  .owner-profile{min-width:120px}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+  .operational-dock a:hover,.operational-dock button:not(:disabled):hover{transform:none}
+}

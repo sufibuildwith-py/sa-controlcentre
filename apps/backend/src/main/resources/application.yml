@@ -1,0 +1,45 @@
+spring:
+  application:
+    name: sa-command
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/sa_command}
+    username: ${DATABASE_USERNAME:sa_command}
+    password: ${DATABASE_PASSWORD:sa_command_dev}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc.time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  session:
+    timeout: 12h
+    jdbc:
+      initialize-schema: never
+server:
+  error:
+    include-message: never
+    include-stacktrace: never
+  servlet:
+    session:
+      cookie:
+        name: SA_COMMAND_SESSION
+        http-only: true
+        same-site: strict
+      timeout: 12h
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+app:
+  mode: ${APP_MODE:demo}
+  demo-seed: ${DEMO_SEED:true}
+  desktop-origins: ${DESKTOP_ORIGINS:http://localhost:1420,tauri://localhost,http://tauri.localhost}
+logging:
+  pattern:
+    level: "%5p [traceId=%X{traceId:-}]"
+

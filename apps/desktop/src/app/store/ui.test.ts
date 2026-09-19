@@ -1,0 +1,4 @@
+import {beforeEach,describe,expect,it} from 'vitest';
+import {useUiStore} from './ui';
+describe('UI state',()=>{beforeEach(()=>{localStorage.clear();useUiStore.setState({theme:'pearl',paletteOpen:false,quickCreateOpen:false,employeeFormOpen:false,editingEmployeeId:null})});it('persists theme and keeps server entities out of local state',()=>{useUiStore.getState().setTheme('charcoal');expect(useUiStore.getState().theme).toBe('charcoal');expect(localStorage.getItem('sa-command-ui')).toContain('charcoal');expect(useUiStore.getState()).not.toHaveProperty('employees')});it('opens command palette and employee form',()=>{useUiStore.getState().setPaletteOpen(true);useUiStore.getState().openEmployeeForm('employee-1');expect(useUiStore.getState()).toMatchObject({paletteOpen:true,employeeFormOpen:true,editingEmployeeId:'employee-1'})})});
+

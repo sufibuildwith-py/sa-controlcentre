@@ -1,0 +1,2 @@
+{"$schema":"../gen/schemas/desktop-schema.json","identifier":"default","description":"Default SA Command desktop capability","windows":["main"],"permissions":["core:default"]}
+
