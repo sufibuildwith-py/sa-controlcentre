@@ -1,4 +1,5 @@
 package com.saproduction.command.communication;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.saproduction.command.employee.EmployeeRepository;
@@ -12,18 +13,211 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 
-@Component @ConditionalOnProperty(name="app.messaging.worker-enabled",havingValue="true",matchIfMissing=true)
+@Component
+@ConditionalOnProperty(
+    name = "app.messaging.worker-enabled",
+    havingValue = "true",
+    matchIfMissing = true)
 public class MessagingWorkers {
-  private static final Logger log=LoggerFactory.getLogger(MessagingWorkers.class);
-  private final JdbcTemplate jdbc;private final TransactionTemplate transactions;private final OutboxEventRepository outbox;private final OutboundMessageRepository messages;private final OutboundMessageEventRepository history;private final NotificationPolicyService policy;private final MessagingProvider provider;private final EmployeeRepository employees;private final ObjectMapper json;private final int maxAttempts;
-  public MessagingWorkers(JdbcTemplate jdbc,TransactionTemplate transactions,OutboxEventRepository outbox,OutboundMessageRepository messages,OutboundMessageEventRepository history,NotificationPolicyService policy,MessagingProvider provider,EmployeeRepository employees,ObjectMapper json,@Value("${app.messaging.max-attempts:4}") int maxAttempts){this.jdbc=jdbc;this.transactions=transactions;this.outbox=outbox;this.messages=messages;this.history=history;this.policy=policy;this.provider=provider;this.employees=employees;this.json=json;this.maxAttempts=Math.max(1,maxAttempts);}
-  @Scheduled(fixedDelayString="${app.messaging.poll-ms:1000}") public void run(){recoverUnknownSends();for(int i=0;i<10;i++){UUID id=claimOutbox();if(id==null)break;processOutbox(id);}for(int i=0;i<10;i++){UUID id=claimMessage();if(id==null)break;send(id);}}
-  private UUID claimOutbox(){return transactions.execute(s->jdbc.query("with candidate as (select id from outbox_events where status='PENDING' and available_at<=now() order by created_at limit 1 for update skip locked) update outbox_events o set status='PROCESSING',processing_started_at=now() from candidate where o.id=candidate.id returning o.id",r->r.next()?r.getObject(1,UUID.class):null));}
-  private void processOutbox(UUID id){try{transactions.executeWithoutResult(s->{OutboxEvent event=outbox.findById(id).orElseThrow();policy.evaluate(event);event.status=OutboxEvent.Status.PROCESSED;event.processedAt=Instant.now();event.lastError=null;outbox.save(event);});}catch(Exception e){transactions.executeWithoutResult(s->{OutboxEvent event=outbox.findById(id).orElseThrow();event.attemptCount++;event.lastError=safe(e.getMessage());if(event.attemptCount>=maxAttempts)event.status=OutboxEvent.Status.FAILED;else{event.status=OutboxEvent.Status.PENDING;event.availableAt=Instant.now().plusSeconds(backoff(event.attemptCount));}outbox.save(event);});log.warn("outboxEventId={} processing failed",id);}}
-  private UUID claimMessage(){return transactions.execute(s->jdbc.query("with candidate as (select id from outbound_messages where status='QUEUED' and next_attempt_at<=now() order by queued_at limit 1 for update skip locked) update outbound_messages m set status='SENDING',attempt_count=attempt_count+1,updated_at=now() from candidate where m.id=candidate.id returning m.id",r->r.next()?r.getObject(1,UUID.class):null));}
-  private void send(UUID id){OutboundMessage message=messages.findById(id).orElseThrow();try{var employee=employees.findById(message.employeeId).orElseThrow();Map<String,Object> variables=json.readValue(message.templateVariablesJson,new TypeReference<>(){});var result=provider.send(new MessagingProvider.MessageCommand(message.id,employee.whatsappPhone,message.templateKey,variables,message.bodyPreview,message.relatedType,message.relatedId));transactions.executeWithoutResult(s->{OutboundMessage current=messages.findById(id).orElseThrow();current.status=OutboundMessage.Status.SENT;current.providerMessageId=result.providerMessageId();current.sentAt=Instant.now();current.lastError=null;messages.save(current);record(current,"SENT","Provider accepted the message");});}catch(Exception e){boolean transientFailure=e instanceof MessagingProvider.ProviderException p&&p.transientFailure();transactions.executeWithoutResult(s->{OutboundMessage current=messages.findById(id).orElseThrow();current.lastError=safe(e.getMessage());if(transientFailure&&current.attemptCount<maxAttempts){current.status=OutboundMessage.Status.QUEUED;current.nextAttemptAt=Instant.now().plusSeconds(backoff(current.attemptCount));record(current,"RETRY_SCHEDULED","Attempt "+current.attemptCount+" failed");}else{current.status=OutboundMessage.Status.FAILED;current.failedAt=Instant.now();record(current,"FAILED",current.lastError);}messages.save(current);});log.warn("messageId={} attempt={} send failed",id,message.attemptCount);}}
-  private void recoverUnknownSends(){jdbc.update("update outbound_messages set status='FAILED',failed_at=now(),last_error='Send outcome unknown after worker interruption',updated_at=now() where status='SENDING' and updated_at<now()-interval '5 minutes'");jdbc.update("update outbox_events set status='PENDING',available_at=now(),last_error='Recovered after worker interruption' where status='PROCESSING' and processing_started_at<now()-interval '5 minutes'");}
-  private void record(OutboundMessage message,String type,String detail){OutboundMessageEvent item=new OutboundMessageEvent();item.outboundMessageId=message.id;item.eventType=type;item.detail=detail;history.save(item);}
-  private static long backoff(int attempt){return Math.min(300,(long)Math.pow(2,Math.max(0,attempt-1))*5);}
-  private static String safe(String value){return value==null?"Messaging operation failed.":value.substring(0,Math.min(1000,value.length()));}
+  private static final Logger log = LoggerFactory.getLogger(MessagingWorkers.class);
+  private final JdbcTemplate jdbc;
+  private final TransactionTemplate transactions;
+  private final OutboxEventRepository outbox;
+  private final OutboundMessageRepository messages;
+  private final OutboundMessageEventRepository history;
+  private final OutboundDeliveryAttemptRepository attempts;
+  private final NotificationPolicyService policy;
+  private final MessagingProvider provider;
+  private final EmployeeRepository employees;
+  private final ObjectMapper json;
+  private final int maxAttempts;
+  private final MessageStatusMachine stateMachine = new MessageStatusMachine();
+
+  public MessagingWorkers(
+      JdbcTemplate jdbc,
+      TransactionTemplate transactions,
+      OutboxEventRepository outbox,
+      OutboundMessageRepository messages,
+      OutboundMessageEventRepository history,
+      OutboundDeliveryAttemptRepository attempts,
+      NotificationPolicyService policy,
+      MessagingProvider provider,
+      EmployeeRepository employees,
+      ObjectMapper json,
+      @Value("${app.messaging.max-attempts:4}") int maxAttempts) {
+    this.jdbc = jdbc;
+    this.transactions = transactions;
+    this.outbox = outbox;
+    this.messages = messages;
+    this.history = history;
+    this.attempts = attempts;
+    this.policy = policy;
+    this.provider = provider;
+    this.employees = employees;
+    this.json = json;
+    this.maxAttempts = Math.max(1, maxAttempts);
+  }
+
+  @Scheduled(fixedDelayString = "${app.messaging.poll-ms:1000}")
+  public void run() {
+    recoverUnknownSends();
+    for (int i = 0; i < 10; i++) {
+      UUID id = claimOutbox();
+      if (id == null) break;
+      processOutbox(id);
+    }
+    for (int i = 0; i < 10; i++) {
+      UUID id = claimMessage();
+      if (id == null) break;
+      send(id);
+    }
+  }
+
+  private UUID claimOutbox() {
+    return transactions.execute(
+        s ->
+            jdbc.query(
+                "with candidate as (select id from outbox_events where status='PENDING' and available_at<=now() order by created_at limit 1 for update skip locked) update outbox_events o set status='PROCESSING',processing_started_at=now() from candidate where o.id=candidate.id returning o.id",
+                r -> r.next() ? r.getObject(1, UUID.class) : null));
+  }
+
+  private void processOutbox(UUID id) {
+    try {
+      transactions.executeWithoutResult(
+          s -> {
+            OutboxEvent event = outbox.findById(id).orElseThrow();
+            policy.evaluate(event);
+            event.status = OutboxEvent.Status.PROCESSED;
+            event.processedAt = Instant.now();
+            event.lastError = null;
+            outbox.save(event);
+          });
+    } catch (Exception e) {
+      transactions.executeWithoutResult(
+          s -> {
+            OutboxEvent event = outbox.findById(id).orElseThrow();
+            event.attemptCount++;
+            event.lastError = safe(e.getMessage());
+            if (event.attemptCount >= maxAttempts) event.status = OutboxEvent.Status.FAILED;
+            else {
+              event.status = OutboxEvent.Status.PENDING;
+              event.availableAt = Instant.now().plusSeconds(backoff(event.attemptCount));
+            }
+            outbox.save(event);
+          });
+      log.warn("outboxEventId={} processing failed", id);
+    }
+  }
+
+  private UUID claimMessage() {
+    return transactions.execute(
+        s ->
+            jdbc.query(
+                "with candidate as (select id from outbound_messages where status='QUEUED' and next_attempt_at<=now() order by queued_at limit 1 for update skip locked) update outbound_messages m set status='SENDING',attempt_count=attempt_count+1,updated_at=now() from candidate where m.id=candidate.id returning m.id",
+                r -> r.next() ? r.getObject(1, UUID.class) : null));
+  }
+
+  private void send(UUID id) {
+    OutboundMessage message = messages.findById(id).orElseThrow();
+    OutboundDeliveryAttempt attempt =
+        transactions.execute(
+            s -> {
+              OutboundMessage current = messages.lockById(id).orElseThrow();
+              OutboundDeliveryAttempt a = new OutboundDeliveryAttempt();
+              a.outboundMessageId = id;
+              a.attemptNumber = current.attemptCount;
+              a.status = OutboundDeliveryAttempt.Status.SENDING;
+              a.startedAt = Instant.now();
+              return attempts.saveAndFlush(a);
+            });
+    try {
+      var employee = employees.findById(message.employeeId).orElseThrow();
+      Map<String, Object> variables =
+          json.readValue(message.templateVariablesJson, new TypeReference<>() {});
+      var result =
+          provider.send(
+              new MessagingProvider.MessageCommand(
+                  message.id,
+                  employee.whatsappPhone,
+                  message.templateKey,
+                  variables,
+                  message.bodyPreview,
+                  message.relatedType,
+                  message.relatedId));
+      transactions.executeWithoutResult(
+          s -> {
+            OutboundMessage current = messages.lockById(id).orElseThrow();
+            OutboundDeliveryAttempt currentAttempt = attempts.findById(attempt.id).orElseThrow();
+            Instant now = Instant.now();
+            currentAttempt.status = OutboundDeliveryAttempt.Status.SENT;
+            currentAttempt.providerMessageId = result.providerMessageId();
+            currentAttempt.acceptedAt = now;
+            attempts.save(currentAttempt);
+            if (current.attemptCount != currentAttempt.attemptNumber) return;
+            current.providerMessageId = result.providerMessageId();
+            stateMachine.apply(current, OutboundMessage.Status.SENT, null, now);
+            messages.save(current);
+            record(current, "SENT", "Provider accepted attempt " + currentAttempt.attemptNumber);
+          });
+    } catch (Exception e) {
+      boolean transientFailure =
+          e instanceof MessagingProvider.ProviderException p && p.transientFailure();
+      transactions.executeWithoutResult(
+          s -> {
+            OutboundMessage current = messages.lockById(id).orElseThrow();
+            OutboundDeliveryAttempt currentAttempt = attempts.findById(attempt.id).orElseThrow();
+            currentAttempt.status = OutboundDeliveryAttempt.Status.FAILED;
+            currentAttempt.failedAt = Instant.now();
+            currentAttempt.lastError = safe(e.getMessage());
+            attempts.save(currentAttempt);
+            if (current.attemptCount != currentAttempt.attemptNumber
+                || current.status == OutboundMessage.Status.DELIVERED
+                || current.status == OutboundMessage.Status.READ) return;
+            current.lastError = currentAttempt.lastError;
+            if (transientFailure && current.attemptCount < maxAttempts) {
+              current.status = OutboundMessage.Status.QUEUED;
+              current.nextAttemptAt = Instant.now().plusSeconds(backoff(current.attemptCount));
+              record(current, "RETRY_SCHEDULED", "Attempt " + current.attemptCount + " failed");
+            } else {
+              stateMachine.apply(
+                  current, OutboundMessage.Status.FAILED, current.lastError, Instant.now());
+              record(current, "FAILED", current.lastError);
+            }
+            messages.save(current);
+          });
+      log.warn("messageId={} attempt={} send failed", id, message.attemptCount);
+    }
+  }
+
+  private void recoverUnknownSends() {
+    jdbc.update(
+        "update outbound_delivery_attempts set status='FAILED',failed_at=now(),last_error='Send outcome unknown after worker interruption' where status='SENDING' and started_at<now()-interval '5 minutes'");
+    jdbc.update(
+        "update outbound_messages set status='FAILED',failed_at=now(),last_error='Send outcome unknown after worker interruption',updated_at=now() where status='SENDING' and updated_at<now()-interval '5 minutes'");
+    jdbc.update(
+        "update outbox_events set status='PENDING',available_at=now(),last_error='Recovered after worker interruption' where status='PROCESSING' and processing_started_at<now()-interval '5 minutes'");
+  }
+
+  @Scheduled(cron = "0 30 3 * * *", zone = "UTC")
+  public void purgeOldReceipts() {
+    jdbc.update("delete from webhook_receipts where received_at<now()-interval '180 days'");
+  }
+
+  private void record(OutboundMessage message, String type, String detail) {
+    OutboundMessageEvent item = new OutboundMessageEvent();
+    item.outboundMessageId = message.id;
+    item.eventType = type;
+    item.detail = detail;
+    history.save(item);
+  }
+
+  private static long backoff(int attempt) {
+    return Math.min(300, (long) Math.pow(2, Math.max(0, attempt - 1)) * 5);
+  }
+
+  private static String safe(String value) {
+    return value == null
+        ? "Messaging operation failed."
+        : value.substring(0, Math.min(1000, value.length()));
+  }
 }

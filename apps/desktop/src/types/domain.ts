@@ -1,11 +1,6 @@
 export type EmployeeStatus = "ACTIVE" | "ON_LEAVE" | "INACTIVE";
 export type AttendanceStatus =
-  | "PRESENT"
-  | "ABSENT"
-  | "LATE"
-  | "HALF_DAY"
-  | "LEAVE"
-  | "HOLIDAY";
+  "PRESENT" | "ABSENT" | "LATE" | "HALF_DAY" | "LEAVE" | "HOLIDAY";
 export interface Owner {
   id: string;
   email: string;
@@ -111,11 +106,7 @@ export interface Production {
   updatedAt: string;
 }
 export type TaskStatus =
-  | "TODO"
-  | "IN_PROGRESS"
-  | "BLOCKED"
-  | "DONE"
-  | "CANCELLED";
+  "TODO" | "IN_PROGRESS" | "BLOCKED" | "DONE" | "CANCELLED";
 export interface TaskUpdate {
   id: string;
   progressPercent: number;
@@ -143,12 +134,7 @@ export interface WorkTask {
   updatedAt: string;
 }
 export type CalendarEventType =
-  | "PRODUCTION"
-  | "SHOOT"
-  | "MEETING"
-  | "DEADLINE"
-  | "INTERNAL"
-  | "REMINDER";
+  "PRODUCTION" | "SHOOT" | "MEETING" | "DEADLINE" | "INTERNAL" | "REMINDER";
 export interface CalendarEvent {
   id: string;
   type: CalendarEventType;
@@ -192,11 +178,7 @@ export interface Meeting {
   updatedAt: string;
 }
 export type PayrollStatus =
-  | "DRAFT"
-  | "CALCULATED"
-  | "APPROVED"
-  | "PAID"
-  | "LOCKED";
+  "DRAFT" | "CALCULATED" | "APPROVED" | "PAID" | "LOCKED";
 export interface PayrollAdjustment {
   id: string;
   type: "BONUS" | "DEDUCTION" | "OVERTIME" | "ADVANCE" | "CORRECTION" | "OTHER";
@@ -205,8 +187,18 @@ export interface PayrollAdjustment {
   createdBy?: string | null;
   createdAt: string;
 }
-export type PayrollPaymentMethod = "CASH" | "BANK_TRANSFER" | "UPI" | "CHEQUE" | "OTHER";
-export interface PayrollPayment { id:string;amountMinor:number;paidAt:string;paymentMethod:PayrollPaymentMethod;reference?:string|null;note?:string|null;recordedBy?:string|null;createdAt:string }
+export type PayrollPaymentMethod =
+  "CASH" | "BANK_TRANSFER" | "UPI" | "CHEQUE" | "OTHER";
+export interface PayrollPayment {
+  id: string;
+  amountMinor: number;
+  paidAt: string;
+  paymentMethod: PayrollPaymentMethod;
+  reference?: string | null;
+  note?: string | null;
+  recordedBy?: string | null;
+  createdAt: string;
+}
 export interface PayrollItem {
   id: string;
   employeeId: string;
@@ -250,6 +242,9 @@ export interface PayrollPeriod {
   paidAt?: string | null;
   lockedAt?: string | null;
 }
+export type PayrollPeriodSummary = Omit<PayrollPeriod, "items"> & {
+  employeeCount?: number;
+};
 export interface EmployeeOperations {
   work: WorkTask[];
   payroll: PayrollPeriod[];
@@ -315,9 +310,70 @@ export interface Dashboard {
   }>;
   communications: CommunicationSummary;
 }
-export type MessageStatus = "QUEUED"|"SENDING"|"SENT"|"DELIVERED"|"READ"|"FAILED";
-export interface CommunicationSummary { delivered:number;read:number;awaitingResponse:number;failed:number;queued:number;sentToday?:number;sent?:number }
-export interface MessageActivity {eventType:string;detail?:string|null;createdAt:string}
-export interface OutboundMessage {id:string;employeeId:string;employeeName:string;phone:string;category:string;templateKey:string;bodyPreview:string;relatedType?:string|null;relatedId?:string|null;requiresResponse:boolean;response?:string|null;status:MessageStatus;providerMessageId?:string|null;attemptCount:number;lastError?:string|null;queuedAt:string;sentAt?:string|null;deliveredAt?:string|null;readAt?:string|null;failedAt?:string|null;activity:MessageActivity[]}
-export interface CommunicationCentre {summary:CommunicationSummary;messages:OutboundMessage[]}
-export interface NotificationRule {id:string;eventType:string;channel:string;enabled:boolean;delayMinutes:number;templateKey:string}
+export type MessageStatus =
+  "QUEUED" | "SENDING" | "SENT" | "DELIVERED" | "READ" | "FAILED";
+export interface CommunicationSummary {
+  delivered: number;
+  read: number;
+  awaitingResponse: number;
+  failed: number;
+  queued: number;
+  sentToday?: number;
+  sent?: number;
+}
+export interface MessageActivity {
+  eventType: string;
+  detail?: string | null;
+  createdAt: string;
+}
+export interface DeliveryAttempt {
+  attemptNumber: number;
+  providerMessageId?: string | null;
+  status: "SENDING" | "SENT" | "DELIVERED" | "READ" | "FAILED";
+  startedAt: string;
+  acceptedAt?: string | null;
+  deliveredAt?: string | null;
+  readAt?: string | null;
+  failedAt?: string | null;
+  lastError?: string | null;
+}
+export interface OutboundMessage {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  phone: string;
+  category: string;
+  templateKey: string;
+  bodyPreview: string;
+  relatedType?: string | null;
+  relatedId?: string | null;
+  requiresResponse: boolean;
+  response?: string | null;
+  status: MessageStatus;
+  providerMessageId?: string | null;
+  attemptCount: number;
+  lastError?: string | null;
+  queuedAt: string;
+  sentAt?: string | null;
+  deliveredAt?: string | null;
+  readAt?: string | null;
+  failedAt?: string | null;
+  attempts: DeliveryAttempt[];
+  activity: MessageActivity[];
+}
+export interface CommunicationCentre {
+  summary: CommunicationSummary;
+  messages: OutboundMessage[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+export interface NotificationRule {
+  id: string;
+  eventType: string;
+  channel: string;
+  enabled: boolean;
+  delayMinutes: number;
+  templateKey: string;
+}

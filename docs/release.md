@@ -21,3 +21,5 @@ Use a macOS host or CI runner with Xcode command-line tools and Rust stable, the
 ## Runtime modes
 
 Demo mode uses `ConsoleMessagingProvider`, deterministic seed/reset data, and the Settings messaging simulator without Meta. Production mode uses `MetaWhatsAppProvider`, signed webhooks and backend-only credentials. See [demo.md](demo.md), [whatsapp.md](whatsapp.md), and `.env.example`.
+
+Production release gates include explicit runtime mode, HTTPS API/CSP alignment, Meta startup validation when enabled, backend and frontend verification, Playwright visual regression, dependency/secret/CodeQL scans, and a native Windows Tauri build. Audit retention and the 180-day webhook-receipt policy belong in backup and operations procedures.

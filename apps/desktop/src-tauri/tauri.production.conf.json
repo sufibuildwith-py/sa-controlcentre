@@ -1,0 +1,8 @@
+{
+  "productName": "SA Command",
+  "version": "1.2.0",
+  "identifier": "com.saproduction.command.production",
+  "build": { "beforeBuildCommand": "npm run build:production" },
+  "app": { "security": { "csp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost; img-src 'self' asset: https: data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:" } },
+  "bundle": { "active": true, "publisher": "SA Productions", "resources": ["runtime/"], "icon": ["icons/icon.ico", "icons/icon.icns", "icons/icon.png"], "windows": { "nsis": { "installMode": "currentUser" } } }
+}

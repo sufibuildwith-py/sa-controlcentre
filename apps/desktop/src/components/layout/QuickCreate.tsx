@@ -29,7 +29,11 @@ const items = [
     icon: WalletCards,
     to: "/payroll?adjust=1",
   },
-  { label: "Send message", icon: MessageSquarePlus, to: "/communications?compose=1" },
+  {
+    label: "Send message",
+    icon: MessageSquarePlus,
+    to: "/communications?compose=1",
+  },
 ];
 export function QuickCreate() {
   const navigate = useNavigate(),
@@ -54,10 +58,7 @@ export function QuickCreate() {
         {items.map((item) => {
           const Icon = item.icon;
           return (
-            <button
-              key={item.label}
-              onClick={() => act(item)}
-            >
+            <button key={item.label} onClick={() => act(item)}>
               <span>
                 <Icon size={17} />
               </span>

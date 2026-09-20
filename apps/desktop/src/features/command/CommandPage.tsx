@@ -30,7 +30,7 @@ export function CommandPage() {
     return (
       <>
         <WorkspaceHeader
-          title={`${greeting()}, Owner.`}
+          title={`${greeting()}, ${import.meta.env.VITE_DESKTOP_RELEASE === "true" ? "Azeem" : "Owner"}.`}
           subtitle="Loading the operating picture…"
         />
         <SkeletonCard />
@@ -56,7 +56,7 @@ export function CommandPage() {
   return (
     <>
       <WorkspaceHeader
-        title={`${greeting()}, Owner.`}
+        title={`${greeting()}, ${import.meta.env.VITE_DESKTOP_RELEASE === "true" ? "Azeem" : "Owner"}.`}
         subtitle="Here’s the live operating picture for today."
       />
       <SABentoGrid className="command-grid">
@@ -149,15 +149,22 @@ export function CommandPage() {
             {total} active people
           </div>
         </SABentoCard>
-        <SABentoCard interactive className="comms-card" onClick={()=>navigate('/communications')}>
+        <SABentoCard
+          interactive
+          className="comms-card"
+          onClick={() => navigate("/communications")}
+        >
           <CardHeader eyebrow="Live delivery" title="Communications" />
           <div className="donut-mini">
             <MessageCircle size={19} />
-            <strong>{d.communications.delivered+d.communications.read}</strong>
+            <strong>{d.communications.delivered}</strong>
             <span>delivered or read</span>
           </div>
           <div className="inline-stats">
-            <span>{d.communications.awaitingResponse} awaiting response</span><span className={d.communications.failed?'danger-text':''}>{d.communications.failed} failed</span>
+            <span>{d.communications.awaitingResponse} awaiting response</span>
+            <span className={d.communications.failed ? "danger-text" : ""}>
+              {d.communications.failed} failed
+            </span>
           </div>
         </SABentoCard>
         <SABentoCard
@@ -168,7 +175,11 @@ export function CommandPage() {
           <CardHeader
             eyebrow="Live operations"
             title="Active productions"
-            action={<StatusBadge tone="success">Real data</StatusBadge>}
+            action={
+              <StatusBadge tone="success">
+                {d.productions.length} active
+              </StatusBadge>
+            }
           />
           <div className="production-list">
             {d.productions.slice(0, 2).map((p) => (
@@ -224,7 +235,13 @@ export function CommandPage() {
               ? `${money(d.payroll.paidMinor)} paid · ${money(d.payroll.pendingMinor)} remaining`
               : "Current period"}
           </span>
-          {d.payroll && (d.payroll.partiallyPaidCount > 0 || d.payroll.unpaidCount > 0) && <span className="muted">{d.payroll.partiallyPaidCount} partially paid · {d.payroll.unpaidCount} unpaid</span>}
+          {d.payroll &&
+            (d.payroll.partiallyPaidCount > 0 || d.payroll.unpaidCount > 0) && (
+              <span className="muted">
+                {d.payroll.partiallyPaidCount} partially paid ·{" "}
+                {d.payroll.unpaidCount} unpaid
+              </span>
+            )}
           <StatusBadge
             tone={d.payroll?.status === "LOCKED" ? "success" : "neutral"}
           >

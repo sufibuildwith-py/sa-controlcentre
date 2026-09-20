@@ -303,7 +303,13 @@ export function MeetingDetailPage() {
     },
   });
   const respond = useMutation({
-    mutationFn: ({ employeeId, response }: { employeeId: string; response: "ACCEPTED" | "DECLINED" }) =>
+    mutationFn: ({
+      employeeId,
+      response,
+    }: {
+      employeeId: string;
+      response: "ACCEPTED" | "DECLINED";
+    }) =>
       api<Meeting>(`/meetings/${id}/attendees/${employeeId}`, {
         method: "PATCH",
         ...json({ response }),
@@ -377,8 +383,28 @@ export function MeetingDetailPage() {
               <StatusBadge tone="neutral">{a.response}</StatusBadge>
               {a.response === "PENDING" && (
                 <div className="compact-actions">
-                  <SAButton size="sm" onClick={() => respond.mutate({ employeeId: a.employeeId, response: "ACCEPTED" })}>Accept</SAButton>
-                  <SAButton size="sm" onClick={() => respond.mutate({ employeeId: a.employeeId, response: "DECLINED" })}>Decline</SAButton>
+                  <SAButton
+                    size="sm"
+                    onClick={() =>
+                      respond.mutate({
+                        employeeId: a.employeeId,
+                        response: "ACCEPTED",
+                      })
+                    }
+                  >
+                    Accept
+                  </SAButton>
+                  <SAButton
+                    size="sm"
+                    onClick={() =>
+                      respond.mutate({
+                        employeeId: a.employeeId,
+                        response: "DECLINED",
+                      })
+                    }
+                  >
+                    Decline
+                  </SAButton>
                 </div>
               )}
             </div>

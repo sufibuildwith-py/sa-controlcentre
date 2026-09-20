@@ -1,0 +1,18 @@
+SA Command 1.2.0 — bundled runtime notices
+
+Eclipse Temurin OpenJDK 21: GPLv2 with Classpath Exception.
+https://adoptium.net/temurin/ — source https://github.com/adoptium/temurin21-binaries
+The full runtime license/legal directory is included in runtime/jre/legal.
+
+PostgreSQL 17: PostgreSQL License (permissive).
+https://www.postgresql.org/about/licence/
+Source: https://www.postgresql.org/ftp/source/
+Windows binaries distributed by EnterpriseDB: https://www.enterprisedb.com/download-postgresql-binaries
+macOS binaries distributed by Postgres.app: https://github.com/PostgresApp/PostgresApp
+Bundled PostgreSQL share and library licenses remain in the runtime distribution.
+
+Tauri: MIT / Apache-2.0. https://github.com/tauri-apps/tauri
+Native credential storage: keyring-rs, MIT / Apache-2.0.
+https://github.com/open-source-cooperative/keyring-rs
+Other application library provenance is recorded in docs/THIRD_PARTY.md.
+Build-specific archive origins and SHA-256 hashes are in RUNTIME-SOURCES.json.

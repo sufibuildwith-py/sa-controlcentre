@@ -1,39 +1,494 @@
-import * as Dialog from '@radix-ui/react-dialog';
-import * as PopoverPrimitive from '@radix-ui/react-popover';
-import * as TabsPrimitive from '@radix-ui/react-tabs';
-import * as TooltipPrimitive from '@radix-ui/react-tooltip';
-import {motion,useReducedMotion,type HTMLMotionProps} from 'motion/react';
-import {Check,LoaderCircle,X} from 'lucide-react';
-import {forwardRef,useId,useRef,type HTMLAttributes,type InputHTMLAttributes,type PropsWithChildren,type ReactNode} from 'react';
+import * as Dialog from "@radix-ui/react-dialog";
+import * as PopoverPrimitive from "@radix-ui/react-popover";
+import * as TabsPrimitive from "@radix-ui/react-tabs";
+import * as TooltipPrimitive from "@radix-ui/react-tooltip";
+import { motion, useReducedMotion, type HTMLMotionProps } from "motion/react";
+import { Check, LoaderCircle, X } from "lucide-react";
+import {
+  forwardRef,
+  useId,
+  useRef,
+  type HTMLAttributes,
+  type InputHTMLAttributes,
+  type PropsWithChildren,
+  type ReactNode,
+} from "react";
 
-export const appSpring={type:'spring',stiffness:340,damping:30,mass:.8} as const;
-const cn=(...classes:Array<string|false|null|undefined>)=>classes.filter(Boolean).join(' ');
+export const appSpring = {
+  type: "spring",
+  stiffness: 340,
+  damping: 30,
+  mass: 0.8,
+} as const;
+const cn = (...classes: Array<string | false | null | undefined>) =>
+  classes.filter(Boolean).join(" ");
 
-export function SABentoGrid({className,...props}:HTMLAttributes<HTMLDivElement>){return <div className={cn('sa-bento-grid',className)} {...props}/>}
-export function SABentoCard({className,interactive=false,...props}:HTMLMotionProps<'section'>&{interactive?:boolean}){const reduced=useReducedMotion();return <motion.section initial={false} transition={{duration:.14,ease:'easeOut'}} whileHover={interactive&&!reduced?{y:-2}:undefined} className={cn('sa-card','sa-card-enter',interactive&&'sa-card--interactive',className)} {...props}/>}
-export function CardHeader({eyebrow,title,action}:{eyebrow?:string;title:string;action?:ReactNode}){return <header className="sa-card__header"><div>{eyebrow&&<p className="eyebrow">{eyebrow}</p>}<h2>{title}</h2></div>{action}</header>}
-export function MetricCard({label,value,detail,className}:{label:string;value:string|number;detail?:string;className?:string}){return <SABentoCard className={className}><span className="eyebrow">{label}</span><strong className="metric">{value}</strong>{detail&&<span className="muted">{detail}</span>}</SABentoCard>}
-export function SARadialMetric({value,label,detail}:{value:number;label:string;detail?:string}){return <div className="radial" style={{'--value':`${Math.max(0,Math.min(value,100))*3.6}deg`} as React.CSSProperties}><div><strong>{value}%</strong><span>{label}</span></div>{detail&&<small>{detail}</small>}</div>}
-export function SAProgress({value,label}:{value:number;label?:string}){return <div className="progress-wrap" aria-label={label??`${value}%`}><div className="progress"><span style={{width:`${Math.max(0,Math.min(value,100))}%`}}/></div>{label&&<small>{label}</small>}</div>}
-export function StatusDot({tone='neutral'}:{tone?:'success'|'warning'|'danger'|'info'|'neutral'}){return <span className={`status-dot status-dot--${tone}`} aria-hidden="true"/>}
-export function StatusBadge({children,tone='neutral'}:PropsWithChildren<{tone?:'success'|'warning'|'danger'|'info'|'neutral'}>){return <span className={`status-badge status-badge--${tone}`}><StatusDot tone={tone}/>{children}</span>}
+export function SABentoGrid({
+  className,
+  ...props
+}: HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn("sa-bento-grid", className)} {...props} />;
+}
+export function SABentoCard({
+  className,
+  interactive = false,
+  ...props
+}: HTMLMotionProps<"section"> & { interactive?: boolean }) {
+  const reduced = useReducedMotion();
+  return (
+    <motion.section
+      initial={false}
+      transition={{ duration: 0.14, ease: "easeOut" }}
+      whileHover={interactive && !reduced ? { y: -2 } : undefined}
+      className={cn(
+        "sa-card",
+        "sa-card-enter",
+        interactive && "sa-card--interactive",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+export function CardHeader({
+  eyebrow,
+  title,
+  action,
+}: {
+  eyebrow?: string;
+  title: string;
+  action?: ReactNode;
+}) {
+  return (
+    <header className="sa-card__header">
+      <div>
+        {eyebrow && <p className="eyebrow">{eyebrow}</p>}
+        <h2>{title}</h2>
+      </div>
+      {action}
+    </header>
+  );
+}
+export function MetricCard({
+  label,
+  value,
+  detail,
+  className,
+}: {
+  label: string;
+  value: string | number;
+  detail?: string;
+  className?: string;
+}) {
+  return (
+    <SABentoCard className={className}>
+      <span className="eyebrow">{label}</span>
+      <strong className="metric">{value}</strong>
+      {detail && <span className="muted">{detail}</span>}
+    </SABentoCard>
+  );
+}
+export function SARadialMetric({
+  value,
+  label,
+  detail,
+}: {
+  value: number;
+  label: string;
+  detail?: string;
+}) {
+  return (
+    <div
+      className="radial"
+      style={
+        {
+          "--value": `${Math.max(0, Math.min(value, 100)) * 3.6}deg`,
+        } as React.CSSProperties
+      }
+    >
+      <div>
+        <strong>{value}%</strong>
+        <span>{label}</span>
+      </div>
+      {detail && <small>{detail}</small>}
+    </div>
+  );
+}
+export function SAProgress({
+  value,
+  label,
+}: {
+  value: number;
+  label?: string;
+}) {
+  return (
+    <div className="progress-wrap" aria-label={label ?? `${value}%`}>
+      <div className="progress">
+        <span style={{ width: `${Math.max(0, Math.min(value, 100))}%` }} />
+      </div>
+      {label && <small>{label}</small>}
+    </div>
+  );
+}
+export function StatusDot({
+  tone = "neutral",
+}: {
+  tone?: "success" | "warning" | "danger" | "info" | "neutral";
+}) {
+  return (
+    <span className={`status-dot status-dot--${tone}`} aria-hidden="true" />
+  );
+}
+export function StatusBadge({
+  children,
+  tone = "neutral",
+}: PropsWithChildren<{
+  tone?: "success" | "warning" | "danger" | "info" | "neutral";
+}>) {
+  return (
+    <span className={`status-badge status-badge--${tone}`}>
+      <StatusDot tone={tone} />
+      {children}
+    </span>
+  );
+}
 
-type SAButtonProps=Omit<HTMLMotionProps<'button'>,'ref'>&{variant?:'primary'|'secondary'|'ghost'|'danger';size?:'sm'|'md'};
-export const SAButton=forwardRef<HTMLButtonElement,SAButtonProps>(function SAButton({className,variant='secondary',size='md',...props},ref){const reduced=useReducedMotion();return <motion.button whileTap={reduced?undefined:{scale:.985}} transition={{duration:.1}} ref={ref} className={cn('sa-button',`sa-button--${variant}`,`sa-button--${size}`,className)} {...props}/>});
-export function SAStatefulButton({pending,success,children,...props}:SAButtonProps&{pending?:boolean;success?:boolean}){return <SAButton {...props} disabled={props.disabled||pending}>{pending?<><LoaderCircle className="spin" size={15}/>Working…</>:success?<><Check size={15}/>Done</>:children}</SAButton>}
-export function SAIconButton({label,children,...props}:SAButtonProps&{label:string}){return <Tooltip content={label}><SAButton variant="ghost" className="sa-icon-button" aria-label={label} {...props}>{children}</SAButton></Tooltip>}
-export function SASegmentedControl<T extends string>({value,onChange,items,label}:{value:T;onChange:(value:T)=>void;items:Array<{value:T;label:string}>;label:string}){return <div className="segmented" role="group" aria-label={label}>{items.map(item=><button key={item.value} className={value===item.value?'active':''} onClick={()=>onChange(item.value)} aria-pressed={value===item.value}>{item.label}</button>)}</div>}
-export function SATabs({value,onValueChange,tabs,children}:{value:string;onValueChange:(v:string)=>void;tabs:Array<{value:string;label:string}>;children:ReactNode}){return <TabsPrimitive.Root value={value} onValueChange={onValueChange}><TabsPrimitive.List className="sa-tabs">{tabs.map(t=><TabsPrimitive.Trigger key={t.value} value={t.value}>{t.label}{value===t.value&&<motion.span layoutId="sa-tab" className="sa-tabs__active" transition={appSpring}/>}</TabsPrimitive.Trigger>)}</TabsPrimitive.List>{children}</TabsPrimitive.Root>}
-export const SATabContent=TabsPrimitive.Content;
-export function Tooltip({content,children}:PropsWithChildren<{content:string}>){return <TooltipPrimitive.Root><TooltipPrimitive.Trigger asChild>{children}</TooltipPrimitive.Trigger><TooltipPrimitive.Portal><TooltipPrimitive.Content className="tooltip" sideOffset={8}>{content}<TooltipPrimitive.Arrow className="tooltip-arrow"/></TooltipPrimitive.Content></TooltipPrimitive.Portal></TooltipPrimitive.Root>}
-export function Popover({trigger,children,open,onOpenChange,align='center'}:PropsWithChildren<{trigger:ReactNode;open?:boolean;onOpenChange?:(open:boolean)=>void;align?:'start'|'center'|'end'}>){return <PopoverPrimitive.Root open={open} onOpenChange={onOpenChange}><PopoverPrimitive.Trigger asChild>{trigger}</PopoverPrimitive.Trigger><PopoverPrimitive.Portal><PopoverPrimitive.Content align={align} sideOffset={10} className="popover">{children}<PopoverPrimitive.Arrow className="popover-arrow"/></PopoverPrimitive.Content></PopoverPrimitive.Portal></PopoverPrimitive.Root>}
+type SAButtonProps = Omit<HTMLMotionProps<"button">, "ref"> & {
+  variant?: "primary" | "secondary" | "ghost" | "danger";
+  size?: "sm" | "md";
+};
+export const SAButton = forwardRef<HTMLButtonElement, SAButtonProps>(
+  function SAButton(
+    { className, variant = "secondary", size = "md", ...props },
+    ref,
+  ) {
+    const reduced = useReducedMotion();
+    return (
+      <motion.button
+        whileTap={reduced ? undefined : { scale: 0.985 }}
+        transition={{ duration: 0.1 }}
+        ref={ref}
+        className={cn(
+          "sa-button",
+          `sa-button--${variant}`,
+          `sa-button--${size}`,
+          className,
+        )}
+        {...props}
+      />
+    );
+  },
+);
+export function SAStatefulButton({
+  pending,
+  success,
+  children,
+  ...props
+}: SAButtonProps & { pending?: boolean; success?: boolean }) {
+  return (
+    <SAButton {...props} disabled={props.disabled || pending}>
+      {pending ? (
+        <>
+          <LoaderCircle className="spin" size={15} />
+          Working…
+        </>
+      ) : success ? (
+        <>
+          <Check size={15} />
+          Done
+        </>
+      ) : (
+        children
+      )}
+    </SAButton>
+  );
+}
+export function SAIconButton({
+  label,
+  children,
+  ...props
+}: SAButtonProps & { label: string }) {
+  return (
+    <Tooltip content={label}>
+      <SAButton
+        variant="ghost"
+        className="sa-icon-button"
+        aria-label={label}
+        {...props}
+      >
+        {children}
+      </SAButton>
+    </Tooltip>
+  );
+}
+export function SASegmentedControl<T extends string>({
+  value,
+  onChange,
+  items,
+  label,
+}: {
+  value: T;
+  onChange: (value: T) => void;
+  items: Array<{ value: T; label: string }>;
+  label: string;
+}) {
+  return (
+    <div className="segmented" role="group" aria-label={label}>
+      {items.map((item) => (
+        <button
+          key={item.value}
+          className={value === item.value ? "active" : ""}
+          onClick={() => onChange(item.value)}
+          aria-pressed={value === item.value}
+        >
+          {item.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+export function SATabs({
+  value,
+  onValueChange,
+  tabs,
+  children,
+}: {
+  value: string;
+  onValueChange: (v: string) => void;
+  tabs: Array<{ value: string; label: string }>;
+  children: ReactNode;
+}) {
+  return (
+    <TabsPrimitive.Root value={value} onValueChange={onValueChange}>
+      <TabsPrimitive.List className="sa-tabs">
+        {tabs.map((t) => (
+          <TabsPrimitive.Trigger key={t.value} value={t.value}>
+            {t.label}
+            {value === t.value && (
+              <motion.span
+                layoutId="sa-tab"
+                className="sa-tabs__active"
+                transition={appSpring}
+              />
+            )}
+          </TabsPrimitive.Trigger>
+        ))}
+      </TabsPrimitive.List>
+      {children}
+    </TabsPrimitive.Root>
+  );
+}
+export const SATabContent = TabsPrimitive.Content;
+export function Tooltip({
+  content,
+  children,
+}: PropsWithChildren<{ content: string }>) {
+  return (
+    <TooltipPrimitive.Root>
+      <TooltipPrimitive.Trigger asChild>{children}</TooltipPrimitive.Trigger>
+      <TooltipPrimitive.Portal>
+        <TooltipPrimitive.Content className="tooltip" sideOffset={8}>
+          {content}
+          <TooltipPrimitive.Arrow className="tooltip-arrow" />
+        </TooltipPrimitive.Content>
+      </TooltipPrimitive.Portal>
+    </TooltipPrimitive.Root>
+  );
+}
+export function Popover({
+  trigger,
+  children,
+  open,
+  onOpenChange,
+  align = "center",
+}: PropsWithChildren<{
+  trigger: ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  align?: "start" | "center" | "end";
+}>) {
+  return (
+    <PopoverPrimitive.Root open={open} onOpenChange={onOpenChange}>
+      <PopoverPrimitive.Trigger asChild>{trigger}</PopoverPrimitive.Trigger>
+      <PopoverPrimitive.Portal>
+        <PopoverPrimitive.Content
+          align={align}
+          sideOffset={10}
+          className="popover"
+        >
+          {children}
+          <PopoverPrimitive.Arrow className="popover-arrow" />
+        </PopoverPrimitive.Content>
+      </PopoverPrimitive.Portal>
+    </PopoverPrimitive.Root>
+  );
+}
 // These dialogs are opened by global UI state, not a Radix Trigger. Retain the
 // actual invoking element so nested overlays return focus to the right surface.
-export function useOverlayFocusRestore(){const origin=useRef<HTMLElement|null>(null);return {onOpenAutoFocus:()=>{origin.current=document.activeElement instanceof HTMLElement?document.activeElement:null;},onCloseAutoFocus:(event:Event)=>{event.preventDefault();const element=origin.current;if(element?.isConnected&&!element.closest('[aria-hidden="true"],[inert]'))element.focus({preventScroll:true});}};}
-export function SAModal({open,onOpenChange,title,description,children,className}:{open:boolean;onOpenChange:(open:boolean)=>void;title:string;description?:string;children:ReactNode;className?:string}){const descriptionId=useId();const focus=useOverlayFocusRestore();return <Dialog.Root open={open} onOpenChange={onOpenChange}><Dialog.Portal><Dialog.Overlay className="modal-overlay"/><Dialog.Content className={cn('modal',className)} aria-describedby={description?descriptionId:undefined} {...focus}><header><div><Dialog.Title>{title}</Dialog.Title>{description&&<Dialog.Description id={descriptionId}>{description}</Dialog.Description>}</div><Dialog.Close asChild><SAButton variant="ghost" className="sa-icon-button" aria-label="Close"><X size={17}/></SAButton></Dialog.Close></header>{children}</Dialog.Content></Dialog.Portal></Dialog.Root>}
-export function SADrawer(props:Parameters<typeof SAModal>[0]){return <SAModal {...props} className={cn('drawer',props.className)}/>}
-export function SearchField(props:InputHTMLAttributes<HTMLInputElement>){return <label className="search-field"><span className="sr-only">{props['aria-label']??'Search'}</span><input {...props}/><kbd>⌘ K</kbd></label>}
-export function FormField({label,error,hint,children}:PropsWithChildren<{label:string;error?:string;hint?:string}>){return <label className="form-field"><span>{label}</span>{children}{error?<small className="field-error">{error}</small>:hint?<small>{hint}</small>:null}</label>}
-export function EmptyState({title,description,action}: {title:string;description:string;action?:ReactNode}){return <div className="empty-state"><div className="empty-orbit"/><h3>{title}</h3><p>{description}</p>{action}</div>}
-export function SkeletonCard({className}: {className?:string}){return <div className={cn('sa-card skeleton-card',className)}><span/><span/><span/></div>}
-export function ConfirmAction({open,onOpenChange,title,description,confirmLabel,onConfirm,danger=false,pending=false}:{open:boolean;onOpenChange:(open:boolean)=>void;title:string;description:string;confirmLabel:string;onConfirm:()=>void;danger?:boolean;pending?:boolean}){return <SAModal open={open} onOpenChange={onOpenChange} title={title} description={description}><div className="modal-actions"><SAButton onClick={()=>onOpenChange(false)}>Cancel</SAButton><SAStatefulButton pending={pending} variant={danger?'danger':'primary'} onClick={onConfirm}>{confirmLabel}</SAStatefulButton></div></SAModal>}
+export function useOverlayFocusRestore() {
+  const origin = useRef<HTMLElement | null>(null);
+  return {
+    onOpenAutoFocus: () => {
+      origin.current =
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null;
+    },
+    onCloseAutoFocus: (event: Event) => {
+      event.preventDefault();
+      const element = origin.current;
+      if (
+        element?.isConnected &&
+        !element.closest('[aria-hidden="true"],[inert]')
+      )
+        element.focus({ preventScroll: true });
+    },
+  };
+}
+export function SAModal({
+  open,
+  onOpenChange,
+  title,
+  description,
+  children,
+  className,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  description?: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  const descriptionId = useId();
+  const focus = useOverlayFocusRestore();
+  return (
+    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="modal-overlay" />
+        <Dialog.Content
+          className={cn("modal", className)}
+          aria-describedby={description ? descriptionId : undefined}
+          {...focus}
+        >
+          <header>
+            <div>
+              <Dialog.Title>{title}</Dialog.Title>
+              {description && (
+                <Dialog.Description id={descriptionId}>
+                  {description}
+                </Dialog.Description>
+              )}
+            </div>
+            <Dialog.Close asChild>
+              <SAButton
+                variant="ghost"
+                className="sa-icon-button"
+                aria-label="Close"
+              >
+                <X size={17} />
+              </SAButton>
+            </Dialog.Close>
+          </header>
+          {children}
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}
+export function SADrawer(props: Parameters<typeof SAModal>[0]) {
+  return <SAModal {...props} className={cn("drawer", props.className)} />;
+}
+export function SearchField(props: InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <label className="search-field">
+      <span className="sr-only">{props["aria-label"] ?? "Search"}</span>
+      <input {...props} />
+      <kbd>⌘ K</kbd>
+    </label>
+  );
+}
+export function FormField({
+  label,
+  error,
+  hint,
+  children,
+}: PropsWithChildren<{ label: string; error?: string; hint?: string }>) {
+  return (
+    <label className="form-field">
+      <span>{label}</span>
+      {children}
+      {error ? (
+        <small className="field-error">{error}</small>
+      ) : hint ? (
+        <small>{hint}</small>
+      ) : null}
+    </label>
+  );
+}
+export function EmptyState({
+  title,
+  description,
+  action,
+}: {
+  title: string;
+  description: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="empty-state">
+      <div className="empty-orbit" />
+      <h3>{title}</h3>
+      <p>{description}</p>
+      {action}
+    </div>
+  );
+}
+export function SkeletonCard({ className }: { className?: string }) {
+  return (
+    <div className={cn("sa-card skeleton-card", className)}>
+      <span />
+      <span />
+      <span />
+    </div>
+  );
+}
+export function ConfirmAction({
+  open,
+  onOpenChange,
+  title,
+  description,
+  confirmLabel,
+  onConfirm,
+  danger = false,
+  pending = false,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  description: string;
+  confirmLabel: string;
+  onConfirm: () => void;
+  danger?: boolean;
+  pending?: boolean;
+}) {
+  return (
+    <SAModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title={title}
+      description={description}
+    >
+      <div className="modal-actions">
+        <SAButton onClick={() => onOpenChange(false)}>Cancel</SAButton>
+        <SAStatefulButton
+          pending={pending}
+          variant={danger ? "danger" : "primary"}
+          onClick={onConfirm}
+        >
+          {confirmLabel}
+        </SAStatefulButton>
+      </div>
+    </SAModal>
+  );
+}

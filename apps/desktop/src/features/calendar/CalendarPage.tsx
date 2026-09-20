@@ -1,7 +1,7 @@
 import { viewMonthAgenda, viewMonthGrid, viewWeek } from "@schedule-x/calendar";
 import { ScheduleXCalendar, useCalendarApp } from "@schedule-x/react";
 import "@schedule-x/theme-default/dist/index.css";
-import { Temporal } from "temporal-polyfill";
+import "temporal-polyfill/global";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarPlus, MapPin, Users } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -280,7 +280,9 @@ export function CalendarPage() {
             </SAButton>
           )}
           {selected?.taskId && (
-            <SAButton onClick={() => navigate("/work")}>Open task in Work</SAButton>
+            <SAButton onClick={() => navigate("/work")}>
+              Open task in Work
+            </SAButton>
           )}
         </div>
       </SADrawer>

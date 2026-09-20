@@ -1,0 +1,7 @@
+SA Command macOS production installer
+Run the "Production installers" GitHub Actions workflow on the release commit:
+gh workflow run production-release.yml --repo sufibuildwith-py/sa-controlcentre --ref main
+Download SA-Command-1.2.0-macOS-unsigned and copy its DMG here as SA-Command.dmg.
+The workflow runs on an Apple silicon macOS runner and includes Java/PostgreSQL.
+Signing and notarization require Apple credentials; none have been supplied.
+No macOS artifact has yet been built or tested on this Windows computer.

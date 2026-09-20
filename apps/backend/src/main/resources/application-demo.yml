@@ -1,0 +1,7 @@
+app:
+  mode: demo
+  deployment: server
+  demo-seed: true
+  messaging:
+    provider: console
+    worker-enabled: true

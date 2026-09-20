@@ -1,33 +1,536 @@
-import {useMutation,useQuery,useQueryClient} from '@tanstack/react-query';
-import {AlertTriangle,ArrowUpRight,CheckCheck,Clock3,MessageCircle,RefreshCw,Send,XCircle} from 'lucide-react';
-import {useMemo,useState} from 'react';
-import {useSearchParams} from 'react-router-dom';
-import {WorkspaceHeader} from '../../components/layout/AppShell';
-import {EmptyState,SAButton,SABentoCard,SABentoGrid,SADrawer,SAModal,SASegmentedControl,SkeletonCard,StatusBadge} from '../../components/ui/sa';
-import {api,json} from '../../lib/api';
-import type {CommunicationCentre,Employee,MessageStatus,OutboundMessage} from '../../types/domain';
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  AlertTriangle,
+  ArrowUpRight,
+  CheckCheck,
+  Clock3,
+  MessageCircle,
+  RefreshCw,
+  Send,
+  XCircle,
+} from "lucide-react";
+import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { WorkspaceHeader } from "../../components/layout/AppShell";
+import {
+  EmptyState,
+  SAButton,
+  SABentoCard,
+  SABentoGrid,
+  SADrawer,
+  SAModal,
+  SASegmentedControl,
+  SkeletonCard,
+  StatusBadge,
+} from "../../components/ui/sa";
+import { api, json } from "../../lib/api";
+import type {
+  CommunicationCentre,
+  Employee,
+  MessageStatus,
+  OutboundMessage,
+} from "../../types/domain";
 
-type StatusFilter='ALL'|MessageStatus;
-export function CommunicationsPage(){
- const client=useQueryClient(),[params,setParams]=useSearchParams(),[selected,setSelected]=useState<string|null>(null),[compose,setCompose]=useState(params.get('compose')==='1');
- const status=(params.get('status')??'ALL') as StatusFilter,category=params.get('category')??'ALL',attention=params.get('attention')==='true',employeeId=params.get('employeeId')??'';
- const query=useQuery({queryKey:['communications',status,category,attention,employeeId],queryFn:()=>api<CommunicationCentre>(`/messages?${new URLSearchParams({...status!=='ALL'&&{status},...category!=='ALL'&&{category},...attention&&{needsAttention:'true'},...employeeId&&{employeeId}})}`),refetchInterval:5000});
- const detail=useQuery({queryKey:['message',selected],queryFn:()=>api<OutboundMessage>(`/messages/${selected}`),enabled:!!selected});
- const retry=useMutation({mutationFn:(id:string)=>api<OutboundMessage>(`/messages/${id}/retry`,{method:'POST'}),onSuccess:()=>{client.invalidateQueries({queryKey:['communications']});client.invalidateQueries({queryKey:['message',selected]})}});
- const set=(key:string,value:string)=>{const next=new URLSearchParams(params);if(value==='ALL'||value==='false')next.delete(key);else next.set(key,value);setParams(next,{replace:true})};
- if(query.isPending)return <><WorkspaceHeader title="Communications" subtitle="Loading the delivery centre…"/><SkeletonCard/></>;
- if(query.isError||!query.data)return <EmptyState title="Communications unavailable" description="The message centre could not be loaded." action={<SAButton onClick={()=>query.refetch()}>Try again</SAButton>}/>;
- const s=query.data.summary;
- return <><WorkspaceHeader title="Communications" subtitle="Outbound WhatsApp operations, confirmations and delivery evidence."/>
-  <SABentoGrid className="communications-summary"><Summary icon={Send} label="Sent today" value={s.sentToday??0}/><Summary icon={CheckCheck} label="Delivered" value={s.delivered}/><Summary icon={Clock3} label="Awaiting response" value={s.awaitingResponse} tone="warning"/><Summary icon={XCircle} label="Failed" value={s.failed} tone="danger"/></SABentoGrid>
-  <div className="communication-toolbar"><SASegmentedControl value={status} onChange={v=>set('status',v)} label="Message status" items={[{value:'ALL',label:'All'},{value:'QUEUED',label:'Queued'},{value:'SENT',label:'Sent'},{value:'DELIVERED',label:'Delivered'},{value:'READ',label:'Read'},{value:'FAILED',label:'Failed'}]}/><label className="form-field"><span className="sr-only">Category</span><select value={category} onChange={e=>set('category',e.target.value)}><option value="ALL">All categories</option>{['ASSIGNMENTS','MEETINGS','ATTENDANCE','PAYROLL','TASKS','LEAVE','MANUAL'].map(x=><option key={x}>{x}</option>)}</select></label><label className="attention-toggle"><input type="checkbox" checked={attention} onChange={e=>set('attention',String(e.target.checked))}/>Needs attention</label><SAButton variant="primary" onClick={()=>setCompose(true)}><MessageCircle size={15}/>Send message</SAButton></div>
-  {query.data.messages.length?<div className="message-list" role="list">{query.data.messages.map(m=><button role="listitem" key={m.id} onClick={()=>setSelected(m.id)}><span className="message-avatar">{m.employeeName.split(' ').map(x=>x[0]).slice(0,2).join('')}</span><span className="message-main"><strong>{m.employeeName}</strong><small>{m.bodyPreview}</small></span><span className="message-meta"><Status m={m}/><time>{new Date(m.queuedAt).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</time></span><ArrowUpRight size={15}/></button>)}</div>:<EmptyState title="No messages in this view" description="Adjust the filters or queue a manual message." action={<SAButton onClick={()=>setCompose(true)}>Send message</SAButton>}/>} 
-  <SADrawer open={!!selected} onOpenChange={o=>!o&&setSelected(null)} title="Message activity" description="Provider lifecycle and response evidence.">{detail.isPending?<SkeletonCard/>:detail.data?<MessageDetail message={detail.data} retry={()=>retry.mutate(detail.data!.id)} pending={retry.isPending}/>:<EmptyState title="Message unavailable" description="The activity record could not be loaded."/>}</SADrawer>
-  <Composer open={compose} onOpenChange={setCompose} initialEmployeeId={employeeId} onSent={()=>client.invalidateQueries({queryKey:['communications']})}/>
- </>;
+type StatusFilter = "ALL" | MessageStatus;
+export function CommunicationsPage() {
+  const client = useQueryClient(),
+    [params, setParams] = useSearchParams(),
+    [selected, setSelected] = useState<string | null>(null),
+    [compose, setCompose] = useState(params.get("compose") === "1"),
+    [page, setPage] = useState(0);
+  const status = (params.get("status") ?? "ALL") as StatusFilter,
+    category = params.get("category") ?? "ALL",
+    attention = params.get("attention") === "true",
+    employeeId = params.get("employeeId") ?? "";
+  const query = useQuery({
+    queryKey: ["communications", status, category, attention, employeeId, page],
+    queryFn: () =>
+      api<CommunicationCentre>(
+        `/messages?${new URLSearchParams({ page: String(page), size: "50", ...(status !== "ALL" && { status }), ...(category !== "ALL" && { category }), ...(attention && { needsAttention: "true" }), ...(employeeId && { employeeId }) })}`,
+      ),
+    refetchInterval: (q) =>
+      document.visibilityState !== "visible"
+        ? false
+        : (q.state.data?.summary.queued ?? 0) > 0
+          ? 3000
+          : 25000,
+    refetchIntervalInBackground: false,
+  });
+  const detail = useQuery({
+    queryKey: ["message", selected],
+    queryFn: () => api<OutboundMessage>(`/messages/${selected}`),
+    enabled: !!selected,
+  });
+  const retry = useMutation({
+    mutationFn: (id: string) =>
+      api<OutboundMessage>(`/messages/${id}/retry`, { method: "POST" }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["communications"] });
+      client.invalidateQueries({ queryKey: ["message", selected] });
+    },
+  });
+  const set = (key: string, value: string) => {
+    setPage(0);
+    const next = new URLSearchParams(params);
+    if (value === "ALL" || value === "false") next.delete(key);
+    else next.set(key, value);
+    setParams(next, { replace: true });
+  };
+  if (query.isPending)
+    return (
+      <>
+        <WorkspaceHeader
+          title="Communications"
+          subtitle="Loading the delivery centre…"
+        />
+        <SkeletonCard />
+      </>
+    );
+  if (query.isError || !query.data)
+    return (
+      <EmptyState
+        title="Communications unavailable"
+        description="The message centre could not be loaded."
+        action={<SAButton onClick={() => query.refetch()}>Try again</SAButton>}
+      />
+    );
+  const s = query.data.summary;
+  return (
+    <>
+      <WorkspaceHeader
+        title="Communications"
+        subtitle="Outbound WhatsApp operations, confirmations and delivery evidence."
+      />
+      <SABentoGrid className="communications-summary">
+        <Summary icon={Send} label="Sent today" value={s.sentToday ?? 0} />
+        <Summary icon={CheckCheck} label="Delivered" value={s.delivered} />
+        <Summary
+          icon={Clock3}
+          label="Awaiting response"
+          value={s.awaitingResponse}
+          tone="warning"
+        />
+        <Summary icon={XCircle} label="Failed" value={s.failed} tone="danger" />
+      </SABentoGrid>
+      <div className="communication-toolbar">
+        <SASegmentedControl
+          value={status}
+          onChange={(v) => set("status", v)}
+          label="Message status"
+          items={[
+            { value: "ALL", label: "All" },
+            { value: "QUEUED", label: "Queued" },
+            { value: "SENT", label: "Sent" },
+            { value: "DELIVERED", label: "Delivered" },
+            { value: "READ", label: "Read" },
+            { value: "FAILED", label: "Failed" },
+          ]}
+        />
+        <label className="form-field">
+          <span className="sr-only">Category</span>
+          <select
+            value={category}
+            onChange={(e) => set("category", e.target.value)}
+          >
+            <option value="ALL">All categories</option>
+            {[
+              "ASSIGNMENTS",
+              "MEETINGS",
+              "ATTENDANCE",
+              "PAYROLL",
+              "TASKS",
+              "LEAVE",
+              "MANUAL",
+            ].map((x) => (
+              <option key={x}>{x}</option>
+            ))}
+          </select>
+        </label>
+        <label className="attention-toggle">
+          <input
+            type="checkbox"
+            checked={attention}
+            onChange={(e) => set("attention", String(e.target.checked))}
+          />
+          Needs attention
+        </label>
+        <SAButton variant="primary" onClick={() => setCompose(true)}>
+          <MessageCircle size={15} />
+          Send message
+        </SAButton>
+      </div>
+      {query.data.messages.length ? (
+        <>
+          <div className="message-list" role="list">
+            {query.data.messages.map((m) => (
+              <button
+                role="listitem"
+                key={m.id}
+                onClick={() => setSelected(m.id)}
+              >
+                <span className="message-avatar">
+                  {m.employeeName
+                    .split(" ")
+                    .map((x) => x[0])
+                    .slice(0, 2)
+                    .join("")}
+                </span>
+                <span className="message-main">
+                  <strong>{m.employeeName}</strong>
+                  <small>{m.bodyPreview}</small>
+                </span>
+                <span className="message-meta">
+                  <Status m={m} />
+                  <time>
+                    {new Date(m.queuedAt).toLocaleString("en-IN", {
+                      day: "2-digit",
+                      month: "short",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </time>
+                </span>
+                <ArrowUpRight size={15} />
+              </button>
+            ))}
+          </div>
+          {query.data.totalPages > 1 && (
+            <nav className="pagination" aria-label="Communications pages">
+              <SAButton
+                disabled={page === 0}
+                onClick={() => setPage((p) => p - 1)}
+              >
+                Previous
+              </SAButton>
+              <span>
+                Page {page + 1} of {query.data.totalPages}
+              </span>
+              <SAButton
+                disabled={page + 1 >= query.data.totalPages}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Next
+              </SAButton>
+            </nav>
+          )}
+        </>
+      ) : (
+        <EmptyState
+          title="No messages in this view"
+          description="Adjust the filters or queue a manual message."
+          action={
+            <SAButton onClick={() => setCompose(true)}>Send message</SAButton>
+          }
+        />
+      )}
+      <SADrawer
+        open={!!selected}
+        onOpenChange={(o) => !o && setSelected(null)}
+        title="Message activity"
+        description="Provider lifecycle and response evidence."
+      >
+        {detail.isPending ? (
+          <SkeletonCard />
+        ) : detail.data ? (
+          <MessageDetail
+            message={detail.data}
+            retry={() => retry.mutate(detail.data!.id)}
+            pending={retry.isPending}
+          />
+        ) : (
+          <EmptyState
+            title="Message unavailable"
+            description="The activity record could not be loaded."
+          />
+        )}
+      </SADrawer>
+      <Composer
+        open={compose}
+        onOpenChange={setCompose}
+        initialEmployeeId={employeeId}
+        onSent={() =>
+          client.invalidateQueries({ queryKey: ["communications"] })
+        }
+      />
+    </>
+  );
 }
-function Summary({icon:Icon,label,value,tone}:{icon:typeof Send;label:string;value:number;tone?:string}){return <SABentoCard className={`communication-stat ${tone??''}`}><Icon size={18}/><strong>{value}</strong><span>{label}</span></SABentoCard>}
-export function messageTone(status:MessageStatus){return status==='FAILED'?'danger':status==='DELIVERED'||status==='READ'?'success':status==='QUEUED'||status==='SENDING'?'warning':'neutral'}
-function Status({m}:{m:OutboundMessage}){return <StatusBadge tone={messageTone(m.status)}>{m.status}</StatusBadge>}
-function MessageDetail({message,retry,pending}:{message:OutboundMessage;retry:()=>void;pending:boolean}){return <div className="message-detail"><div className="message-detail__hero"><span>{message.employeeName}</span><Status m={message}/><h3>{message.bodyPreview}</h3><small>{message.phone} · {message.category.replaceAll('_',' ')}</small>{message.response&&<p className="response-pill">Response: {message.response}</p>}{message.lastError&&<p className="message-error"><AlertTriangle size={14}/>{message.lastError}</p>}{message.status==='FAILED'&&<SAButton variant="primary" disabled={pending} onClick={retry}><RefreshCw size={14}/>Retry message</SAButton>}</div><div className="activity-timeline"><h3>Activity</h3>{message.activity.map((e,i)=><div key={`${e.createdAt}-${i}`}><span/><div><strong>{e.eventType.replaceAll('_',' ')}</strong><small>{e.detail}</small><time>{new Date(e.createdAt).toLocaleString('en-IN')}</time></div></div>)}</div></div>}
-function Composer({open,onOpenChange,onSent,initialEmployeeId}:{open:boolean;onOpenChange:(v:boolean)=>void;onSent:()=>void;initialEmployeeId?:string}){const employees=useQuery({queryKey:['employees','composer'],queryFn:()=>api<Employee[]>('/employees'),enabled:open});const [employeeIds,setEmployeeIds]=useState<string[]>(initialEmployeeId?[initialEmployeeId]:[]),[message,setMessage]=useState('');const send=useMutation({mutationFn:()=>api('/messages/manual',{method:'POST',...json({employeeIds,message})}),onSuccess:()=>{setMessage('');setEmployeeIds([]);onOpenChange(false);onSent()}});const eligible=useMemo(()=>employees.data?.filter(e=>e.status!=='INACTIVE'&&e.whatsappPhone)??[],[employees.data]);const submit=()=>{if(employeeIds.length>1&&!window.confirm(`Queue this message for ${employeeIds.length} employees?`))return;send.mutate()};return <SAModal open={open} onOpenChange={onOpenChange} title="Send message" description="Queue a WhatsApp notice through the same audited delivery pipeline."><div className="form-grid"><label className="form-field span-2">Recipients<select multiple size={Math.min(5,Math.max(3,eligible.length))} value={employeeIds} onChange={e=>setEmployeeIds(Array.from(e.target.selectedOptions,o=>o.value))}>{eligible.map(e=><option key={e.id} value={e.id}>{e.displayName} · {e.whatsappPhone}</option>)}</select><small>Use Ctrl/Cmd to select more than one employee.</small></label><label className="form-field span-2">Message<textarea maxLength={1600} value={message} onChange={e=>setMessage(e.target.value)} placeholder="Write a clear operational message…"/><small>{message.length}/1600</small></label>{send.isError&&<p className="form-error span-2">Message could not be queued. Check the recipients and try again.</p>}</div><div className="modal-actions"><SAButton onClick={()=>onOpenChange(false)}>Cancel</SAButton><SAButton variant="primary" disabled={!employeeIds.length||!message.trim()||send.isPending} onClick={submit}><Send size={14}/>{send.isPending?'Queuing…':`Queue message${employeeIds.length>1?'s':''}`}</SAButton></div></SAModal>}
+function Summary({
+  icon: Icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: typeof Send;
+  label: string;
+  value: number;
+  tone?: string;
+}) {
+  return (
+    <SABentoCard className={`communication-stat ${tone ?? ""}`}>
+      <Icon size={18} />
+      <strong>{value}</strong>
+      <span>{label}</span>
+    </SABentoCard>
+  );
+}
+export function messageTone(status: MessageStatus) {
+  return status === "FAILED"
+    ? "danger"
+    : status === "DELIVERED" || status === "READ"
+      ? "success"
+      : status === "QUEUED" || status === "SENDING"
+        ? "warning"
+        : "neutral";
+}
+function Status({ m }: { m: OutboundMessage }) {
+  return <StatusBadge tone={messageTone(m.status)}>{m.status}</StatusBadge>;
+}
+function MessageDetail({
+  message,
+  retry,
+  pending,
+}: {
+  message: OutboundMessage;
+  retry: () => void;
+  pending: boolean;
+}) {
+  return (
+    <div className="message-detail">
+      <div className="message-detail__hero">
+        <span>{message.employeeName}</span>
+        <Status m={message} />
+        <h3>{message.bodyPreview}</h3>
+        <small>
+          {message.phone} · {message.category.replaceAll("_", " ")}
+        </small>
+        {message.response && (
+          <p className="response-pill">Response: {message.response}</p>
+        )}
+        {message.lastError && (
+          <p className="message-error">
+            <AlertTriangle size={14} />
+            {message.lastError}
+          </p>
+        )}
+        {message.status === "FAILED" && (
+          <SAButton variant="primary" disabled={pending} onClick={retry}>
+            <RefreshCw size={14} />
+            Retry message
+          </SAButton>
+        )}
+      </div>
+      {message.attempts?.length > 0 && (
+        <div className="delivery-attempts">
+          <h3>Delivery attempts</h3>
+          {message.attempts.map((a) => (
+            <div key={a.attemptNumber}>
+              <span>Attempt {a.attemptNumber}</span>
+              <StatusBadge tone={messageTone(a.status)}>{a.status}</StatusBadge>
+              {a.lastError && <small>{a.lastError}</small>}
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="activity-timeline">
+        <h3>Activity</h3>
+        {message.activity.map((e, i) => (
+          <div key={`${e.createdAt}-${i}`}>
+            <span />
+            <div>
+              <strong>{e.eventType.replaceAll("_", " ")}</strong>
+              <small>{e.detail}</small>
+              <time>{new Date(e.createdAt).toLocaleString("en-IN")}</time>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+function Composer({
+  open,
+  onOpenChange,
+  onSent,
+  initialEmployeeId,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onSent: () => void;
+  initialEmployeeId?: string;
+}) {
+  const employees = useQuery({
+    queryKey: ["employees", "composer"],
+    queryFn: () => api<Employee[]>("/employees"),
+    enabled: open,
+  });
+  const [employeeIds, setEmployeeIds] = useState<string[]>(
+      initialEmployeeId ? [initialEmployeeId] : [],
+    ),
+    [message, setMessage] = useState("");
+  const send = useMutation({
+    mutationFn: () =>
+      api("/messages/manual", {
+        method: "POST",
+        ...json({ employeeIds, message }),
+      }),
+    onSuccess: () => {
+      setMessage("");
+      setEmployeeIds([]);
+      onOpenChange(false);
+      onSent();
+    },
+  });
+  const eligible = useMemo(
+    () =>
+      employees.data?.filter(
+        (e) => e.status !== "INACTIVE" && e.whatsappPhone,
+      ) ?? [],
+    [employees.data],
+  );
+  const submit = () => {
+    if (
+      employeeIds.length > 1 &&
+      !window.confirm(`Queue this message for ${employeeIds.length} employees?`)
+    )
+      return;
+    send.mutate();
+  };
+  return (
+    <SAModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Send message"
+      description="Queue a WhatsApp notice through the same audited delivery pipeline."
+    >
+      <div className="form-grid">
+        <RecipientPicker
+          employees={eligible}
+          value={employeeIds}
+          onChange={setEmployeeIds}
+        />
+        <label className="form-field span-2">
+          Message
+          <textarea
+            maxLength={1600}
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder="Write a clear operational message…"
+          />
+          <small>{message.length}/1600</small>
+        </label>
+        {send.isError && (
+          <p className="form-error span-2">
+            Message could not be queued. Check the recipients and try again.
+          </p>
+        )}
+      </div>
+      <div className="modal-actions">
+        <SAButton onClick={() => onOpenChange(false)}>Cancel</SAButton>
+        <SAButton
+          variant="primary"
+          disabled={!employeeIds.length || !message.trim() || send.isPending}
+          onClick={submit}
+        >
+          <Send size={14} />
+          {send.isPending
+            ? "Queuing…"
+            : `Queue message${employeeIds.length > 1 ? "s" : ""}`}
+        </SAButton>
+      </div>
+    </SAModal>
+  );
+}
+function RecipientPicker({
+  employees,
+  value,
+  onChange,
+}: {
+  employees: Employee[];
+  value: string[];
+  onChange: (ids: string[]) => void;
+}) {
+  const [search, setSearch] = useState(""),
+    [active, setActive] = useState(0);
+  const selected = employees.filter((e) => value.includes(e.id)),
+    options = employees
+      .filter(
+        (e) =>
+          !value.includes(e.id) &&
+          e.displayName.toLowerCase().includes(search.toLowerCase()),
+      )
+      .slice(0, 6);
+  const add = (id: string) => {
+    onChange([...value, id]);
+    setSearch("");
+    setActive(0);
+  };
+  return (
+    <div className="form-field span-2 recipient-picker">
+      <span>Recipients</span>
+      <div className="recipient-tokens">
+        {selected.map((e) => (
+          <button
+            type="button"
+            key={e.id}
+            onClick={() => onChange(value.filter((id) => id !== e.id))}
+          >
+            {e.displayName}
+            <b aria-hidden>×</b>
+            <span className="sr-only">Remove</span>
+          </button>
+        ))}
+        <input
+          role="combobox"
+          aria-label="Search recipients"
+          aria-expanded={options.length > 0}
+          aria-controls="recipient-options"
+          value={search}
+          placeholder={selected.length ? "Add another…" : "Search employees…"}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setActive(0);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              setActive((i) => Math.min(i + 1, options.length - 1));
+            }
+            if (e.key === "ArrowUp") {
+              e.preventDefault();
+              setActive((i) => Math.max(i - 1, 0));
+            }
+            if (e.key === "Enter" && options[active]) {
+              e.preventDefault();
+              add(options[active].id);
+            }
+            if (e.key === "Backspace" && !search && value.length)
+              onChange(value.slice(0, -1));
+          }}
+        />
+      </div>
+      {search && options.length > 0 && (
+        <div
+          id="recipient-options"
+          role="listbox"
+          className="recipient-options"
+        >
+          {options.map((e, i) => (
+            <button
+              type="button"
+              role="option"
+              aria-selected={i === active}
+              className={i === active ? "active" : ""}
+              key={e.id}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => add(e.id)}
+            >
+              <strong>{e.displayName}</strong>
+              <small>{e.whatsappPhone}</small>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

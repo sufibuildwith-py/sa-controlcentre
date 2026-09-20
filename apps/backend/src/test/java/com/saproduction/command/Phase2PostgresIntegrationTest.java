@@ -1,6 +1,7 @@
 package com.saproduction.command;
 
 import static org.assertj.core.api.Assertions.*;
+
 import com.saproduction.command.attendance.*;
 import com.saproduction.command.audit.AuditRepository;
 import com.saproduction.command.calendar.*;
@@ -20,18 +21,336 @@ import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.*;
 
-@SpringBootTest @Testcontainers(disabledWithoutDocker=true) @Transactional
+@SpringBootTest
+@Testcontainers(disabledWithoutDocker = true)
+@Transactional
 class Phase2PostgresIntegrationTest {
-  @Container static PostgreSQLContainer<?> postgres=new PostgreSQLContainer<>("postgres:17-alpine");
-  @DynamicPropertySource static void db(DynamicPropertyRegistry p){p.add("spring.datasource.url",postgres::getJdbcUrl);p.add("spring.datasource.username",postgres::getUsername);p.add("spring.datasource.password",postgres::getPassword);p.add("app.demo-seed",()->false);}
-  @Autowired EmployeeRepository employees;@Autowired ProductionService productions;@Autowired CalendarService calendar;@Autowired SchedulingConflictService conflicts;@Autowired WorkTaskService tasks;@Autowired MeetingService meetings;@Autowired PayrollService payroll;@Autowired AttendanceRepository attendance;@Autowired AuditRepository audits;
-  Employee employee;ZoneId zone=ZoneId.of("Asia/Kolkata");LocalDate day=LocalDate.of(2026,9,26);
-  @BeforeEach void employee(){employee=new Employee();employee.employeeCode="T-"+UUID.randomUUID().toString().substring(0,8);employee.firstName="Amaan";employee.displayName="Amaan Test";employee.phone="+919000000000";employee.roleTitle="Editor";employee.department="Post";employee.employmentType="FULL_TIME";employee.joiningDate=LocalDate.of(2024,1,1);employee.baseSalaryMinor=4_200_000;employee.salaryCurrency="INR";employee.status=Employee.Status.ACTIVE;employees.saveAndFlush(employee);}
-  @Test void productionLifecycleRejectsImpossibleTransition(){var p=production("Lifecycle",LocalTime.of(9,0),LocalTime.of(12,0));assertThatThrownBy(()->productions.transition(p.id(),Production.Status.REVIEW)).isInstanceOfSatisfying(ApiException.class,e->assertThat(e.code).isEqualTo("INVALID_PRODUCTION_TRANSITION"));productions.transition(p.id(),Production.Status.PLANNING);assertThat(productions.get(p.id()).status()).isEqualTo(Production.Status.PLANNING);}
-  @Test void overlapRulesConflictOverrideAndAudit(){Instant start=day.atTime(10,0).atZone(zone).toInstant(),end=day.atTime(12,0).atZone(zone).toInstant();calendar.create(new CalendarService.Input(CalendarEvent.Type.INTERNAL,"Existing",null,start,end,null,null,List.of(employee.id),false,null));assertThat(conflicts.find(employee.id,start,end,null)).hasSize(1);assertThat(conflicts.find(employee.id,day.atTime(10,30).atZone(zone).toInstant(),day.atTime(11,0).atZone(zone).toInstant(),null)).hasSize(1);var p=production("Overlap",LocalTime.of(11,0),LocalTime.of(13,0));var in=new ProductionService.MemberInput(employee.id,"Editor",true,ProductionMember.Status.PENDING,false,null);assertThatThrownBy(()->productions.addMember(p.id(),in)).isInstanceOfSatisfying(ApiException.class,e->assertThat(e.code).isEqualTo("SCHEDULING_CONFLICT"));productions.addMember(p.id(),new ProductionService.MemberInput(employee.id,"Editor",true,ProductionMember.Status.PENDING,true,"Owner decision"));productions.updateMemberStatus(p.id(),employee.id,new ProductionService.MemberStatusInput(ProductionMember.Status.CONFIRMED));assertThat(productions.get(p.id()).members()).singleElement().satisfies(m->{assertThat(m.conflictOverridden()).isTrue();assertThat(m.assignmentStatus()).isEqualTo(ProductionMember.Status.CONFIRMED);});assertThat(audits.findAll().stream().map(x->x.action)).contains("SCHEDULING_CONFLICT_OVERRIDDEN","PRODUCTION_MEMBER_STATUS_UPDATED");Instant adjacent=day.atTime(13,0).atZone(zone).toInstant();assertThat(conflicts.find(employee.id,adjacent,day.atTime(14,0).atZone(zone).toInstant(),null)).isEmpty();}
-  @Test void taskProgressHistoryCompletionAndOverdueAreCentralized(){var t=tasks.create(new WorkTaskService.Input(null,null,"Teaser",null,employee.id,WorkTask.Status.TODO,WorkTask.Priority.HIGH,day.minusDays(1),Instant.now().minusSeconds(3600),0));UUID taskId=t.id();assertThat(t.overdue()).isTrue();assertThat(calendar.list(Instant.now().minusSeconds(86400),Instant.now().plusSeconds(86400)).stream().filter(e->e.taskId()!=null&&e.taskId().equals(taskId))).singleElement().extracting(CalendarService.View::type).isEqualTo(CalendarEvent.Type.DEADLINE);t=tasks.progress(taskId,new WorkTaskService.UpdateInput(78,"First cut",WorkTask.Status.IN_PROGRESS));assertThat(t.progressPercent()).isEqualTo(78);assertThat(t.updates()).hasSize(2);t=tasks.progress(taskId,new WorkTaskService.UpdateInput(100,"Approved",WorkTask.Status.DONE));assertThat(t.completedAt()).isNotNull();assertThat(t.overdue()).isFalse();}
-  @Test void meetingActionUsesNormalTaskAndCalendarLink(){Instant start=day.atTime(14,0).atZone(zone).toInstant();var m=meetings.create(new MeetingService.Input("Review",null,"Exports",start,start.plusSeconds(3600),"Studio",List.of(employee.id),false,null));m=meetings.updateAttendeeResponse(m.id(),employee.id,new MeetingService.ResponseInput(MeetingService.Response.ACCEPTED));assertThat(m.attendees()).singleElement().extracting(MeetingService.Attendee::response).isEqualTo("ACCEPTED");var action=meetings.action(m.id(),new MeetingService.ActionInput("Export teaser",null,employee.id,start.plusSeconds(7200)));assertThat(action.meetingOriginId()).isEqualTo(m.id());assertThat(tasks.get(action.id()).title()).isEqualTo("Export teaser");assertThat(calendar.eventForMeeting(m.id()).type).isEqualTo(CalendarEvent.Type.MEETING);assertThat(audits.findAll().stream().map(x->x.action)).contains("MEETING_ATTENDEE_RESPONSE_UPDATED");}
-  @Test void payrollArithmeticStateAndLockedSnapshotsAreImmutable(){AttendanceRecord absent=new AttendanceRecord();absent.employee=employee;absent.date=LocalDate.of(2027,1,5);absent.status=AttendanceRecord.Status.ABSENT;attendance.save(absent);var p=payroll.calculate(2027,1);var item=p.items().getFirst();assertThat(item.attendanceDeductionMinor()).isEqualTo(161_538);p=payroll.adjust(p.id(),new PayrollService.AdjustmentInput(item.id(),PayrollAdjustment.Type.BONUS,300_000,"Performance bonus"));assertThat(p.items().getFirst().netSalaryMinor()).isEqualTo(4_338_462);p=payroll.approve(p.id());p=payroll.recordPayment(p.id(),item.id(),new PayrollService.PaymentInput(4_338_462,Instant.now(),PayrollPayment.Method.BANK_TRANSFER,"JAN-2027","Full settlement"));p=payroll.lock(p.id());UUID periodId=p.id();long snapshot=p.items().getFirst().baseSalaryMinor(),net=p.items().getFirst().netSalaryMinor();employee.baseSalaryMinor=5_000_000;employees.saveAndFlush(employee);AttendanceRecord later=new AttendanceRecord();later.employee=employee;later.date=LocalDate.of(2027,1,6);later.status=AttendanceRecord.Status.ABSENT;attendance.save(later);var locked=payroll.get(periodId);assertThat(locked.items().getFirst().baseSalaryMinor()).isEqualTo(snapshot);assertThat(locked.items().getFirst().netSalaryMinor()).isEqualTo(net);assertThat(locked.items().getFirst().payments()).hasSize(1);assertThatThrownBy(()->payroll.adjust(periodId,new PayrollService.AdjustmentInput(item.id(),PayrollAdjustment.Type.BONUS,1,"No"))).isInstanceOfSatisfying(ApiException.class,e->assertThat(e.code).isEqualTo("PAYROLL_LOCKED"));assertThatThrownBy(()->payroll.recordPayment(periodId,item.id(),new PayrollService.PaymentInput(1,Instant.now(),PayrollPayment.Method.CASH,null,null))).isInstanceOfSatisfying(ApiException.class,e->assertThat(e.code).isEqualTo("PAYROLL_LOCKED"));}
-  @Test void payrollLedgerSupportsPartialAndMultiplePaymentsWithoutChangingAmountOwed(){var p=payroll.calculate(2027,2);var item=p.items().getFirst();p=payroll.adjust(p.id(),new PayrollService.AdjustmentInput(item.id(),PayrollAdjustment.Type.BONUS,300_000,"Bonus"));p=payroll.adjust(p.id(),new PayrollService.AdjustmentInput(item.id(),PayrollAdjustment.Type.ADVANCE,500_000,"Advance already received"));p=payroll.adjust(p.id(),new PayrollService.AdjustmentInput(item.id(),PayrollAdjustment.Type.DEDUCTION,100_000,"Equipment deduction"));item=p.items().getFirst();assertThat(item.grossEarnings()).isEqualTo(4_500_000);assertThat(item.deductions()).isEqualTo(600_000);assertThat(item.netPayable()).isEqualTo(3_900_000);p=payroll.approve(p.id());p=payroll.recordPayment(p.id(),item.id(),new PayrollService.PaymentInput(1_000_000,Instant.now().minusSeconds(60),PayrollPayment.Method.UPI,"UPI-1","First part"));item=p.items().getFirst();assertThat(item.paymentStatus()).isEqualTo(PayrollItem.PaymentStatus.PARTIALLY_PAID);assertThat(item.totalPaid()).isEqualTo(1_000_000);assertThat(item.remaining()).isEqualTo(2_900_000);assertThat(item.netPayable()).isEqualTo(3_900_000);assertThat(p.status()).isEqualTo(PayrollPeriod.Status.APPROVED);UUID overPeriodId=p.id(),overItemId=item.id();assertThatThrownBy(()->payroll.recordPayment(overPeriodId,overItemId,new PayrollService.PaymentInput(2_900_001,Instant.now(),PayrollPayment.Method.CASH,null,null))).isInstanceOfSatisfying(ApiException.class,e->assertThat(e.code).isEqualTo("PAYROLL_OVERPAYMENT"));p=payroll.recordPayment(p.id(),item.id(),new PayrollService.PaymentInput(2_900_000,Instant.now(),PayrollPayment.Method.BANK_TRANSFER,"BANK-2","Final part"));item=payroll.get(p.id()).items().getFirst();assertThat(item.paymentStatus()).isEqualTo(PayrollItem.PaymentStatus.PAID);assertThat(item.payments()).hasSize(2);assertThat(item.totalPaid()).isEqualTo(item.netPayable());assertThat(item.remaining()).isZero();assertThat(p.status()).isEqualTo(PayrollPeriod.Status.PAID);assertThat(audits.findAll().stream().filter(a->a.action.equals("PAYROLL_PAYMENT_RECORDED"))).hasSize(2);}
-  private ProductionService.View production(String title,LocalTime start,LocalTime end){return productions.create(new ProductionService.Input(title,"Client",null,day,start,end,"Studio",null,Production.Priority.NORMAL,0));}
+  @Container
+  static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:17-alpine");
+
+  @DynamicPropertySource
+  static void db(DynamicPropertyRegistry p) {
+    p.add("spring.datasource.url", postgres::getJdbcUrl);
+    p.add("spring.datasource.username", postgres::getUsername);
+    p.add("spring.datasource.password", postgres::getPassword);
+    p.add("app.demo-seed", () -> false);
+  }
+
+  @Autowired EmployeeRepository employees;
+  @Autowired ProductionService productions;
+  @Autowired CalendarService calendar;
+  @Autowired SchedulingConflictService conflicts;
+  @Autowired WorkTaskService tasks;
+  @Autowired MeetingService meetings;
+  @Autowired PayrollService payroll;
+  @Autowired AttendanceRepository attendance;
+  @Autowired AuditRepository audits;
+  Employee employee;
+  ZoneId zone = ZoneId.of("Asia/Kolkata");
+  LocalDate day = LocalDate.of(2026, 9, 26);
+
+  @BeforeEach
+  void employee() {
+    employee = new Employee();
+    employee.employeeCode = "T-" + UUID.randomUUID().toString().substring(0, 8);
+    employee.firstName = "Amaan";
+    employee.displayName = "Amaan Test";
+    employee.phone = "+919000000000";
+    employee.roleTitle = "Editor";
+    employee.department = "Post";
+    employee.employmentType = "FULL_TIME";
+    employee.joiningDate = LocalDate.of(2024, 1, 1);
+    employee.baseSalaryMinor = 4_200_000;
+    employee.salaryCurrency = "INR";
+    employee.status = Employee.Status.ACTIVE;
+    employees.saveAndFlush(employee);
+  }
+
+  @Test
+  void productionLifecycleRejectsImpossibleTransition() {
+    var p = production("Lifecycle", LocalTime.of(9, 0), LocalTime.of(12, 0));
+    assertThatThrownBy(() -> productions.transition(p.id(), Production.Status.REVIEW))
+        .isInstanceOfSatisfying(
+            ApiException.class, e -> assertThat(e.code).isEqualTo("INVALID_PRODUCTION_TRANSITION"));
+    productions.transition(p.id(), Production.Status.PLANNING);
+    assertThat(productions.get(p.id()).status()).isEqualTo(Production.Status.PLANNING);
+  }
+
+  @Test
+  void overlapRulesConflictOverrideAndAudit() {
+    Instant start = day.atTime(10, 0).atZone(zone).toInstant(),
+        end = day.atTime(12, 0).atZone(zone).toInstant();
+    calendar.create(
+        new CalendarService.Input(
+            CalendarEvent.Type.INTERNAL,
+            "Existing",
+            null,
+            start,
+            end,
+            null,
+            null,
+            List.of(employee.id),
+            false,
+            null));
+    assertThat(conflicts.find(employee.id, start, end, null)).hasSize(1);
+    assertThat(
+            conflicts.find(
+                employee.id,
+                day.atTime(10, 30).atZone(zone).toInstant(),
+                day.atTime(11, 0).atZone(zone).toInstant(),
+                null))
+        .hasSize(1);
+    var p = production("Overlap", LocalTime.of(11, 0), LocalTime.of(13, 0));
+    var in =
+        new ProductionService.MemberInput(
+            employee.id, "Editor", true, ProductionMember.Status.PENDING, false, null);
+    assertThatThrownBy(() -> productions.addMember(p.id(), in))
+        .isInstanceOfSatisfying(
+            ApiException.class, e -> assertThat(e.code).isEqualTo("SCHEDULING_CONFLICT"));
+    productions.addMember(
+        p.id(),
+        new ProductionService.MemberInput(
+            employee.id, "Editor", true, ProductionMember.Status.PENDING, true, "Owner decision"));
+    productions.updateMemberStatus(
+        p.id(),
+        employee.id,
+        new ProductionService.MemberStatusInput(ProductionMember.Status.CONFIRMED));
+    assertThat(productions.get(p.id()).members())
+        .singleElement()
+        .satisfies(
+            m -> {
+              assertThat(m.conflictOverridden()).isTrue();
+              assertThat(m.assignmentStatus()).isEqualTo(ProductionMember.Status.CONFIRMED);
+            });
+    assertThat(audits.findAll().stream().map(x -> x.action))
+        .contains("SCHEDULING_CONFLICT_OVERRIDDEN", "PRODUCTION_MEMBER_STATUS_UPDATED");
+    Instant adjacent = day.atTime(13, 0).atZone(zone).toInstant();
+    assertThat(
+            conflicts.find(employee.id, adjacent, day.atTime(14, 0).atZone(zone).toInstant(), null))
+        .isEmpty();
+  }
+
+  @Test
+  void taskProgressHistoryCompletionAndOverdueAreCentralized() {
+    var t =
+        tasks.create(
+            new WorkTaskService.Input(
+                null,
+                null,
+                "Teaser",
+                null,
+                employee.id,
+                WorkTask.Status.TODO,
+                WorkTask.Priority.HIGH,
+                day.minusDays(1),
+                Instant.now().minusSeconds(3600),
+                0));
+    UUID taskId = t.id();
+    assertThat(t.overdue()).isTrue();
+    assertThat(
+            calendar
+                .list(Instant.now().minusSeconds(86400), Instant.now().plusSeconds(86400))
+                .stream()
+                .filter(e -> e.taskId() != null && e.taskId().equals(taskId)))
+        .singleElement()
+        .extracting(CalendarService.View::type)
+        .isEqualTo(CalendarEvent.Type.DEADLINE);
+    t =
+        tasks.progress(
+            taskId, new WorkTaskService.UpdateInput(78, "First cut", WorkTask.Status.IN_PROGRESS));
+    assertThat(t.progressPercent()).isEqualTo(78);
+    assertThat(t.updates()).hasSize(2);
+    t =
+        tasks.progress(
+            taskId, new WorkTaskService.UpdateInput(100, "Approved", WorkTask.Status.DONE));
+    assertThat(t.completedAt()).isNotNull();
+    assertThat(t.overdue()).isFalse();
+  }
+
+  @Test
+  void meetingActionUsesNormalTaskAndCalendarLink() {
+    Instant start = day.atTime(14, 0).atZone(zone).toInstant();
+    var m =
+        meetings.create(
+            new MeetingService.Input(
+                "Review",
+                null,
+                "Exports",
+                start,
+                start.plusSeconds(3600),
+                "Studio",
+                List.of(employee.id),
+                false,
+                null));
+    m =
+        meetings.updateAttendeeResponse(
+            m.id(),
+            employee.id,
+            new MeetingService.ResponseInput(MeetingService.Response.ACCEPTED));
+    assertThat(m.attendees())
+        .singleElement()
+        .extracting(MeetingService.Attendee::response)
+        .isEqualTo("ACCEPTED");
+    var action =
+        meetings.action(
+            m.id(),
+            new MeetingService.ActionInput(
+                "Export teaser", null, employee.id, start.plusSeconds(7200)));
+    assertThat(action.meetingOriginId()).isEqualTo(m.id());
+    assertThat(tasks.get(action.id()).title()).isEqualTo("Export teaser");
+    assertThat(calendar.eventForMeeting(m.id()).type).isEqualTo(CalendarEvent.Type.MEETING);
+    assertThat(audits.findAll().stream().map(x -> x.action))
+        .contains("MEETING_ATTENDEE_RESPONSE_UPDATED");
+  }
+
+  @Test
+  void payrollArithmeticStateAndLockedSnapshotsAreImmutable() {
+    AttendanceRecord absent = new AttendanceRecord();
+    absent.employee = employee;
+    absent.date = LocalDate.of(2027, 1, 5);
+    absent.status = AttendanceRecord.Status.ABSENT;
+    attendance.save(absent);
+    var p = payroll.calculate(2027, 1);
+    var item = p.items().getFirst();
+    assertThat(item.attendanceDeductionMinor()).isEqualTo(161_538);
+    p =
+        payroll.adjust(
+            p.id(),
+            new PayrollService.AdjustmentInput(
+                item.id(), PayrollAdjustment.Type.BONUS, 300_000, "Performance bonus"));
+    assertThat(p.items().getFirst().netSalaryMinor()).isEqualTo(4_338_462);
+    p = payroll.approve(p.id());
+    p =
+        payroll.recordPayment(
+            p.id(),
+            item.id(),
+            new PayrollService.PaymentInput(
+                UUID.randomUUID(),
+                4_338_462,
+                Instant.now(),
+                PayrollPayment.Method.BANK_TRANSFER,
+                "JAN-2027",
+                "Full settlement"));
+    p = payroll.lock(p.id());
+    UUID periodId = p.id();
+    long snapshot = p.items().getFirst().baseSalaryMinor(),
+        net = p.items().getFirst().netSalaryMinor();
+    employee.baseSalaryMinor = 5_000_000;
+    employees.saveAndFlush(employee);
+    AttendanceRecord later = new AttendanceRecord();
+    later.employee = employee;
+    later.date = LocalDate.of(2027, 1, 6);
+    later.status = AttendanceRecord.Status.ABSENT;
+    attendance.save(later);
+    var locked = payroll.get(periodId);
+    assertThat(locked.items().getFirst().baseSalaryMinor()).isEqualTo(snapshot);
+    assertThat(locked.items().getFirst().netSalaryMinor()).isEqualTo(net);
+    assertThat(payroll.paymentHistory(locked.id(), locked.items().getFirst().id()).payments())
+        .hasSize(1);
+    assertThatThrownBy(
+            () ->
+                payroll.adjust(
+                    periodId,
+                    new PayrollService.AdjustmentInput(
+                        item.id(), PayrollAdjustment.Type.BONUS, 1, "No")))
+        .isInstanceOfSatisfying(
+            ApiException.class, e -> assertThat(e.code).isEqualTo("PAYROLL_LOCKED"));
+    assertThatThrownBy(
+            () ->
+                payroll.recordPayment(
+                    periodId,
+                    item.id(),
+                    new PayrollService.PaymentInput(
+                        UUID.randomUUID(),
+                        1,
+                        Instant.now(),
+                        PayrollPayment.Method.CASH,
+                        null,
+                        null)))
+        .isInstanceOfSatisfying(
+            ApiException.class, e -> assertThat(e.code).isEqualTo("PAYROLL_LOCKED"));
+  }
+
+  @Test
+  void payrollLedgerSupportsPartialAndMultiplePaymentsWithoutChangingAmountOwed() {
+    var p = payroll.calculate(2027, 2);
+    var item = p.items().getFirst();
+    p =
+        payroll.adjust(
+            p.id(),
+            new PayrollService.AdjustmentInput(
+                item.id(), PayrollAdjustment.Type.BONUS, 300_000, "Bonus"));
+    p =
+        payroll.adjust(
+            p.id(),
+            new PayrollService.AdjustmentInput(
+                item.id(), PayrollAdjustment.Type.ADVANCE, 500_000, "Advance already received"));
+    p =
+        payroll.adjust(
+            p.id(),
+            new PayrollService.AdjustmentInput(
+                item.id(), PayrollAdjustment.Type.DEDUCTION, 100_000, "Equipment deduction"));
+    item = p.items().getFirst();
+    assertThat(item.grossEarnings()).isEqualTo(4_500_000);
+    assertThat(item.deductions()).isEqualTo(600_000);
+    assertThat(item.netPayable()).isEqualTo(3_900_000);
+    p = payroll.approve(p.id());
+    p =
+        payroll.recordPayment(
+            p.id(),
+            item.id(),
+            new PayrollService.PaymentInput(
+                UUID.randomUUID(),
+                1_000_000,
+                Instant.now().minusSeconds(60),
+                PayrollPayment.Method.UPI,
+                "UPI-1",
+                "First part"));
+    item = p.items().getFirst();
+    assertThat(item.paymentStatus()).isEqualTo(PayrollItem.PaymentStatus.PARTIALLY_PAID);
+    assertThat(item.totalPaid()).isEqualTo(1_000_000);
+    assertThat(item.remaining()).isEqualTo(2_900_000);
+    assertThat(item.netPayable()).isEqualTo(3_900_000);
+    assertThat(p.status()).isEqualTo(PayrollPeriod.Status.APPROVED);
+    UUID overPeriodId = p.id(), overItemId = item.id();
+    assertThatThrownBy(
+            () ->
+                payroll.recordPayment(
+                    overPeriodId,
+                    overItemId,
+                    new PayrollService.PaymentInput(
+                        UUID.randomUUID(),
+                        2_900_001,
+                        Instant.now(),
+                        PayrollPayment.Method.CASH,
+                        null,
+                        null)))
+        .isInstanceOfSatisfying(
+            ApiException.class, e -> assertThat(e.code).isEqualTo("PAYROLL_OVERPAYMENT"));
+    p =
+        payroll.recordPayment(
+            p.id(),
+            item.id(),
+            new PayrollService.PaymentInput(
+                UUID.randomUUID(),
+                2_900_000,
+                Instant.now(),
+                PayrollPayment.Method.BANK_TRANSFER,
+                "BANK-2",
+                "Final part"));
+    item = payroll.get(p.id()).items().getFirst();
+    assertThat(item.paymentStatus()).isEqualTo(PayrollItem.PaymentStatus.PAID);
+    assertThat(payroll.paymentHistory(p.id(), item.id()).payments()).hasSize(2);
+    assertThat(item.totalPaid()).isEqualTo(item.netPayable());
+    assertThat(item.remaining()).isZero();
+    assertThat(p.status()).isEqualTo(PayrollPeriod.Status.PAID);
+    assertThat(audits.findAll().stream().filter(a -> a.action.equals("PAYROLL_PAYMENT_RECORDED")))
+        .hasSize(2);
+  }
+
+  private ProductionService.View production(String title, LocalTime start, LocalTime end) {
+    return productions.create(
+        new ProductionService.Input(
+            title, "Client", null, day, start, end, "Studio", null, Production.Priority.NORMAL, 0));
+  }
 }

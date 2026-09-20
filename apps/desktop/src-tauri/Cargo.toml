@@ -1,6 +1,6 @@
 [package]
 name = "sa-command"
-version = "0.1.0"
+version = "1.2.0"
 description = "SA Production owner operations"
 authors = ["SA Production"]
 edition = "2021"
@@ -16,4 +16,10 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+keyring = { version = "3", features = ["windows-native", "apple-native"] }
+reqwest = { version = "0.12", features = ["blocking", "json"] }
+rand = "0.8"
+fs2 = "0.4"
 
+[features]
+production = []

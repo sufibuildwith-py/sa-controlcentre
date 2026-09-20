@@ -1,0 +1,18 @@
+server:
+  address: 127.0.0.1
+  port: 17841
+app:
+  mode: production
+  deployment: desktop
+  demo-seed: false
+  desktop-origins: tauri://localhost,http://tauri.localhost,https://tauri.localhost
+  messaging:
+    provider: ${MESSAGING_PROVIDER:unconfigured}
+    worker-enabled: ${MESSAGING_WORKER_ENABLED:false}
+logging:
+  file:
+    name: ${SA_DATA_DIR}/logs/command.log
+  logback:
+    rollingpolicy:
+      max-history: 14
+      max-file-size: 10MB

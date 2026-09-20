@@ -36,8 +36,8 @@ management:
       exposure:
         include: health,info
 app:
-  mode: ${APP_MODE:demo}
-  demo-seed: ${DEMO_SEED:true}
+  mode: ${APP_MODE:development}
+  demo-seed: ${DEMO_SEED:false}
   time-zone: ${APP_TIME_ZONE:Asia/Kolkata}
   payroll:
     policy: ${PAYROLL_POLICY:PER_WORKING_DAY}

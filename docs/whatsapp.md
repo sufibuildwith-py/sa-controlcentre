@@ -15,6 +15,8 @@ Production POST callbacks require a valid `X-Hub-Signature-256` HMAC using `META
 
 The persisted lifecycle is `QUEUED → SENDING → SENT → DELIVERED → READ`, with bounded retry and terminal `FAILED`. Unique idempotency keys prevent duplicate sends. Unique provider receipt IDs prevent duplicate callbacks from repeating an audit or domain update.
 
+Each logical message owns append-only delivery attempts. Retries create a new attempt without overwriting earlier provider IDs, and callbacks resolve to the exact attempt. Stale success callbacks and late failure callbacks cannot regress delivered/read evidence. Webhook receipt IDs are retained for 180 days and removed by a daily cleanup, preserving replay protection without unbounded growth.
+
 Interactive production replies support confirm/decline and meeting replies support accept/decline. Meta webhooks and the demo-only simulator both call `InboundMessagingService`; neither bypasses the business domain.
 
 See [communications.md](communications.md) for the complete event/outbox/provider architecture.

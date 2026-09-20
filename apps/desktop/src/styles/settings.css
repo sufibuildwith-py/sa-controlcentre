@@ -1,0 +1,20 @@
+.health-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.health-grid .settings-row {
+  padding: 11px;
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+}
+.health-grid .settings-row span:first-child {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.health-grid .settings-row div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}

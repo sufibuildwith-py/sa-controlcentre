@@ -10,31 +10,245 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class DashboardService {
-  public record Team(long employees,long present,long late,long absent,long leave,long incomplete){}
-  public record Today(UUID id,String type,String title,Instant startsAt,Instant endsAt){}
-  public record Production(UUID id,String title,String status,int progressPercent,LocalDate eventDate){}
-  public record Workload(UUID employeeId,String employeeName,long active,long overdue){}
-  public record Payroll(UUID id,int year,int month,String status,long totalMinor,long paidMinor,long pendingMinor,long partiallyPaidCount,long unpaidCount){}
-  public record Attention(String code,String title,String detail,String tone,String href){}
-  public record Communications(long queued,long sent,long delivered,long read,long failed,long awaitingResponse){}
-  public record View(Team team,List<Today> today,List<Production> productions,List<Workload> workload,Payroll payroll,List<Attention> attention,Communications communications){}
+  public record Team(
+      long employees, long present, long late, long absent, long leave, long incomplete) {}
 
-  private final JdbcTemplate jdbc;private final ZoneId zone;
-  public DashboardService(JdbcTemplate jdbc,@Value("${app.time-zone:Asia/Kolkata}") String zone){this.jdbc=jdbc;this.zone=ZoneId.of(zone);}
+  public record Today(UUID id, String type, String title, Instant startsAt, Instant endsAt) {}
 
-  @Transactional(readOnly=true) public View dashboard(){
-    LocalDate today=LocalDate.now(zone);Instant start=today.atStartOfDay(zone).toInstant(),end=today.plusDays(1).atStartOfDay(zone).toInstant();long employees=count("select count(*) from employees where status<>'INACTIVE'");Map<String,Long> states=new HashMap<>();jdbc.query("select status,count(*) from attendance_records where attendance_date=? group by status",r->{states.put(r.getString(1),r.getLong(2));},today);long recorded=states.values().stream().mapToLong(Long::longValue).sum();Team team=new Team(employees,states.getOrDefault("PRESENT",0L),states.getOrDefault("LATE",0L),states.getOrDefault("ABSENT",0L),states.getOrDefault("LEAVE",0L),Math.max(0,employees-recorded));
-    var schedule=jdbc.query("select id,type,title,starts_at,ends_at from calendar_events where status='SCHEDULED' and starts_at<? and ends_at>? order by starts_at",(r,n)->new Today(r.getObject(1,UUID.class),r.getString(2),r.getString(3),r.getTimestamp(4).toInstant(),r.getTimestamp(5).toInstant()),Timestamp.from(end),Timestamp.from(start));
-    var productions=jdbc.query("select id,title,status,progress_percent,event_date from productions where status not in ('DELIVERED','CANCELLED') order by case priority when 'URGENT' then 0 when 'HIGH' then 1 else 2 end,event_date limit 4",(r,n)->new Production(r.getObject(1,UUID.class),r.getString(2),r.getString(3),r.getInt(4),r.getObject(5,LocalDate.class)));
-    var workload=jdbc.query("select e.id,e.display_name,count(t.id) filter(where t.status not in ('DONE','CANCELLED')),count(t.id) filter(where t.due_at<now() and t.status not in ('DONE','CANCELLED')) from employees e left join tasks t on t.assigned_employee_id=e.id where e.status<>'INACTIVE' group by e.id,e.display_name order by count(t.id) filter(where t.status not in ('DONE','CANCELLED')) desc,e.display_name limit 6",(r,n)->new Workload(r.getObject(1,UUID.class),r.getString(2),r.getLong(3),r.getLong(4)));
-    Payroll payroll=jdbc.query("select p.id,p.year,p.month,p.status,coalesce((select sum(i.net_salary_minor) from payroll_items i where i.payroll_period_id=p.id),0),coalesce((select sum(pp.amount_minor) from payroll_payments pp join payroll_items i on i.id=pp.payroll_item_id where i.payroll_period_id=p.id),0),(select count(*) from payroll_items i where i.payroll_period_id=p.id and i.payment_status='PARTIALLY_PAID'),(select count(*) from payroll_items i where i.payroll_period_id=p.id and i.payment_status='UNPAID') from payroll_periods p order by p.year desc,p.month desc limit 1",r->r.next()?new Payroll(r.getObject(1,UUID.class),r.getInt(2),r.getInt(3),r.getString(4),r.getLong(5),r.getLong(6),Math.max(r.getLong(5)-r.getLong(6),0),r.getLong(7),r.getLong(8)):null);
-    Communications communications=jdbc.query("select count(*) filter(where status in ('QUEUED','SENDING')),count(*) filter(where status='SENT'),count(*) filter(where status='DELIVERED'),count(*) filter(where status='READ'),count(*) filter(where status='FAILED'),count(*) filter(where requires_response and response is null and status not in ('FAILED','QUEUED')) from outbound_messages",r->{r.next();return new Communications(r.getLong(1),r.getLong(2),r.getLong(3),r.getLong(4),r.getLong(5),r.getLong(6));});
-    return new View(team,schedule,productions,workload,payroll,attention(today),communications);
+  public record Production(
+      UUID id, String title, String status, int progressPercent, LocalDate eventDate) {}
+
+  public record Workload(UUID employeeId, String employeeName, long active, long overdue) {}
+
+  public record Payroll(
+      UUID id,
+      int year,
+      int month,
+      String status,
+      long totalMinor,
+      long paidMinor,
+      long pendingMinor,
+      long partiallyPaidCount,
+      long unpaidCount) {}
+
+  public record Attention(String code, String title, String detail, String tone, String href) {}
+
+  public record Communications(
+      long queued, long sent, long delivered, long read, long failed, long awaitingResponse) {}
+
+  public record View(
+      Team team,
+      List<Today> today,
+      List<Production> productions,
+      List<Workload> workload,
+      Payroll payroll,
+      List<Attention> attention,
+      Communications communications) {}
+
+  private final JdbcTemplate jdbc;
+  private final ZoneId zone;
+
+  public DashboardService(JdbcTemplate jdbc, @Value("${app.time-zone:Asia/Kolkata}") String zone) {
+    this.jdbc = jdbc;
+    this.zone = ZoneId.of(zone);
   }
 
-  public List<Attention> attention(LocalDate today){
-    List<Attention> result=new ArrayList<>();long failed=count("select count(*) from outbound_messages where status='FAILED'");if(failed>0)result.add(new Attention("MESSAGE_FAILURES","Messages need intervention",failed+" message"+(failed==1?"":"s")+" failed to send","danger","/communications?status=FAILED"));long declined=count("select count(*) from production_members where assignment_status='DECLINED'");if(declined>0)result.add(new Attention("ASSIGNMENTS_DECLINED","Crew assignments declined",declined+" assignment"+(declined==1?"":"s")+" need reassignment","danger","/productions"));long responses=count("select count(*) from outbound_messages where requires_response and response is null and status not in ('FAILED','QUEUED')");if(responses>0)result.add(new Attention("MESSAGE_RESPONSES","Responses pending",responses+" confirmation"+(responses==1?"":"s")+" still outstanding","warning","/communications?attention=true"));long meetingResponses=count("select count(*) from meeting_attendees a join meetings m on m.id=a.meeting_id where a.response='PENDING' and m.status='SCHEDULED' and m.starts_at>now()");if(meetingResponses>0)result.add(new Attention("MEETING_RESPONSES","Meeting replies outstanding",meetingResponses+" attendee response"+(meetingResponses==1?"":"s")+" pending","warning","/meetings"));long overdue=count("select count(*) from tasks where due_at<now() and status not in ('DONE','CANCELLED')");if(overdue>0)result.add(new Attention("OVERDUE_TASKS","Overdue work",overdue+" task"+(overdue==1?"":"s")+" need attention","danger","/work"));long incomplete=count("select count(*) from employees e where e.status<>'INACTIVE' and not exists(select 1 from attendance_records a where a.employee_id=e.id and a.attendance_date=?)",today);if(incomplete>0)result.add(new Attention("ATTENDANCE_INCOMPLETE","Attendance incomplete",incomplete+" employee"+(incomplete==1?"":"s")+" not recorded","warning","/attendance"));long high=count("select count(*) from productions where priority in ('HIGH','URGENT') and status not in ('DELIVERED','CANCELLED') and event_date<=?",today.plusDays(7));if(high>0)result.add(new Attention("HIGH_PRIORITY_PRODUCTION","Production approaching",high+" high-priority production"+(high==1?"":"s")+" within seven days","warning","/productions"));
-    String payroll=jdbc.query("select status from payroll_periods order by year desc,month desc limit 1",r->r.next()?r.getString(1):null);if(payroll==null||Set.of("DRAFT","CALCULATED","APPROVED").contains(payroll))result.add(new Attention("PAYROLL_ACTION","Payroll awaits action",payroll==null?"Current payroll has not been calculated":payroll.toLowerCase().replace('_',' '),"neutral","/payroll"));long partial=count("select count(*) from payroll_items i join payroll_periods p on p.id=i.payroll_period_id where (p.year,p.month)=(select year,month from payroll_periods order by year desc,month desc limit 1) and i.payment_status='PARTIALLY_PAID'");long unpaid=count("select count(*) from payroll_items i join payroll_periods p on p.id=i.payroll_period_id where (p.year,p.month)=(select year,month from payroll_periods order by year desc,month desc limit 1) and i.payment_status='UNPAID'");if(partial+unpaid>0)result.add(new Attention("PAYROLL_BALANCES","Payroll balances remain",partial+" partially paid · "+unpaid+" unpaid","warning","/payroll?paymentStatus=OPEN"));return result;
+  @Transactional(readOnly = true)
+  public View dashboard() {
+    LocalDate today = LocalDate.now(zone);
+    Instant start = today.atStartOfDay(zone).toInstant(),
+        end = today.plusDays(1).atStartOfDay(zone).toInstant();
+    long employees = count("select count(*) from employees where status<>'INACTIVE'");
+    Map<String, Long> states = new HashMap<>();
+    jdbc.query(
+        "select status,count(*) from attendance_records where attendance_date=? group by status",
+        r -> {
+          states.put(r.getString(1), r.getLong(2));
+        },
+        today);
+    long recorded = states.values().stream().mapToLong(Long::longValue).sum();
+    Team team =
+        new Team(
+            employees,
+            states.getOrDefault("PRESENT", 0L),
+            states.getOrDefault("LATE", 0L),
+            states.getOrDefault("ABSENT", 0L),
+            states.getOrDefault("LEAVE", 0L),
+            Math.max(0, employees - recorded));
+    var schedule =
+        jdbc.query(
+            "select id,type,title,starts_at,ends_at from calendar_events where status='SCHEDULED' and starts_at<? and ends_at>? order by starts_at",
+            (r, n) ->
+                new Today(
+                    r.getObject(1, UUID.class),
+                    r.getString(2),
+                    r.getString(3),
+                    r.getTimestamp(4).toInstant(),
+                    r.getTimestamp(5).toInstant()),
+            Timestamp.from(end),
+            Timestamp.from(start));
+    var productions =
+        jdbc.query(
+            "select id,title,status,progress_percent,event_date from productions where status not in ('DELIVERED','CANCELLED') order by case priority when 'URGENT' then 0 when 'HIGH' then 1 else 2 end,event_date limit 4",
+            (r, n) ->
+                new Production(
+                    r.getObject(1, UUID.class),
+                    r.getString(2),
+                    r.getString(3),
+                    r.getInt(4),
+                    r.getObject(5, LocalDate.class)));
+    var workload =
+        jdbc.query(
+            "select e.id,e.display_name,count(t.id) filter(where t.status not in ('DONE','CANCELLED')),count(t.id) filter(where t.due_at<now() and t.status not in ('DONE','CANCELLED')) from employees e left join tasks t on t.assigned_employee_id=e.id where e.status<>'INACTIVE' group by e.id,e.display_name order by count(t.id) filter(where t.status not in ('DONE','CANCELLED')) desc,e.display_name limit 6",
+            (r, n) ->
+                new Workload(
+                    r.getObject(1, UUID.class), r.getString(2), r.getLong(3), r.getLong(4)));
+    Payroll payroll =
+        jdbc.query(
+            "select p.id,p.year,p.month,p.status,coalesce((select sum(i.net_salary_minor) from payroll_items i where i.payroll_period_id=p.id),0),coalesce((select sum(pp.amount_minor) from payroll_payments pp join payroll_items i on i.id=pp.payroll_item_id where i.payroll_period_id=p.id),0),(select count(*) from payroll_items i where i.payroll_period_id=p.id and i.payment_status='PARTIALLY_PAID'),(select count(*) from payroll_items i where i.payroll_period_id=p.id and i.payment_status='UNPAID') from payroll_periods p order by p.year desc,p.month desc limit 1",
+            r ->
+                r.next()
+                    ? new Payroll(
+                        r.getObject(1, UUID.class),
+                        r.getInt(2),
+                        r.getInt(3),
+                        r.getString(4),
+                        r.getLong(5),
+                        r.getLong(6),
+                        Math.max(r.getLong(5) - r.getLong(6), 0),
+                        r.getLong(7),
+                        r.getLong(8))
+                    : null);
+    Communications communications =
+        jdbc.query(
+            "select count(*) filter(where status in ('QUEUED','SENDING')),count(*) filter(where status='SENT'),count(*) filter(where status in ('DELIVERED','READ')),count(*) filter(where status='READ'),count(*) filter(where status='FAILED'),count(*) filter(where requires_response and response is null and status not in ('FAILED','QUEUED')) from outbound_messages",
+            r -> {
+              r.next();
+              return new Communications(
+                  r.getLong(1),
+                  r.getLong(2),
+                  r.getLong(3),
+                  r.getLong(4),
+                  r.getLong(5),
+                  r.getLong(6));
+            });
+    return new View(
+        team, schedule, productions, workload, payroll, attention(today), communications);
   }
-  private long count(String sql,Object... args){return Objects.requireNonNull(jdbc.queryForObject(sql,Long.class,args));}
+
+  public List<Attention> attention(LocalDate today) {
+    List<Attention> result = new ArrayList<>();
+    long failed = count("select count(*) from outbound_messages where status='FAILED'");
+    if (failed > 0)
+      result.add(
+          new Attention(
+              "MESSAGE_FAILURES",
+              "Messages need intervention",
+              failed + " message" + (failed == 1 ? "" : "s") + " failed to send",
+              "danger",
+              "/communications?status=FAILED"));
+    long declined =
+        count("select count(*) from production_members where assignment_status='DECLINED'");
+    if (declined > 0)
+      result.add(
+          new Attention(
+              "ASSIGNMENTS_DECLINED",
+              "Crew assignments declined",
+              declined + " assignment" + (declined == 1 ? "" : "s") + " need reassignment",
+              "danger",
+              "/productions"));
+    long responses =
+        count(
+            "select count(*) from outbound_messages where requires_response and response is null and status not in ('FAILED','QUEUED')");
+    if (responses > 0)
+      result.add(
+          new Attention(
+              "MESSAGE_RESPONSES",
+              "Responses pending",
+              responses + " confirmation" + (responses == 1 ? "" : "s") + " still outstanding",
+              "warning",
+              "/communications?attention=true"));
+    long meetingResponses =
+        count(
+            "select count(*) from meeting_attendees a join meetings m on m.id=a.meeting_id where a.response='PENDING' and m.status='SCHEDULED' and m.starts_at>now()");
+    if (meetingResponses > 0)
+      result.add(
+          new Attention(
+              "MEETING_RESPONSES",
+              "Meeting replies outstanding",
+              meetingResponses
+                  + " attendee response"
+                  + (meetingResponses == 1 ? "" : "s")
+                  + " pending",
+              "warning",
+              "/meetings"));
+    long overdue =
+        count(
+            "select count(*) from tasks where due_at<now() and status not in ('DONE','CANCELLED')");
+    if (overdue > 0)
+      result.add(
+          new Attention(
+              "OVERDUE_TASKS",
+              "Overdue work",
+              overdue + " task" + (overdue == 1 ? "" : "s") + " need attention",
+              "danger",
+              "/work"));
+    long incomplete =
+        count(
+            "select count(*) from employees e where e.status<>'INACTIVE' and not exists(select 1 from attendance_records a where a.employee_id=e.id and a.attendance_date=?)",
+            today);
+    if (incomplete > 0)
+      result.add(
+          new Attention(
+              "ATTENDANCE_INCOMPLETE",
+              "Attendance incomplete",
+              incomplete + " employee" + (incomplete == 1 ? "" : "s") + " not recorded",
+              "warning",
+              "/attendance"));
+    long high =
+        count(
+            "select count(*) from productions where priority in ('HIGH','URGENT') and status not in ('DELIVERED','CANCELLED') and event_date<=?",
+            today.plusDays(7));
+    if (high > 0)
+      result.add(
+          new Attention(
+              "HIGH_PRIORITY_PRODUCTION",
+              "Production approaching",
+              high + " high-priority production" + (high == 1 ? "" : "s") + " within seven days",
+              "warning",
+              "/productions"));
+    String payroll =
+        jdbc.query(
+            "select status from payroll_periods order by year desc,month desc limit 1",
+            r -> r.next() ? r.getString(1) : null);
+    if (payroll == null || Set.of("DRAFT", "CALCULATED", "APPROVED").contains(payroll))
+      result.add(
+          new Attention(
+              "PAYROLL_ACTION",
+              "Payroll awaits action",
+              payroll == null
+                  ? "Current payroll has not been calculated"
+                  : payroll.toLowerCase().replace('_', ' '),
+              "neutral",
+              "/payroll"));
+    long partial =
+        count(
+            "select count(*) from payroll_items i join payroll_periods p on p.id=i.payroll_period_id where (p.year,p.month)=(select year,month from payroll_periods order by year desc,month desc limit 1) and i.payment_status='PARTIALLY_PAID'");
+    long unpaid =
+        count(
+            "select count(*) from payroll_items i join payroll_periods p on p.id=i.payroll_period_id where (p.year,p.month)=(select year,month from payroll_periods order by year desc,month desc limit 1) and i.payment_status='UNPAID'");
+    if (partial + unpaid > 0)
+      result.add(
+          new Attention(
+              "PAYROLL_BALANCES",
+              "Payroll balances remain",
+              partial + " partially paid · " + unpaid + " unpaid",
+              "warning",
+              "/payroll?paymentStatus=OPEN"));
+    return result;
+  }
+
+  private long count(String sql, Object... args) {
+    return Objects.requireNonNull(jdbc.queryForObject(sql, Long.class, args));
+  }
 }

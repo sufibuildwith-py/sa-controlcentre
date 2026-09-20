@@ -172,7 +172,13 @@ export function SACommandPalette({
                       key={`${employee.id}-message`}
                       value={`${employee.displayName} message whatsapp communication`}
                       icon={MessageCircle}
-                      onSelect={() => act(() => onNavigate(`/communications?compose=1&employeeId=${employee.id}`))}
+                      onSelect={() =>
+                        act(() =>
+                          onNavigate(
+                            `/communications?compose=1&employeeId=${employee.id}`,
+                          ),
+                        )
+                      }
                     >
                       <span>Message {employee.displayName}</span>
                       <small>Queue a WhatsApp notice</small>

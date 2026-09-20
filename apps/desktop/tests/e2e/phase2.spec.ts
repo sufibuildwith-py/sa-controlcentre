@@ -219,8 +219,27 @@ async function mockApi(page: Page, state: any) {
         displayName: "Owner",
         role: "OWNER",
       });
-    if(path.endsWith('/notification-rules')&&method==='GET')return ok(route,[]);
-    if(path.endsWith('/demo/messages')&&method==='GET')return ok(route,{summary:{delivered:0,read:0,awaitingResponse:0,failed:0,queued:0,sentToday:0},messages:[]});
+    if (path.endsWith("/notification-rules") && method === "GET")
+      return ok(route, []);
+    if (path.endsWith("/demo/messages") && method === "GET")
+      return ok(route, {
+        summary: {
+          delivered: 0,
+          read: 0,
+          awaitingResponse: 0,
+          failed: 0,
+          queued: 0,
+          sentToday: 0,
+        },
+        messages: [],
+      });
+    if (path.endsWith("/system/diagnostics"))
+      return ok(route, {
+        api: "UP",
+        database: "UP",
+        appMode: "demo",
+        messagingProvider: "console",
+      });
     if (path.endsWith("/employees") && method === "GET")
       return ok(route, employees);
     const employee = path.match(/\/employees\/([^/]+)$/);
@@ -392,6 +411,8 @@ async function mockApi(page: Page, state: any) {
       return ok(route, [state.payroll]);
     if (path.match(/\/payroll\/[^/]+$/) && method === "GET")
       return ok(route, state.payroll);
+    if (path.endsWith(`/items/${ids.item}/payments`) && method === "GET")
+      return ok(route, state.payroll.items[0]);
     if (path.endsWith("/adjustments") && method === "POST") {
       state.payroll.items[0].bonusMinor = 300000;
       state.payroll.items[0].netSalaryMinor += 300000;
@@ -409,16 +430,29 @@ async function mockApi(page: Page, state: any) {
     }
     if (path.endsWith(`/items/${ids.item}/payments`) && method === "POST") {
       const body = route.request().postDataJSON();
-      const payment = { id:`payment-${state.payroll.items[0].payments.length + 1}`, amountMinor:body.amountMinor, paidAt:body.paidAt, paymentMethod:body.paymentMethod, reference:body.reference, note:body.note, createdAt:now.toISOString() };
+      const payment = {
+        id: `payment-${state.payroll.items[0].payments.length + 1}`,
+        amountMinor: body.amountMinor,
+        paidAt: body.paidAt,
+        paymentMethod: body.paymentMethod,
+        reference: body.reference,
+        note: body.note,
+        createdAt: now.toISOString(),
+      };
       state.payroll.items[0].payments.push(payment);
       state.payroll.items[0].lastPayment = payment;
       state.payroll.items[0].totalPaid += body.amountMinor;
-      state.payroll.items[0].remaining = Math.max(state.payroll.items[0].netPayable - state.payroll.items[0].totalPaid, 0);
+      state.payroll.items[0].remaining = Math.max(
+        state.payroll.items[0].netPayable - state.payroll.items[0].totalPaid,
+        0,
+      );
       state.payroll.paidMinor = state.payroll.items[0].totalPaid;
       state.payroll.pendingMinor = state.payroll.items[0].remaining;
       state.payroll.remainingMinor = state.payroll.items[0].remaining;
-      state.payroll.items[0].paymentStatus = state.payroll.items[0].remaining === 0 ? "PAID" : "PARTIALLY_PAID";
-      state.payroll.partiallyPaidCount = state.payroll.items[0].remaining === 0 ? 0 : 1;
+      state.payroll.items[0].paymentStatus =
+        state.payroll.items[0].remaining === 0 ? "PAID" : "PARTIALLY_PAID";
+      state.payroll.partiallyPaidCount =
+        state.payroll.items[0].remaining === 0 ? 0 : 1;
       state.payroll.paidCount = state.payroll.items[0].remaining === 0 ? 1 : 0;
       state.payroll.unpaidCount = 0;
       if (state.payroll.items[0].remaining === 0) state.payroll.status = "PAID";
@@ -476,7 +510,14 @@ async function mockApi(page: Page, state: any) {
           unpaidCount: state.payroll.unpaidCount,
         },
         attention: [],
-        communications:{queued:0,sent:0,delivered:0,read:0,failed:0,awaitingResponse:0},
+        communications: {
+          queued: 0,
+          sent: 0,
+          delivered: 0,
+          read: 0,
+          failed: 0,
+          awaitingResponse: 0,
+        },
       });
     return ok(route, []);
   });
@@ -549,15 +590,22 @@ test("Phase 2 connected owner flow", async ({ page }) => {
   await page.getByRole("button", { name: "Create task" }).click();
   await page.goto(`/payroll/${ids.payroll}`);
   await page.getByRole("button", { name: "Add adjustment" }).first().click();
+  await page.getByLabel("Adjustment employee").selectOption(ids.item);
+  await page.getByLabel("Adjustment type").selectOption("BONUS");
+  await page.getByLabel("Adjustment amount").fill("3000");
+  await page.getByLabel("Adjustment reason").fill("Performance bonus");
   await page.getByRole("button", { name: "Add adjustment" }).click();
   await page.getByRole("button", { name: "Approve payroll" }).click();
   await page.getByRole("button", { name: "Record payment" }).first().click();
+  await page.getByLabel("Payment employee").selectOption(ids.item);
   await page.getByLabel("Payment amount").fill("10000");
   await page.getByLabel("Payment method").selectOption("UPI");
   await page.getByLabel("Payment reference").fill("UPI-PARTIAL");
   await page.getByRole("button", { name: "Record payment" }).last().click();
   await expect(page.getByText("PARTIALLY PAID").first()).toBeVisible();
   await page.getByRole("button", { name: "Record payment" }).first().click();
+  await page.getByLabel("Payment employee").selectOption(ids.item);
+  await page.getByLabel("Payment amount").fill("33384.62");
   await page.getByLabel("Payment reference").fill("BANK-FINAL");
   await page.getByRole("button", { name: "Record payment" }).last().click();
   await expect(page.getByText("PAID").first()).toBeVisible();
@@ -573,6 +621,7 @@ test("Phase 2 connected owner flow", async ({ page }) => {
 });
 
 test("Phase 2 visual surfaces in Pearl and Charcoal", async ({ page }) => {
+  test.slow();
   await page.clock.setFixedTime(now);
   const state = fixtures(true);
   await mockApi(page, state);
@@ -587,12 +636,21 @@ test("Phase 2 visual surfaces in Pearl and Charcoal", async ({ page }) => {
     await page.goto(path);
     await shot(page, name);
   }
-  const ledgerPayment = {id:"payment-visual",amountMinor:1500000,paidAt:"2026-09-18T10:00:00.000Z",paymentMethod:"UPI",reference:"UPI-492821",note:"First salary payment",createdAt:"2026-09-18T10:00:00.000Z"};
+  const ledgerPayment = {
+    id: "payment-visual",
+    amountMinor: 1500000,
+    paidAt: "2026-09-18T10:00:00.000Z",
+    paymentMethod: "UPI",
+    reference: "UPI-492821",
+    note: "First salary payment",
+    createdAt: "2026-09-18T10:00:00.000Z",
+  };
   state.payroll.status = "APPROVED";
   state.payroll.items[0].payments = [ledgerPayment];
   state.payroll.items[0].lastPayment = ledgerPayment;
   state.payroll.items[0].totalPaid = ledgerPayment.amountMinor;
-  state.payroll.items[0].remaining = state.payroll.items[0].netPayable - ledgerPayment.amountMinor;
+  state.payroll.items[0].remaining =
+    state.payroll.items[0].netPayable - ledgerPayment.amountMinor;
   state.payroll.items[0].paymentStatus = "PARTIALLY_PAID";
   state.payroll.paidMinor = ledgerPayment.amountMinor;
   state.payroll.remainingMinor = state.payroll.items[0].remaining;
