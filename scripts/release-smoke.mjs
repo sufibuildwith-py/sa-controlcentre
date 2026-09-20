@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 const exe=process.argv[2];
+const persistenceOnly=process.argv.includes('--persistence-only');
 if(!exe)throw new Error('Pass the installed SA Command executable path.');
 const profile=path.resolve('.release-tools/installed-smoke');
 await mkdir(profile,{recursive:true});
@@ -32,12 +33,20 @@ async function api(p,method='GET',value) {
 }
 async function close() {
  const done=new Promise(r=>app.once('exit',r));
- await native('plugin:window|close',{label:'main'}).catch(()=>{});
+ native('quit_app').catch(()=>{});
  await Promise.race([done,new Promise((_,reject)=>setTimeout(()=>reject(new Error('Application did not shut down cleanly.')),30000))]);
  await browser.close().catch(()=>{});
 }
 try {
  await launch();
+ if(persistenceOnly) {
+   await page.getByRole('heading',{name:/Azeem/}).first().waitFor();
+   const persisted=await api('/employees');
+   if(!persisted.some(e=>e.displayName==='Release Smoke Employee'))throw new Error('Employee did not survive uninstall and reinstall.');
+   await close();
+   console.log(JSON.stringify({reinstallPersistence:'PASS'}));
+   process.exit(0);
+ }
  await page.getByRole('heading',{name:'Welcome to SA Command',exact:true}).waitFor();
  await page.screenshot({path:path.join(profile,'first-run.png')});
  const password=randomUUID()+'aB9!';
@@ -62,8 +71,12 @@ try {
  await page.getByRole('button',{name:'Charcoal',exact:true}).click();
  await page.screenshot({path:path.join(profile,'settings-charcoal.png')});
  await api('/auth/logout','POST',{});await native('delete_session_token');
+ await page.reload();
+ await page.getByLabel('Password',{exact:true}).fill(password);
+ await page.getByRole('button',{name:'Enter SA Command',exact:true}).click();
+ await page.getByRole('heading',{name:/Azeem/}).first().waitFor();
  await close();
- const report={installedApp:exe,firstRun:'PASS',emptyProductionData:'PASS',ownerSetup:'PASS',dashboard:'PASS',employeeCreation:'PASS',restartPersistence:'PASS',backup:'PASS',profile,backupFile:backup};
+ const report={installedApp:exe,firstRun:'PASS',emptyProductionData:'PASS',ownerSetup:'PASS',dashboard:'PASS',employeeCreation:'PASS',restartPersistence:'PASS',logoutLogin:'PASS',backup:'PASS',profile,backupFile:backup};
  await writeFile(path.join(profile,'smoke-results.json'),JSON.stringify(report,null,2));
  console.log(JSON.stringify(report));
-} catch(error) {if(page)await page.screenshot({path:path.join(profile,'failure.png')}).catch(()=>{});console.error(error.message);process.exitCode=1;}
+} catch(error) {if(page)await page.screenshot({path:path.join(profile,'failure.png')}).catch(()=>{});if(app&&!app.killed)app.kill();console.error(error.message);process.exitCode=1;}

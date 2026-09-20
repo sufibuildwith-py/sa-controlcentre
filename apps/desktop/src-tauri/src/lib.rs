@@ -34,12 +34,17 @@ fn delete_session_token() -> Result<(), String> {
     }
 }
 
+#[tauri::command]
+fn quit_app(app: tauri::AppHandle) {
+    app.exit(0);
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default();
     #[cfg(feature = "production")]
     let builder = builder.manage(runtime::RuntimeState::default())
-        .invoke_handler(tauri::generate_handler![store_session_token, load_session_token, delete_session_token, runtime::desktop_request, runtime::configure_whatsapp, runtime::backup_database]);
+        .invoke_handler(tauri::generate_handler![store_session_token, load_session_token, delete_session_token, quit_app, runtime::desktop_request, runtime::configure_whatsapp, runtime::backup_database]);
     #[cfg(not(feature = "production"))]
     let builder = builder
         .invoke_handler(tauri::generate_handler![store_session_token, load_session_token, delete_session_token])

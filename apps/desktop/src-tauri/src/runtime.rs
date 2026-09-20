@@ -24,7 +24,13 @@ fn run(mut cmd: Command, log: &Path) -> Result<(),String> {
 }
 impl Runtime {
   fn start(app: &tauri::AppHandle) -> Result<Self,String> {
-    let resources=app.path().resource_dir().map_err(|_| "Application files are unavailable.")?.join("runtime");
+    let resource_dir=app.path().resource_dir().map_err(|_| "Application files are unavailable.")?;
+    #[cfg(windows)]
+    let resource_dir={
+      let normalized=resource_dir.to_string_lossy();
+      PathBuf::from(normalized.strip_prefix(r"\\?\").unwrap_or(normalized.as_ref()))
+    };
+    let resources=resource_dir.join("runtime");
     let data=if cfg!(windows) {
       PathBuf::from(std::env::var_os("LOCALAPPDATA").ok_or("Your personal storage is unavailable.")?).join("SA Productions").join("SA Command")
     } else { app.path().home_dir().map_err(|_| "Your personal storage is unavailable.")?.join("Library/Application Support/SA Command") };

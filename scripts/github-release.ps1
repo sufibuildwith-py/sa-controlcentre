@@ -1,7 +1,7 @@
 param([ValidateSet('Dispatch','Status','Download')][string]$Action='Status',[string]$Ref='main',[long]$RunId=0)
 $ErrorActionPreference='Stop'
 $inputCredential="protocol=https`nhost=github.com`n`n"
-$credential=($inputCredential | git credential fill) | ConvertFrom-StringData
+$credential=($inputCredential | git credential-manager get) | ConvertFrom-StringData
 if(!$credential.password){throw 'GitHub authentication unavailable.'}
 $headers=@{Authorization=('Bearer '+$credential.password);Accept='application/vnd.github+json';'X-GitHub-Api-Version'='2022-11-28'}
 $base='https://api.github.com/repos/sufibuildwith-py/sa-controlcentre/actions'

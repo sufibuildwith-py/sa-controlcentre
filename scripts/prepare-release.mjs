@@ -45,7 +45,11 @@ if(win) {
  const dmg=await download('https://github.com/PostgresApp/PostgresApp/releases/download/v2.9.6/Postgres-2.9.6-17.dmg','Postgres-2.9.6-17.dmg');
  const mount=path.join(cache,'postgres-mount'); await mkdir(mount,{recursive:true});
  execFileSync('hdiutil',['attach',dmg,'-nobrowse','-mountpoint',mount],{stdio:'inherit'});
- try { await cp(path.join(mount,'Postgres.app/Contents/Versions/17'),path.join(runtime,'postgres'),{recursive:true}); }
+ try {
+   const source=path.join(mount,'Postgres.app/Contents/Versions/17');
+   for(const dir of ['bin','lib','share'])
+     await cp(path.join(source,dir),path.join(runtime,'postgres',dir),{recursive:true,dereference:true});
+ }
  finally {execFileSync('hdiutil',['detach',mount],{stdio:'inherit'});}
 }
 await copyFile(path.join(root,'apps/backend/target/sa-command-backend-1.2.0.jar'),path.join(runtime,'backend.jar'));
