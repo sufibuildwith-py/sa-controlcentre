@@ -3,17 +3,20 @@ Built for SA Productions
 Owner: Azeem Khan
 
 WINDOWS
-Expected installer: windows\SA-Command-Setup.exe
+Installer: windows\SA-Command-Setup.exe
+Alternative Windows installer: windows\SA-Command.msi
 Run the installer, then open SA Command. Everything required is included.
 Personal records stay in %LOCALAPPDATA%\SA Productions\SA Command\.
+Backups are saved in %LOCALAPPDATA%\SA Productions\SA Command\backups\.
 Updates and uninstall do not delete this folder.
 
 MACOS
-Expected installer: macos/SA-Command.dmg (Apple silicon).
+Installer: macos/SA-Command.dmg (Apple silicon).
 Open the disk image and drag SA Command to Applications.
-The build is unsigned and not notarized unless a later release says otherwise.
+This build is unsigned and not notarized. On first launch, Control-click SA Command,
+choose Open, then choose Open again when macOS asks for confirmation.
 Personal records stay in ~/Library/Application Support/SA Command/.
-If BUILD-REQUIRED.txt is present, the Mac installer has not been produced yet.
+Backups are saved in ~/Library/Application Support/SA Command/backups/.
 
 FIRST RUN
 Azeem creates his own password. The workspace begins empty.
@@ -30,5 +33,6 @@ Do not copy a live database folder or delete original records after a backup.
 Contact support to restore a .backup file on another computer.
 
 INSTALLER STATUS
-See the accompanying build-status files for actual build and smoke-test results.
-An expected filename in this document is not evidence of a completed build.
+Windows installed-app smoke passed, including uninstall/reinstall data retention.
+The macOS installer was built and runtime-checked on GitHub's macos-14 runner.
+Both installers are unsigned.
