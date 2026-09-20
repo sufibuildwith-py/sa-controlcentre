@@ -33,7 +33,7 @@ jobs:
           apps/desktop/src-tauri/runtime/jre/bin/java -version
           apps/desktop/src-tauri/runtime/postgres/bin/postgres --version
           test -d apps/desktop/src-tauri/target/release/bundle/macos/SA\ Command.app
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: SA-Command-1.2.0-${{ runner.os }}-unsigned
           if-no-files-found: error
