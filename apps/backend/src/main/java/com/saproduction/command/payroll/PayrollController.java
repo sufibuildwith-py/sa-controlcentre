@@ -11,7 +11,7 @@ public class PayrollController {
   @PostMapping("/{year}/{month}/calculate") public ApiEnvelope<PayrollService.View> calculate(@PathVariable int year,@PathVariable int month){return ApiEnvelope.of(service.calculate(year,month));}
   @PostMapping("/{id}/adjustments") public ApiEnvelope<PayrollService.View> adjust(@PathVariable UUID id,@Valid @RequestBody PayrollService.AdjustmentInput input){return ApiEnvelope.of(service.adjust(id,input));}
   @PostMapping("/{id}/approve") public ApiEnvelope<PayrollService.View> approve(@PathVariable UUID id){return ApiEnvelope.of(service.approve(id));}
-  @PostMapping("/{id}/items/{itemId}/mark-paid") public ApiEnvelope<PayrollService.View> paid(@PathVariable UUID id,@PathVariable UUID itemId){return ApiEnvelope.of(service.markPaid(id,itemId));}
-  @PostMapping("/{id}/mark-all-paid") public ApiEnvelope<PayrollService.View> allPaid(@PathVariable UUID id){return ApiEnvelope.of(service.markAllPaid(id));}
+  @GetMapping("/{id}/items/{itemId}/payments") public ApiEnvelope<PayrollService.ItemView> payments(@PathVariable UUID id,@PathVariable UUID itemId){return ApiEnvelope.of(service.paymentHistory(id,itemId));}
+  @PostMapping("/{id}/items/{itemId}/payments") public ApiEnvelope<PayrollService.View> payment(@PathVariable UUID id,@PathVariable UUID itemId,@Valid @RequestBody PayrollService.PaymentInput input){return ApiEnvelope.of(service.recordPayment(id,itemId,input));}
   @PostMapping("/{id}/lock") public ApiEnvelope<PayrollService.View> lock(@PathVariable UUID id){return ApiEnvelope.of(service.lock(id));}
 }

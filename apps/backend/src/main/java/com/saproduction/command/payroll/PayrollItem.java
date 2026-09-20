@@ -6,7 +6,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 @Entity @Table(name="payroll_items")
 public class PayrollItem {
-  public enum PaymentStatus { PENDING,PAID }
+  public enum PaymentStatus { UNPAID,PARTIALLY_PAID,PAID }
   @Id @GeneratedValue(strategy=GenerationType.UUID) public UUID id;
   @Column(name="payroll_period_id",nullable=false) public UUID payrollPeriodId;
   @Column(name="employee_id",nullable=false) public UUID employeeId;
@@ -22,5 +22,5 @@ public class PayrollItem {
   @Enumerated(EnumType.STRING) @Column(name="payment_status",nullable=false) public PaymentStatus paymentStatus;
   @Column(name="paid_at") public Instant paidAt;
   @Column(name="created_at",nullable=false) public Instant createdAt;
-  @PrePersist void create(){createdAt=Instant.now();if(paymentStatus==null)paymentStatus=PaymentStatus.PENDING;}
+  @PrePersist void create(){createdAt=Instant.now();if(paymentStatus==null)paymentStatus=PaymentStatus.UNPAID;}
 }

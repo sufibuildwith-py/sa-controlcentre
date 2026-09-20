@@ -24,6 +24,7 @@ import {
 import { api } from "../../lib/api";
 import type {
   AttendanceMonth,
+  CommunicationCentre,
   Employee,
   EmployeeOperations,
 } from "../../types/domain";
@@ -36,7 +37,7 @@ export function EmployeeDetailPage() {
     openForm = useUiStore((s) => s.openEmployeeForm);
   const requestedTab = new URLSearchParams(location.search).get("tab"),
     [tab, setTab] = useState(
-      ["attendance", "work", "payroll", "performance"].includes(
+      ["attendance", "work", "payroll", "performance", "communication"].includes(
         requestedTab ?? "",
       )
         ? requestedTab!
@@ -58,6 +59,7 @@ export function EmployeeDetailPage() {
     queryFn: () => api<EmployeeOperations>(`/employees/${id}/operations`),
     enabled: !!id && ["work", "payroll", "performance"].includes(tab),
   });
+  const communications=useQuery({queryKey:['employee',id,'communications'],queryFn:()=>api<CommunicationCentre>(`/messages?employeeId=${id}`),enabled:!!id&&tab==='communication'});
   const deactivate = useMutation({
     mutationFn: () =>
       api<Employee>(`/employees/${id}/deactivate`, { method: "POST" }),
@@ -107,7 +109,7 @@ export function EmployeeDetailPage() {
           </div>
         </div>
         <div className="employee-hero__actions">
-          <SAButton disabled title="Available in Phase 3">
+          <SAButton onClick={()=>navigate(`/communications?compose=1&employeeId=${e.id}`)}>
             <MessageCircle size={15} />
             Message
           </SAButton>
@@ -221,19 +223,18 @@ export function EmployeeDetailPage() {
               {operations.data.payroll.map((p) => {
                 const item = p.items[0];
                 return (
-                  <SABentoCard key={p.id}>
+                  <SABentoCard key={p.id} interactive onClick={() => navigate(`/payroll/${p.id}`)}>
                     <div>
                       <strong>
                         {month(p.month)} {p.year}
                       </strong>
                       <span>
-                        {money(item.baseSalaryMinor, item.salaryCurrency)} base
-                        · {p.status}
+                        {money(item.baseSalaryMinor, item.salaryCurrency)} base · {money(item.totalPaid, item.salaryCurrency)} paid
                       </span>
                     </div>
                     <div>
                       <strong>
-                        {money(item.netSalaryMinor, item.salaryCurrency)}
+                        {money(item.remaining, item.salaryCurrency)} remaining
                       </strong>
                       <StatusBadge
                         tone={
@@ -254,10 +255,14 @@ export function EmployeeDetailPage() {
           {operations.data && <Performance data={operations.data} />}
         </SATabContent>
         <SATabContent value="communication">
-          <EmptyState
-            title="Communication arrives in Phase 3"
-            description="No messages or acknowledgement states are fabricated in Phase 2."
-          />
+          {communications.isPending
+            ? <SkeletonCard/>
+            : communications.isError
+              ? <EmptyState title="Messages unavailable" description="Communication history could not be loaded."/>
+              : communications.data?.messages.length
+                ? <div className="operations-list">{communications.data.messages.map(m=><SABentoCard key={m.id} interactive onClick={()=>navigate(`/communications?employeeId=${e.id}`)}><div><strong>{m.bodyPreview}</strong><span>{new Date(m.queuedAt).toLocaleString('en-IN')} · {m.category}</span></div><StatusBadge tone={m.status==='FAILED'?'danger':m.status==='READ'||m.status==='DELIVERED'?'success':'neutral'}>{m.status}</StatusBadge></SABentoCard>)}</div>
+                : <EmptyState title="No messages yet" description="This employee has no outbound communication history." action={<SAButton onClick={()=>navigate(`/communications?compose=1&employeeId=${e.id}`)}>Send message</SAButton>}/>
+          }
         </SATabContent>
       </SATabs>
       <ConfirmAction

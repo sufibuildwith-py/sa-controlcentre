@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import com.saproduction.command.audit.AuditService;
+import com.saproduction.command.communication.DomainEventService;
 import java.time.*;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -14,7 +15,7 @@ class EmployeeServiceTest {
     EmployeeRepository repository=mock(EmployeeRepository.class); AuditService audit=mock(AuditService.class);
     when(repository.existsByEmployeeCodeIgnoreCase("SA-100")).thenReturn(false);
     when(repository.saveAndFlush(any(Employee.class))).thenAnswer(invocation->{Employee employee=invocation.getArgument(0);employee.id=UUID.randomUUID();employee.createdAt=Instant.now();employee.updatedAt=employee.createdAt;return employee;});
-    EmployeeService service=new EmployeeService(repository,audit);
+    EmployeeService service=new EmployeeService(repository,audit,mock(DomainEventService.class));
 
     var result=service.create(input(425_000L));
 
@@ -28,7 +29,7 @@ class EmployeeServiceTest {
     UUID id=UUID.randomUUID();Employee existing=employee(id);existing.baseSalaryMinor=400_000L;
     EmployeeRepository repository=mock(EmployeeRepository.class);AuditService audit=mock(AuditService.class);
     when(repository.findById(id)).thenReturn(java.util.Optional.of(existing));when(repository.saveAndFlush(existing)).thenReturn(existing);
-    EmployeeService service=new EmployeeService(repository,audit);
+    EmployeeService service=new EmployeeService(repository,audit,mock(DomainEventService.class));
 
     var result=service.update(id,input(500_000L));
 

@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 
 import com.saproduction.command.attendance.*;
 import com.saproduction.command.audit.AuditService;
+import com.saproduction.command.communication.DomainEventService;
 import com.saproduction.command.employee.*;
 import java.time.*;
 import java.util.*;
@@ -16,7 +17,7 @@ class LeaveServiceTest {
     Employee employee=employee();LeaveRequest request=new LeaveRequest();request.id=UUID.randomUUID();request.employee=employee;request.startDate=LocalDate.now().plusDays(10);request.endDate=request.startDate.plusDays(1);request.leaveType="Annual";request.reason="Family event";request.status=LeaveRequest.Status.PENDING;request.createdAt=Instant.now();
     LeaveRepository requests=mock(LeaveRepository.class);EmployeeService employees=mock(EmployeeService.class);EmployeeRepository employeeRepository=mock(EmployeeRepository.class);AttendanceRepository attendance=mock(AttendanceRepository.class);AuditService audit=mock(AuditService.class);
     when(requests.findById(request.id)).thenReturn(Optional.of(request));when(attendance.findByEmployeeIdAndDate(eq(employee.id),any(LocalDate.class))).thenReturn(Optional.empty());
-    LeaveService service=new LeaveService(requests,employees,employeeRepository,attendance,audit);
+    LeaveService service=new LeaveService(requests,employees,employeeRepository,attendance,audit,mock(DomainEventService.class));
 
     var result=service.approve(request.id,new LeaveService.ResolveInput("Approved for the event"));
 

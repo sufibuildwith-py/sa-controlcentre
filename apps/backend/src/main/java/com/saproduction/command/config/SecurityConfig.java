@@ -27,10 +27,9 @@ public class SecurityConfig {
     return http
       .cors(c->{}).csrf(c->c.disable())
       .securityContext(c->c.securityContextRepository(repository))
-      .authorizeHttpRequests(a->a.requestMatchers("/api/v1/auth/login","/actuator/health").permitAll().requestMatchers(HttpMethod.OPTIONS,"/**").permitAll().anyRequest().authenticated())
+      .authorizeHttpRequests(a->a.requestMatchers("/api/v1/auth/login","/api/v1/integrations/whatsapp/webhook","/actuator/health").permitAll().requestMatchers(HttpMethod.OPTIONS,"/**").permitAll().anyRequest().authenticated())
       .logout(l->l.disable())
       .headers(h->h.frameOptions(f->f.deny()).contentTypeOptions(c->{}))
       .build();
   }
 }
-

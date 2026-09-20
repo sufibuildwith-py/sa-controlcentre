@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 
 import com.saproduction.command.audit.AuditService;
 import com.saproduction.command.auth.UserRepository;
+import com.saproduction.command.communication.DomainEventService;
 import com.saproduction.command.employee.*;
 import java.time.*;
 import java.util.*;
@@ -17,7 +18,7 @@ class AttendanceServiceTest {
     AttendanceRepository attendance=mock(AttendanceRepository.class);EmployeeRepository employees=mock(EmployeeRepository.class);EmployeeService employeeService=mock(EmployeeService.class);UserRepository users=mock(UserRepository.class);AuditService audit=mock(AuditService.class);
     when(employeeService.getEntity(employeeId)).thenReturn(employee);when(attendance.findByEmployeeIdAndDate(employeeId,date)).thenReturn(Optional.empty());
     when(attendance.saveAndFlush(any(AttendanceRecord.class))).thenAnswer(invocation->{AttendanceRecord record=invocation.getArgument(0);record.id=UUID.randomUUID();record.createdAt=Instant.now();record.updatedAt=record.createdAt;return record;});
-    AttendanceService service=new AttendanceService(attendance,employees,employeeService,users,audit);
+    AttendanceService service=new AttendanceService(attendance,employees,employeeService,users,audit,mock(DomainEventService.class));
 
     var result=service.put(employeeId,date,new AttendanceService.Input(AttendanceRecord.Status.LATE,LocalTime.of(9,24),null,24,"Traffic"));
 

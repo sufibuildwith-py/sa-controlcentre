@@ -9,7 +9,7 @@ import {SACommandPalette} from './SACommandPalette';
 import {EmployeeForm} from '../../features/employees/EmployeeForm';
 
 const domains=[{label:'Overview',to:'/'},{label:'People',to:'/people'},{label:'Productions',to:'/productions'},{label:'Calendar',to:'/calendar'},{label:'Finance',to:'/payroll'}];
-const dock=[{label:'Command',to:'/',icon:Home},{label:'Attendance',to:'/attendance',icon:CalendarDays},{label:'Work',to:'/work',icon:CheckSquare},{label:'Meetings',to:'/meetings',icon:MessageCircle},{label:'Search',icon:Search,action:'search'},{label:'Settings',to:'/settings',icon:Settings}];
+const dock=[{label:'Command',to:'/',icon:Home},{label:'Attendance',to:'/attendance',icon:CalendarDays},{label:'Work',to:'/work',icon:CheckSquare},{label:'Communications',to:'/communications',icon:MessageCircle},{label:'Search',icon:Search,action:'search'},{label:'Settings',to:'/settings',icon:Settings}];
 export function AppShell({children}:PropsWithChildren){const theme=useUiStore(s=>s.theme);const setPaletteOpen=useUiStore(s=>s.setPaletteOpen);const location=useLocation();const navigate=useNavigate();const workspace=useRef<HTMLElement>(null);
   useEffect(()=>{document.documentElement.dataset.theme=theme;document.querySelector('meta[name=theme-color]')?.setAttribute('content',theme==='pearl'?'#ecece8':'#1e1e1e')},[theme]);
   useEffect(()=>{const onKey=(e:KeyboardEvent)=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();setPaletteOpen(true)}};window.addEventListener('keydown',onKey);return()=>window.removeEventListener('keydown',onKey)},[setPaletteOpen]);

@@ -149,15 +149,15 @@ export function CommandPage() {
             {total} active people
           </div>
         </SABentoCard>
-        <SABentoCard className="comms-card">
-          <CardHeader eyebrow="Phase 3 boundary" title="Communications" />
+        <SABentoCard interactive className="comms-card" onClick={()=>navigate('/communications')}>
+          <CardHeader eyebrow="Live delivery" title="Communications" />
           <div className="donut-mini">
             <MessageCircle size={19} />
-            <strong>—</strong>
-            <span>provider unavailable</span>
+            <strong>{d.communications.delivered+d.communications.read}</strong>
+            <span>delivered or read</span>
           </div>
           <div className="inline-stats">
-            <span>No fabricated delivery metrics</span>
+            <span>{d.communications.awaitingResponse} awaiting response</span><span className={d.communications.failed?'danger-text':''}>{d.communications.failed} failed</span>
           </div>
         </SABentoCard>
         <SABentoCard
@@ -221,9 +221,10 @@ export function CommandPage() {
           </strong>
           <span className="muted">
             {d.payroll
-              ? `${month(d.payroll.month)} ${d.payroll.year}`
+              ? `${money(d.payroll.paidMinor)} paid · ${money(d.payroll.pendingMinor)} remaining`
               : "Current period"}
           </span>
+          {d.payroll && (d.payroll.partiallyPaidCount > 0 || d.payroll.unpaidCount > 0) && <span className="muted">{d.payroll.partiallyPaidCount} partially paid · {d.payroll.unpaidCount} unpaid</span>}
           <StatusBadge
             tone={d.payroll?.status === "LOCKED" ? "success" : "neutral"}
           >

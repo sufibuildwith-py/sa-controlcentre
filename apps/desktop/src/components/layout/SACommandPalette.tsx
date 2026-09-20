@@ -4,6 +4,7 @@ import {
   CalendarDays,
   CheckSquare,
   Home,
+  MessageCircle,
   Palette,
   Search,
   Settings,
@@ -101,6 +102,12 @@ export function SACommandPalette({
                   Open Payroll
                 </Item>
                 <Item
+                  icon={MessageCircle}
+                  onSelect={() => act(() => onNavigate("/communications"))}
+                >
+                  Open Communications
+                </Item>
+                <Item
                   icon={Settings}
                   onSelect={() => act(() => onNavigate("/settings"))}
                 >
@@ -160,6 +167,15 @@ export function SACommandPalette({
                     >
                       <span>{employee.displayName}</span>
                       <small>{employee.roleTitle} · Open employee</small>
+                    </Item>,
+                    <Item
+                      key={`${employee.id}-message`}
+                      value={`${employee.displayName} message whatsapp communication`}
+                      icon={MessageCircle}
+                      onSelect={() => act(() => onNavigate(`/communications?compose=1&employeeId=${employee.id}`))}
+                    >
+                      <span>Message {employee.displayName}</span>
+                      <small>Queue a WhatsApp notice</small>
                     </Item>,
                     <Item
                       key={`${employee.id}-work`}

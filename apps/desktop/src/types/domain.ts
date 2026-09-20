@@ -202,12 +202,16 @@ export interface PayrollAdjustment {
   type: "BONUS" | "DEDUCTION" | "OVERTIME" | "ADVANCE" | "CORRECTION" | "OTHER";
   amountMinor: number;
   reason: string;
+  createdBy?: string | null;
   createdAt: string;
 }
+export type PayrollPaymentMethod = "CASH" | "BANK_TRANSFER" | "UPI" | "CHEQUE" | "OTHER";
+export interface PayrollPayment { id:string;amountMinor:number;paidAt:string;paymentMethod:PayrollPaymentMethod;reference?:string|null;note?:string|null;recordedBy?:string|null;createdAt:string }
 export interface PayrollItem {
   id: string;
   employeeId: string;
   employeeName: string;
+  employeeRole: string;
   salaryCurrency: string;
   baseSalaryMinor: number;
   attendanceDeductionMinor: number;
@@ -215,9 +219,16 @@ export interface PayrollItem {
   bonusMinor: number;
   advanceDeductionMinor: number;
   manualAdjustmentMinor: number;
+  grossEarnings: number;
+  deductions: number;
   netSalaryMinor: number;
-  paymentStatus: "PENDING" | "PAID";
+  netPayable: number;
+  totalPaid: number;
+  remaining: number;
+  paymentStatus: "UNPAID" | "PARTIALLY_PAID" | "PAID";
   paidAt?: string | null;
+  lastPayment?: PayrollPayment | null;
+  payments: PayrollPayment[];
   adjustments: PayrollAdjustment[];
 }
 export interface PayrollPeriod {
@@ -229,6 +240,10 @@ export interface PayrollPeriod {
   totalMinor: number;
   paidMinor: number;
   pendingMinor: number;
+  remainingMinor: number;
+  paidCount: number;
+  partiallyPaidCount: number;
+  unpaidCount: number;
   items: PayrollItem[];
   calculatedAt?: string | null;
   approvedAt?: string | null;
@@ -288,6 +303,8 @@ export interface Dashboard {
     totalMinor: number;
     paidMinor: number;
     pendingMinor: number;
+    partiallyPaidCount: number;
+    unpaidCount: number;
   } | null;
   attention: Array<{
     code: string;
@@ -296,5 +313,11 @@ export interface Dashboard {
     tone: "neutral" | "warning" | "danger";
     href: string;
   }>;
-  communicationsAvailable: boolean;
+  communications: CommunicationSummary;
 }
+export type MessageStatus = "QUEUED"|"SENDING"|"SENT"|"DELIVERED"|"READ"|"FAILED";
+export interface CommunicationSummary { delivered:number;read:number;awaitingResponse:number;failed:number;queued:number;sentToday?:number;sent?:number }
+export interface MessageActivity {eventType:string;detail?:string|null;createdAt:string}
+export interface OutboundMessage {id:string;employeeId:string;employeeName:string;phone:string;category:string;templateKey:string;bodyPreview:string;relatedType?:string|null;relatedId?:string|null;requiresResponse:boolean;response?:string|null;status:MessageStatus;providerMessageId?:string|null;attemptCount:number;lastError?:string|null;queuedAt:string;sentAt?:string|null;deliveredAt?:string|null;readAt?:string|null;failedAt?:string|null;activity:MessageActivity[]}
+export interface CommunicationCentre {summary:CommunicationSummary;messages:OutboundMessage[]}
+export interface NotificationRule {id:string;eventType:string;channel:string;enabled:boolean;delayMinutes:number;templateKey:string}

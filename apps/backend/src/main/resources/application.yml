@@ -42,6 +42,18 @@ app:
   payroll:
     policy: ${PAYROLL_POLICY:PER_WORKING_DAY}
     working-days: ${PAYROLL_WORKING_DAYS:26}
+  messaging:
+    provider: ${MESSAGING_PROVIDER:console}
+    worker-enabled: ${MESSAGING_WORKER_ENABLED:true}
+    poll-ms: ${MESSAGING_POLL_MS:1000}
+    max-attempts: ${MESSAGING_MAX_ATTEMPTS:4}
+    meta:
+      graph-api-version: ${META_WHATSAPP_API_VERSION:v23.0}
+      template-language: ${META_WHATSAPP_TEMPLATE_LANGUAGE:en_US}
+      phone-number-id: ${META_WHATSAPP_PHONE_NUMBER_ID:}
+      access-token: ${META_WHATSAPP_ACCESS_TOKEN:}
+      app-secret: ${META_WHATSAPP_APP_SECRET:}
+      verify-token: ${META_WHATSAPP_VERIFY_TOKEN:}
   desktop-origins: ${DESKTOP_ORIGINS:http://localhost:1420,tauri://localhost,http://tauri.localhost}
 logging:
   pattern:

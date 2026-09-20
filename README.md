@@ -1,6 +1,8 @@
 # SA Command
 
-Owner-facing desktop operations software for SA Production. Phase 2 adds persisted productions, crew scheduling, work, a unified calendar, meetings, payroll, operational employee views, and a real aggregate Command dashboard to the Phase 1 people and attendance foundation.
+The operating system for SA Production.
+
+SA Command is owner-facing desktop operations software. V1 combines people, attendance, productions, scheduling, work, meetings, payroll and closed-loop WhatsApp communications in one audited system.
 
 ## Requirements
 
@@ -29,8 +31,10 @@ The demo account is documented in [docs/demo.md](docs/demo.md). The API defaults
 
 Testcontainers and end-to-end tests require Docker and installed Playwright browsers respectively.
 
-`apps/backend/src/test/resources/docker-java.properties` selects Docker API 1.44 for Docker Engine 29 compatibility. Browser tests use a stateful API harness for deterministic interaction and screenshots; PostgreSQL/Testcontainers suites separately verify migrations, real persistence, linked-domain behavior and authenticated HTTP. See the [Phase 2 checklist](docs/phase-2-checklist.md), [payroll policy](docs/payroll.md), and [Phase 1 closure evidence](docs/phase-1-closure.md).
+`apps/backend/src/test/resources/docker-java.properties` selects Docker API 1.44 for Docker Engine 29 compatibility. Browser tests use a stateful API harness for deterministic interaction and screenshots; PostgreSQL/Testcontainers suites separately verify migrations, real persistence, linked-domain behavior and authenticated HTTP.
 
-## Scope boundary
+See the [architecture](docs/architecture.md), [data model](docs/data-model.md), [payroll ledger](docs/payroll.md), [WhatsApp operations](docs/whatsapp.md), [security guide](docs/security.md), [release guide](docs/release.md), [Phase 3 checklist](docs/phase-3-checklist.md), and [third-party provenance](docs/THIRD_PARTY.md).
 
-Communications remains an explicit Phase 3 boundary. Phase 2 does not implement WhatsApp, provider webhooks, an outbox, message simulation, or notification automation.
+## Demo reset
+
+With the API running in demo mode, run `powershell -ExecutionPolicy Bypass -File scripts/reset-demo.ps1`. This authenticated reset recreates deterministic Phase 1–3 business data, notification rules, outbox records, messages and response state.

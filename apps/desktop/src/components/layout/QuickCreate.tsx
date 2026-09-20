@@ -29,7 +29,7 @@ const items = [
     icon: WalletCards,
     to: "/payroll?adjust=1",
   },
-  { label: "Send message", icon: MessageSquarePlus, disabled: true },
+  { label: "Send message", icon: MessageSquarePlus, to: "/communications?compose=1" },
 ];
 export function QuickCreate() {
   const navigate = useNavigate(),
@@ -37,7 +37,6 @@ export function QuickCreate() {
     setOpen = useUiStore((s) => s.setQuickCreateOpen),
     openEmployee = useUiStore((s) => s.openEmployeeForm);
   const act = (item: (typeof items)[number]) => {
-    if (item.disabled) return;
     if (item.action === "employee") openEmployee();
     else if (item.to) {
       setOpen(false);
@@ -57,7 +56,6 @@ export function QuickCreate() {
           return (
             <button
               key={item.label}
-              disabled={item.disabled}
               onClick={() => act(item)}
             >
               <span>
@@ -65,7 +63,6 @@ export function QuickCreate() {
               </span>
               <div>
                 <strong>{item.label}</strong>
-                {item.disabled && <small>Phase 3</small>}
               </div>
               <Plus size={15} />
             </button>
