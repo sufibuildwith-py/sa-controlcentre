@@ -14,6 +14,7 @@ import { WorkbookEmployeeFinance } from "./WorkbookEmployeeFinance";
 import { WorkbookPartyLedgers } from "./WorkbookPartyLedgers";
 import { WorkbookGstLedger } from "./WorkbookGstLedger";
 import { WorkbookPurchasesEquipment } from "./WorkbookPurchasesEquipment";
+import { FinanceControlPlane } from "./FinanceControlPlane";
 
 type Tab = "OVERVIEW" | "PRODUCTIONS" | "OWNERS" | "EMPLOYEES" | "PARTIES" | "INVOICES" | "EQUIPMENT" | "TRANSACTIONS" | "RECONCILIATION";
 type Action = "contract" | "receipt" | "expense" | "earning" | "salary" | "employee-payment" | "party" | "charge" | "party-receipt" | "invoice" | "invoice-payment" | "purchase" | "purchase-payment" | "owner-credit" | "owner-debit" | "transfer" | "reverse";
@@ -91,7 +92,6 @@ export function FinancePage() {
   const [migration, setMigration] = useState<FinanceMigrationPreview | null>(null);
   const [reviewPage, setReviewPage] = useState(0);
   const overview = useQuery({ queryKey: ["finance", "overview"], queryFn: financeApi.overview });
-  const workbookOwners = useQuery({ queryKey: ["finance", "workbook-owners"], queryFn: financeApi.workbookOwners, enabled: import.meta.env.VITE_APP_MODE === "demo" });
   const workbookEmployees = useQuery({ queryKey: ["finance", "workbook-employees"], queryFn: financeApi.workbookEmployees, enabled: import.meta.env.VITE_APP_MODE === "demo" });
   const workbookParties = useQuery({ queryKey: ["finance", "workbook-party-summary"], queryFn: financeApi.workbookPartySummary, enabled: import.meta.env.VITE_APP_MODE === "demo" });
   const workbookGst = useQuery({ queryKey: ["finance", "workbook-gst-summary"], queryFn: financeApi.workbookGstSummary, enabled: import.meta.env.VITE_APP_MODE === "demo" });
@@ -198,19 +198,11 @@ export function FinancePage() {
   const valid = !!action && fields.filter(f => f.required).every(f => !!form[f.name]?.trim())
     && (!fields.some(f => f.name === "amount") || Number(form.amount) > 0)
     && (!fields.some(f => f.name === "subtotal") || Number(form.subtotal) + Number(form.tax) > 0);
-  const ownerPosition = (code: "AZ" | "AK") => {
-    if (import.meta.env.VITE_APP_MODE === "demo") {
-      if (workbookOwners.isPending || workbookOwners.isError) return "—";
-      if (workbookOwners.data?.available) return signed(workbookOwners.data.owners.find(owner => owner.code === code)?.position ?? 0);
-    }
-    return signed(overview.data?.accounts.find(account => account.code === `${code}-2`)?.position ?? 0);
-  };
-
   return <div className="finance-page">
     <header className="page-title finance-title"><div><span className="eyebrow">Financial control plane</span><h1>Finance</h1><p>Position, commitments, payments and evidence.</p></div><div className="finance-actions"><Link className="sa-button sa-button--secondary sa-button--md" to="/payroll">Payroll</Link><SAButton variant="primary" onClick={() => open("expense")}> <Plus size={15}/> Transaction</SAButton></div></header>
     <SASegmentedControl value={tab} onChange={changeTab} label="Finance workspace" items={import.meta.env.VITE_APP_MODE === "demo" ? tabs : tabs.filter(item => item.value !== "OWNERS")}/>
     {tab === "OVERVIEW" && (overview.isPending ? <SkeletonCard/> : overview.isError || !overview.data ? <EmptyState title="Finance unavailable" description="The financial position could not be loaded." action={<SAButton onClick={() => overview.refetch()}>Try again</SAButton>}/> : <>
-      <SABentoGrid className="finance-metrics"><MetricCard label="Overall realized result" value={signed(overview.data.overallResult)} detail="Received less incurred expense"/><MetricCard label="Azeem · AZ" value={ownerPosition("AZ")} detail={workbookOwners.data?.available ? "Historical workbook position" : "Signed owner position"}/><MetricCard label="Akash · AK" value={ownerPosition("AK")} detail={workbookOwners.data?.available ? "Historical workbook position" : "Signed owner position"}/></SABentoGrid>
+      <FinanceControlPlane />
       {import.meta.env.VITE_APP_MODE === "demo" && workbookEmployees.data?.available && <SABentoCard><span className="eyebrow">Historical staff · workbook-backed</span><div className="finance-kpis"><div><span>Earned</span><strong>{rupees(workbookEmployees.data.earned)}</strong></div><div><span>Paid</span><strong>{rupees(workbookEmployees.data.paid)}</strong></div><div><span>Source balance</span><strong>{signed(workbookEmployees.data.outstanding)}</strong></div></div><small>Read-only historical evidence; not added to posted Finance payables.</small></SABentoCard>}
       {import.meta.env.VITE_APP_MODE === "demo" && workbookParties.data?.available && <SABentoCard><span className="eyebrow">Party receivables · workbook-backed</span><div className="finance-kpis"><div><span>Party ledger outstanding</span><strong>{rupees(workbookParties.data.outstanding)}</strong></div><div><span>Parties outstanding</span><strong>{workbookParties.data.outstandingParties}</strong></div></div><Link to="/finance?tab=PARTIES">View party ledgers →</Link><small>Separate from production receivables; overlapping workbook evidence is not summed.</small></SABentoCard>}
       {import.meta.env.VITE_APP_MODE === "demo" && workbookGst.data?.available && <SABentoCard><span className="eyebrow">GST · workbook-backed</span><div className="finance-kpis"><div><span>GST outstanding</span><strong>{rupees(workbookGst.data.outstanding)}</strong></div><div><span>Cash received</span><strong>{rupees(workbookGst.data.cash)}</strong></div></div><Link to="/finance?workbookInvoice=1">View invoices / GST →</Link><small>TDS remains a receivable reduction, not owner-account cash.</small></SABentoCard>}
