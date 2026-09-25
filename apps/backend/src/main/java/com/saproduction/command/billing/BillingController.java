@@ -3,7 +3,6 @@ package com.saproduction.command.billing;
 import com.saproduction.command.shared.ApiEnvelope;
 import jakarta.validation.Valid;
 import java.util.UUID;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -41,7 +40,7 @@ public class BillingController {
   }
 
   @GetMapping("/{id}/export")
-  public ResponseEntity<byte[]> export(@PathVariable UUID id) {
-    return billing.export(id);
+  public ApiEnvelope<?> export(@PathVariable UUID id) {
+    return ApiEnvelope.of(billing.export(id));
   }
 }
