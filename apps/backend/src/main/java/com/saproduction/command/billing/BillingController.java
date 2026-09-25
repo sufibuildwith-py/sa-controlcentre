@@ -29,6 +29,11 @@ public class BillingController {
     return ApiEnvelope.of(billing.create(input));
   }
 
+  @PutMapping("/{id}")
+  public ApiEnvelope<?> update(@PathVariable UUID id, @Valid @RequestBody BillingCommands.Create input) {
+    return ApiEnvelope.of(billing.update(id, input));
+  }
+
   @PostMapping("/{id}/issue")
   public ApiEnvelope<?> issue(@PathVariable UUID id, @Valid @RequestBody BillingCommands.Issue input) {
     return ApiEnvelope.of(billing.issue(id, input));
@@ -42,5 +47,10 @@ public class BillingController {
   @GetMapping("/{id}/export")
   public ApiEnvelope<?> export(@PathVariable UUID id) {
     return ApiEnvelope.of(billing.export(id));
+  }
+
+  @GetMapping("/{id}/export-pdf")
+  public ApiEnvelope<?> exportPdf(@PathVariable UUID id) {
+    return ApiEnvelope.of(billing.exportPdf(id));
   }
 }

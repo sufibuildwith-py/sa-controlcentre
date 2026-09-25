@@ -47,6 +47,7 @@ const ProductionDetailPage = lazy(() =>
     import("../features/finance/FinancePage").then((m) => ({
       default: m.FinancePage,
     })),
+  ),
   BillingPage = lazy(() =>
     import("../features/billing/BillingPage").then((m) => ({
       default: m.BillingPage,

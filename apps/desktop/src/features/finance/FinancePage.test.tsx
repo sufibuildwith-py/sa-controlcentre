@@ -32,7 +32,7 @@ function setup() {
   mock.counterparties.mockResolvedValue({ items: [], page: 0, size: 50, total: 0 });
   mock.invoices.mockResolvedValue({ items: [], page: 0, size: 50, total: 0 });
   mock.purchases.mockResolvedValue({ items: [], page: 0, size: 50, total: 0 });
-  mock.reconciliation.mockResolvedValue({ status: "RECONCILED", controlDifference: 0, receivables: 0, employeePayables: 0, invoiceReceivables: 0, equipmentPayables: 0 });
+  mock.reconciliation.mockResolvedValue({ status: "RECONCILED", controlDifference: 0, overallResult: -100, azeemPosition: -50, akashPosition: 25, receivables: 0, employeePayables: 0, invoiceReceivables: 0, equipmentPayables: 0 });
   mock.workbookOwners.mockResolvedValue({ available: false });
   mock.workbookEmployees.mockResolvedValue({ available: false });
   mock.workbookPartySummary.mockResolvedValue({ available: false });
