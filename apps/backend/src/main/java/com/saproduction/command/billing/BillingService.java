@@ -47,9 +47,7 @@ public class BillingService {
     BigDecimal sgst = tax(taxBase, input.sgstRate());
     BigDecimal igst = tax(taxBase, input.igstRate());
     BigDecimal tax = cgst.add(sgst).add(igst);
-    BigDecimal total = taxBase.add(tax).setScale(2, RoundingMode.HALF_UP);
-
-    jdbc.update("""
+    BigDecimal total = taxBase.add(tax).setScale(2, RoundingMode.HALF_UP);\n    if (total.signum() <= 0) throw ApiException.badRequest("BILL_TOTAL_INVALID", "A bill must contain a positive total.");\n    if (input.advancePaid().compareTo(total) > 0) throw ApiException.badRequest("BILL_ADVANCE_EXCEEDS_TOTAL", "Advance / already received cannot exceed the bill total.");\n\n    jdbc.update("""
       INSERT INTO billing_bills
       (id,bill_number,bill_date,financial_year,counterparty_id,production_id,event_name,venue,status,tax_mode,gstin,
        cgst_rate,sgst_rate,igst_rate,discount,freight,advance_paid,subtotal,tax_amount,gross_total,notes,payment_terms)
