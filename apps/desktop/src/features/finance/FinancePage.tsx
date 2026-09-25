@@ -92,7 +92,6 @@ export function FinancePage() {
   const [migration, setMigration] = useState<FinanceMigrationPreview | null>(null);
   const [reviewPage, setReviewPage] = useState(0);
   const overview = useQuery({ queryKey: ["finance", "overview"], queryFn: financeApi.overview });
-  const workbookOwners = useQuery({ queryKey: ["finance", "workbook-owners"], queryFn: financeApi.workbookOwners, enabled: import.meta.env.VITE_APP_MODE === "demo" });
   const workbookEmployees = useQuery({ queryKey: ["finance", "workbook-employees"], queryFn: financeApi.workbookEmployees, enabled: import.meta.env.VITE_APP_MODE === "demo" });
   const workbookParties = useQuery({ queryKey: ["finance", "workbook-party-summary"], queryFn: financeApi.workbookPartySummary, enabled: import.meta.env.VITE_APP_MODE === "demo" });
   const workbookGst = useQuery({ queryKey: ["finance", "workbook-gst-summary"], queryFn: financeApi.workbookGstSummary, enabled: import.meta.env.VITE_APP_MODE === "demo" });
@@ -199,14 +198,6 @@ export function FinancePage() {
   const valid = !!action && fields.filter(f => f.required).every(f => !!form[f.name]?.trim())
     && (!fields.some(f => f.name === "amount") || Number(form.amount) > 0)
     && (!fields.some(f => f.name === "subtotal") || Number(form.subtotal) + Number(form.tax) > 0);
-  const ownerPosition = (code: "AZ" | "AK") => {
-    if (import.meta.env.VITE_APP_MODE === "demo") {
-      if (workbookOwners.isPending || workbookOwners.isError) return "—";
-      if (workbookOwners.data?.available) return signed(workbookOwners.data.owners.find(owner => owner.code === code)?.position ?? 0);
-    }
-    return signed(overview.data?.accounts.find(account => account.code === `${code}-2`)?.position ?? 0);
-  };
-
   return <div className="finance-page">
     <header className="page-title finance-title"><div><span className="eyebrow">Financial control plane</span><h1>Finance</h1><p>Position, commitments, payments and evidence.</p></div><div className="finance-actions"><Link className="sa-button sa-button--secondary sa-button--md" to="/payroll">Payroll</Link><SAButton variant="primary" onClick={() => open("expense")}> <Plus size={15}/> Transaction</SAButton></div></header>
     <SASegmentedControl value={tab} onChange={changeTab} label="Finance workspace" items={import.meta.env.VITE_APP_MODE === "demo" ? tabs : tabs.filter(item => item.value !== "OWNERS")}/>
