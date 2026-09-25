@@ -30,12 +30,14 @@ public class BillingController {
   }
 
   @PutMapping("/{id}")
-  public ApiEnvelope<?> update(@PathVariable UUID id, @Valid @RequestBody BillingCommands.Create input) {
+  public ApiEnvelope<?> update(
+      @PathVariable UUID id, @Valid @RequestBody BillingCommands.Create input) {
     return ApiEnvelope.of(billing.update(id, input));
   }
 
   @PostMapping("/{id}/issue")
-  public ApiEnvelope<?> issue(@PathVariable UUID id, @Valid @RequestBody BillingCommands.Issue input) {
+  public ApiEnvelope<?> issue(
+      @PathVariable UUID id, @Valid @RequestBody BillingCommands.Issue input) {
     return ApiEnvelope.of(billing.issue(id, input));
   }
 

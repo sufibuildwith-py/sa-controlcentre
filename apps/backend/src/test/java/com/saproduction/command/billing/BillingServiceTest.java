@@ -86,7 +86,8 @@ class BillingServiceTest {
     assertThat(result).containsKey("base64");
     assertThat(result).containsKey("filename");
     assertThat(result.get("filename")).isEqualTo("SA-2026-TEST.xlsx");
-    assertThat(result.get("contentType")).isEqualTo("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    assertThat(result.get("contentType"))
+        .isEqualTo("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 
     byte[] bytes = Base64.getDecoder().decode((String) result.get("base64"));
     try (XSSFWorkbook wb = new XSSFWorkbook(new ByteArrayInputStream(bytes))) {
@@ -167,24 +168,28 @@ class BillingServiceTest {
   void cannotCancelNonDraftBill() {
     UUID billId = UUID.randomUUID();
     Map<String, Object> bill = Map.of("id", billId, "status", "ISSUED");
-    when(jdbc.queryForList(startsWith("SELECT * FROM billing_bills WHERE id=? FOR UPDATE"), eq(billId)))
+    when(jdbc.queryForList(
+            startsWith("SELECT * FROM billing_bills WHERE id=? FOR UPDATE"), eq(billId)))
         .thenReturn(List.of(bill));
 
     assertThatThrownBy(() -> billing.cancel(billId))
         .isInstanceOf(ApiException.class)
-        .extracting("code").isEqualTo("BILL_NOT_DRAFT");
+        .extracting("code")
+        .isEqualTo("BILL_NOT_DRAFT");
   }
 
   @Test
   void cannotIssueCancelledBill() {
     UUID billId = UUID.randomUUID();
     Map<String, Object> bill = Map.of("id", billId, "status", "CANCELLED");
-    when(jdbc.queryForList(startsWith("SELECT * FROM billing_bills WHERE id=? FOR UPDATE"), eq(billId)))
+    when(jdbc.queryForList(
+            startsWith("SELECT * FROM billing_bills WHERE id=? FOR UPDATE"), eq(billId)))
         .thenReturn(List.of(bill));
 
     assertThatThrownBy(() -> billing.issue(billId, new BillingCommands.Issue(UUID.randomUUID())))
         .isInstanceOf(ApiException.class)
-        .extracting("code").isEqualTo("BILL_CANCELLED");
+        .extracting("code")
+        .isEqualTo("BILL_CANCELLED");
   }
 
   @Test
@@ -213,11 +218,12 @@ class BillingServiceTest {
     bill.put("igst_rate", BigDecimal.ZERO);
     bill.put("canonical_invoice_id", null);
 
-    when(jdbc.queryForList(startsWith("SELECT * FROM billing_bills WHERE id=? FOR UPDATE"), eq(billId)))
+    when(jdbc.queryForList(
+            startsWith("SELECT * FROM billing_bills WHERE id=? FOR UPDATE"), eq(billId)))
         .thenReturn(List.of(bill));
-    when(finance.invoice(any(FinanceCommands.Invoice.class)))
-        .thenReturn(Map.of("id", txnId));
-    when(jdbc.queryForObject(startsWith("SELECT id FROM finance_invoices"), eq(UUID.class), eq(txnId)))
+    when(finance.invoice(any(FinanceCommands.Invoice.class))).thenReturn(Map.of("id", txnId));
+    when(jdbc.queryForObject(
+            startsWith("SELECT id FROM finance_invoices"), eq(UUID.class), eq(txnId)))
         .thenReturn(invoiceId);
 
     // Mock the subsequent get() calls
@@ -230,25 +236,29 @@ class BillingServiceTest {
         .thenReturn(List.of(issuedBill));
     when(jdbc.queryForList(startsWith("SELECT id,line_no AS \"lineNo\""), eq(billId)))
         .thenReturn(List.of());
-    when(jdbc.queryForObject(startsWith("SELECT coalesce(sum(a.amount),0)"), eq(BigDecimal.class), eq(invoiceId)))
+    when(jdbc.queryForObject(
+            startsWith("SELECT coalesce(sum(a.amount),0)"), eq(BigDecimal.class), eq(invoiceId)))
         .thenReturn(BigDecimal.ZERO);
 
     UUID idempotencyKey = UUID.randomUUID();
     Map<String, Object> result = billing.issue(billId, new BillingCommands.Issue(idempotencyKey));
 
-    verify(finance, times(1)).invoice(argThat(cmd ->
-        cmd.idempotencyKey().equals(idempotencyKey) &&
-        cmd.invoiceNumber().equals("SA-2026-003") &&
-        cmd.baseAmount().compareTo(new BigDecimal("10000.00")) == 0 &&
-        cmd.baseAmount().scale() <= 2 &&
-        cmd.cgstRate().compareTo(new BigDecimal("9.00")) == 0 &&
-        cmd.cgstRate().scale() <= 2 &&
-        cmd.sgstRate().scale() <= 2 &&
-        cmd.igstRate().scale() <= 2 &&
-        cmd.counterpartyId().equals(counterpartyId)
-    ));
+    verify(finance, times(1))
+        .invoice(
+            argThat(
+                cmd ->
+                    cmd.idempotencyKey().equals(idempotencyKey)
+                        && cmd.invoiceNumber().equals("SA-2026-003")
+                        && cmd.baseAmount().compareTo(new BigDecimal("10000.00")) == 0
+                        && cmd.baseAmount().scale() <= 2
+                        && cmd.cgstRate().compareTo(new BigDecimal("9.00")) == 0
+                        && cmd.cgstRate().scale() <= 2
+                        && cmd.sgstRate().scale() <= 2
+                        && cmd.igstRate().scale() <= 2
+                        && cmd.counterpartyId().equals(counterpartyId)));
 
-    verify(jdbc).update(startsWith("UPDATE billing_bills SET status='ISSUED'"), eq(invoiceId), eq(billId));
+    verify(jdbc)
+        .update(startsWith("UPDATE billing_bills SET status='ISSUED'"), eq(invoiceId), eq(billId));
   }
 
   @Test
@@ -316,13 +326,15 @@ class BillingServiceTest {
 
     // Also copy to brain artifact scratch for user inspection if desired
     try {
-      java.nio.file.Path scratchDir = java.nio.file.Paths.get("C:\\Users\\xtrar\\.gemini\\antigravity\\brain\\1be62e58-c99c-4d1a-abaa-651f14f94244");
+      java.nio.file.Path scratchDir =
+          java.nio.file.Paths.get(
+              "C:\\Users\\xtrar\\.gemini\\antigravity\\brain\\1be62e58-c99c-4d1a-abaa-651f14f94244");
       java.nio.file.Files.write(scratchDir.resolve("SA-2026-INSPECT.xlsx"), xlsxBytes);
       java.nio.file.Files.write(scratchDir.resolve("SA-2026-INSPECT.pdf"), pdfBytes);
-    } catch (Exception ignored) {}
+    } catch (Exception ignored) {
+    }
 
     // Verify finance was never touched during export
     verifyNoInteractions(finance);
   }
 }
-
