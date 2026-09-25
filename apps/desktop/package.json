@@ -40,7 +40,7 @@
     "react-hook-form": "^7.57.0",
     "react-router-dom": "^7.6.2",
     "temporal-polyfill": "0.3.0",
-    "zod": "^3.25.56",
+    "zod": "^4.6.5",
     "zustand": "^5.0.5"
   },
   "devDependencies": {
