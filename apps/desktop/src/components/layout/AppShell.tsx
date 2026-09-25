@@ -38,6 +38,7 @@ const domains = [
   ...(navigatorEnabled ? [{ label: "Navigator", to: "/navigator" }] : []),
   { label: "Calendar", to: "/calendar" },
   { label: "Finance", to: "/finance" },
+  { label: "Billing", to: "/billing" },
 ];
 const dock = [
   { label: "Command", to: "/", icon: Home },
