@@ -625,7 +625,7 @@ test("employee, attendance, history and leave workflows persist across reloads",
   await fixedPage(page);
   await mockApi(page, mock);
   await page.goto("/people");
-  await page.getByRole("button", { name: "Employee" }).click();
+  await page.getByRole("button", { name: "Employee", exact: true }).click();
   await page.getByLabel("Employee code").fill("SA-002");
   await page.getByLabel("First name").fill("Leena");
   await page.getByLabel("Last name").fill("Rao");

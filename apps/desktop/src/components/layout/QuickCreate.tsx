@@ -6,6 +6,7 @@ import {
   UserPlus,
   Video,
   WalletCards,
+  Boxes,
 } from "lucide-react";
 import { useUiStore } from "../../app/store/ui";
 import { SAModal } from "../ui/sa";
@@ -34,6 +35,7 @@ const items = [
     icon: MessageSquarePlus,
     to: "/communications?compose=1",
   },
+  { label: "Add equipment", icon: Boxes, to: "/headquarters?create=equipment" },
 ];
 export function QuickCreate() {
   const navigate = useNavigate(),

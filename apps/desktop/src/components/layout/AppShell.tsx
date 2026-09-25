@@ -28,13 +28,16 @@ import { SACommandPalette } from "./SACommandPalette";
 import { EmployeeForm } from "../../features/employees/EmployeeForm";
 import { api, clearSessionToken } from "../../lib/api";
 import type { Dashboard } from "../../types/domain";
+import { navigatorEnabled } from "../../features/navigator/navigator.types";
 
 const domains = [
   { label: "Overview", to: "/" },
   { label: "People", to: "/people" },
   { label: "Productions", to: "/productions" },
+  { label: "Headquarters", to: "/headquarters" },
+  ...(navigatorEnabled ? [{ label: "Navigator", to: "/navigator" }] : []),
   { label: "Calendar", to: "/calendar" },
-  { label: "Finance", to: "/payroll" },
+  { label: "Finance", to: "/finance" },
 ];
 const dock = [
   { label: "Command", to: "/", icon: Home },

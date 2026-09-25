@@ -1,0 +1,22 @@
+{
+  "expo": {
+    "name": "SA Employee",
+    "slug": "sa-employee",
+    "scheme": "sa-navigator",
+    "version": "2.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "icon": "./assets/sa-command-icon.png",
+    "splash": {"image": "./assets/sa-command-icon.png", "resizeMode": "contain", "backgroundColor": "#191919"},
+    "plugins": [
+      "expo-router",
+      ["expo-location", {"locationWhenInUsePermission": "SA Employee uses your location only while you choose to be on duty with SA Productions.", "locationAlwaysAndWhenInUsePermission": "Allow SA Employee to continue sharing during an active duty session when the app is in the background.", "isAndroidBackgroundLocationEnabled": true, "isAndroidForegroundServiceEnabled": true}],
+      "expo-secure-store",
+      "expo-sqlite",
+      ["expo-splash-screen", {"backgroundColor": "#191919", "image": "./assets/sa-command-icon.png", "imageWidth": 112}]
+    ],
+    "android": {"package": "in.saproductions.navigator", "adaptiveIcon": {"foregroundImage": "./assets/sa-command-icon.png", "backgroundColor": "#191919"}, "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION", "ACCESS_BACKGROUND_LOCATION", "FOREGROUND_SERVICE", "FOREGROUND_SERVICE_LOCATION"]},
+    "ios": {"bundleIdentifier": "in.saproductions.navigator", "infoPlist": {"UIBackgroundModes": ["location"]}},
+    "extra": {"gatewayUrl": "https://navigator-demo.saproduction.in"}
+  }
+}

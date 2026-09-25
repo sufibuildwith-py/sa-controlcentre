@@ -1,0 +1,1952 @@
+SA EMPLOYEE — ANDROID APPLICATION REDEVELOPMENT
+Project: SA Command / SA Productions
+Application: SA Employee
+Platform: Android first, architecture kept iOS-compatible
+Status: Mobile client redevelopment
+Primary Goal: Replace the unstable SA Navigator mobile client with a polished, reliable, production-oriented employee application without discarding the working Navigator backend/gateway architecture.
+Important: Existing SA Command production release artifacts under release/ must remain untouched during this redevelopment.
+
+1. PURPOSE
+The existing employee Navigator prototype proved several important concepts:
+- physical Android installation works;
+- employee/device pairing works;
+- employee identity can be loaded;
+- employee messages can reach the phone;
+- duty state can reach the backend;
+- Navigator Gateway architecture works;
+- owner-side Navigator map works;
+- desktop/gateway/backend integration exists.
+However, the current mobile application is not reliable or polished enough for real employee deployment.
+Observed problems include:
+- navigation behaving inconsistently;
+- invalid pairing codes / unclear pairing failures;
+- connectivity depending too heavily on development ADB state;
+- app restarts sometimes leading to a completely white screen;
+- initialization failures leaving no recovery UI;
+- development app occasionally losing connection to Metro;
+- UI reporting Location sharing active without proving GPS tracking actually started;
+- physical-phone location telemetry not yet completing the entire pipeline;
+- background location not yet proven;
+- keep-awake errors occurring during duty testing;
+- weak offline/reconnection UX;
+- basic visual design that does not match SA Command;
+- insufficient screen structure;
+- poor use of scrolling space;
+- limited motion/microinteractions;
+- weak loading/error/empty states;
+- development/release behavior not sufficiently separated.
+The redevelopment will solve these problems as one coordinated mobile V2 rather than continuing to patch the prototype screen-by-screen.
+2. NEW PRODUCT IDENTITY
+The employee application is renamed:
+SA Employee
+Do not call the user-facing application:
+SA Navigator
+Navigator Mobile
+SA Production Navigator
+Navigator remains an internal SA Command domain/service name where appropriate.
+User-facing branding must be:
+SA Employee
+SA Productions
+3. APPLICATION ICON
+SA Employee must use the same visual logo as SA Command.
+The current SA Command icon is the rounded-square S mark supplied with this redevelopment specification.
+Requirements:
+- locate and reuse the original high-resolution SA Command logo asset from the desktop/repository if available;
+- do not use the low-resolution desktop screenshot as the production source if the original asset exists;
+- use the same S identity;
+- preserve its proportions;
+- create proper Android adaptive icon assets;
+- provide foreground and background layers where appropriate;
+- create a matching splash-screen treatment;
+- ensure the icon remains recognizable at launcher sizes;
+- avoid adding Employee, Navigator, GPS symbols, pins, or other clutter to the icon.
+The applications should visually appear as members of the same product family:
+SA Command   → management / owner
+SA Employee  → workforce / employee
+4. BRAND RELATIONSHIP
+SA Employee must feel like a native mobile extension of SA Command.
+It must not look like:
+generic Expo demo
+student project
+Material UI template
+random employee attendance app
+GPS tracker
+generic admin dashboard
+It should feel like:
+SA Command
+compressed intelligently into a phone
+The two applications share:
+- typography philosophy;
+- dark charcoal surfaces;
+- large controlled radii;
+- subtle borders;
+- spacing system;
+- status colors;
+- restrained animation;
+- icon family;
+- visual hierarchy;
+- premium operational aesthetic.
+They do not need identical layouts.
+5. PRODUCT PHILOSOPHY
+SA Command answers:
+What does the owner need to know or act on today?
+
+SA Employee answers:
+What does this employee need to know or do right now?
+
+That distinction controls the mobile scope.
+SA Employee is not a mobile ERP.
+6. CORE EMPLOYEE JOBS
+The rebuilt application has five primary responsibilities:
+1. establish and persist employee/device identity;
+2. show today's assigned work;
+3. start/end duty and manage transparent duty-scoped location sharing;
+4. receive operational communication from SA Productions;
+5. remain usable and understandable through connectivity failures, restarts and background transitions.
+Everything else is secondary.
+7. PRIMARY NAVIGATION
+Use a stable native bottom navigation structure.
+Primary tabs:
+Home
+Work
+Messages
+Do not create seven or eight tabs.
+Employee settings/account/device diagnostics can be reached through the profile/avatar/status area in the Home header.
+Conceptually:
+┌──────────────────────────────────┐
+│ SA                         ◉ AK  │
+│ Good morning, Arjun              │
+│ Tuesday · 22 September           │
+│                                  │
+│          PAGE CONTENT            │
+│                                  │
+│                                  │
+│                                  │
+├──────────────────────────────────┤
+│    Home       Work      Messages │
+└──────────────────────────────────┘
+Navigation must work after:
+- cold start;
+- warm start;
+- process recreation;
+- background/foreground transition;
+- network loss;
+- credential restoration;
+- Android back button;
+- opening a notification/deep link where supported.
+8. HOME SCREEN
+Home is the employee command surface.
+It should contain vertically scrollable sections.
+Suggested structure:
+HEADER
+
+Good morning, Arjun
+Tuesday · 22 September
+SA Productions
+
+────────────────────────
+
+TODAY
+
+Wedding Production
+Taj Ganges
+4:30 PM
+
+Camera Team
+Gate B
+
+[ View assignment ]
+
+────────────────────────
+
+DUTY
+
+● ON DUTY
+
+Location sharing active
+Started 10:42 AM
+Last update 8 sec ago
+
+[ End Duty ]
+
+────────────────────────
+
+NEXT
+
+Report to Gate B
+4:00 PM
+
+────────────────────────
+
+MESSAGES
+
+SA Productions
+Gate changed to Gate B
+11:34 AM
+
+Production update
+Reach venue by 4 PM
+10:51 AM
+
+[ View all ]
+
+────────────────────────
+
+DEVICE / CONNECTION
+
+Connected
+Location ready
+Last sync just now
+When the employee is off duty:
+OFF DUTY
+
+Location is not being shared.
+
+Start duty when you begin work.
+
+[ Start Duty ]
+9. HOME MUST SCROLL PROPERLY
+The current redevelopment must explicitly validate scrolling.
+The page must:
+- scroll smoothly;
+- respect Android safe areas;
+- not hide content under bottom navigation;
+- not trap gestures inside cards;
+- not have nested ScrollViews without reason;
+- preserve sensible scroll position;
+- work with small screens;
+- work with large font scaling reasonably;
+- remain responsive while location uploads occur.
+Use native ScrollView only for relatively small static Home content.
+For potentially long data sets such as messages and work history, use virtualized FlatList/SectionList. React Native specifically provides these as performant list primitives and recommends them for larger lists. React Native
+10. WORK SCREEN
+Work should answer:
+What am I doing today?
+
+Sections can include:
+Current production
+Assignment
+Location / venue text
+Reporting time
+Role/team
+Instructions
+Tasks
+Upcoming assignment
+Completed work
+Example:
+TODAY'S PRODUCTION
+
+THE SHARMA WEDDING
+22 September
+
+Taj Ganges
+4:30 PM – 11:30 PM
+
+YOUR ASSIGNMENT
+Camera Team
+
+Report:
+Gate B · 4:00 PM
+
+────────────────────
+
+TASKS
+
+○ Collect camera kit
+○ Report to team lead
+○ Camera position setup
+○ Equipment return
+
+────────────────────
+
+NOTES
+
+Use service entrance.
+Contact production lead on arrival.
+Do not expose owner-only information.
+No:
+employee payroll
+other employees' salaries
+company finance
+owner analytics
+other employee GPS
+admin controls
+11. MESSAGES SCREEN
+Messages remain one-way operational communication for this version.
+This is not intended to become WhatsApp.
+Display:
+- sender/context;
+- subject/type where available;
+- message body;
+- received time;
+- unread state;
+- date grouping;
+- read state;
+- connection state;
+- empty state;
+- pull-to-refresh.
+Use a virtualized list.
+Messages should remain locally visible after temporary connectivity loss when they have previously been fetched.
+12. CONNECTION STATUS
+Connectivity must become a first-class state rather than an invisible assumption.
+Use a central connection state machine:
+ONLINE
+CONNECTING
+DEGRADED
+OFFLINE
+AUTH_REQUIRED
+SERVICE_UNAVAILABLE
+The app should not throw generic errors like:
+Network request failed
+as the primary employee experience.
+Instead:
+You're offline
+Your recent information is still available.
+We'll sync automatically when the connection returns.
+or:
+Can't reach SA Productions
+Retrying automatically…
+13. NETWORK DETECTION
+Use @react-native-community/netinfo to observe network state.
+Expo currently documents it as the supported cross-platform API for connection type and connectivity information. Expo documentation
+Network state must be centralized.
+Do not scatter:
+fetch()
+catch()
+setOffline()
+independently across every screen.
+Create one connectivity layer.
+Conceptually:
+NetworkMonitor
+      │
+      ▼
+ConnectionStore
+      │
+      ├── API client
+      ├── Sync engine
+      ├── Home
+      ├── Messages
+      └── Duty/location subsystem
+14. API CLIENT
+Create one mobile API client.
+Responsibilities:
+- base URL;
+- device authentication;
+- request timeout;
+- JSON handling;
+- controlled retries;
+- status-code normalization;
+- auth failure handling;
+- network failure classification;
+- correlation/request IDs where supported;
+- no secrets in logs.
+Do not let individual screens invent networking logic.
+15. RETRY POLICY
+Retries must be bounded.
+Example philosophy:
+immediate request
+      ↓ failure
+small backoff
+      ↓
+retry
+      ↓ failure
+larger backoff
+      ↓
+queue/retry later
+Do not create infinite tight retry loops.
+Do not repeatedly hammer the gateway when offline.
+16. DEVELOPMENT VS PRODUCTION NETWORKING
+The application must clearly distinguish development transport from production transport.
+Development currently may use:
+ADB reverse
+phone 127.0.0.1:8091
+        ↓
+PC Navigator Gateway :8091
+Production must use:
+https://navigator.<deployment-domain>
+or equivalent public HTTPS gateway.
+No employee production build should depend on:
+ADB
+USB
+Metro
+localhost on developer PC
+10.0.2.2
+Android Studio
+17. PAIRING REDEVELOPMENT
+Pairing must be hardened.
+The pairing screen should contain:
+SA logo
+
+Connect to SA Productions
+
+Enter the 6-digit code provided
+by your administrator.
+
+[ _ _ _ _ _ _ ]
+
+[ Connect device ]
+The UI must distinguish:
+INVALID_CODE
+EXPIRED_CODE
+ALREADY_USED
+RATE_LIMITED
+NETWORK_UNAVAILABLE
+SERVER_UNAVAILABLE
+SUCCESS
+Do not display all failures as:
+Invalid code
+18. PAIRING FLOW
+Expected flow:
+App opens
+   │
+   ▼
+Check SecureStore
+   │
+   ├── valid credential
+   │       ↓
+   │    restore device
+   │       ↓
+   │    Home
+   │
+   └── no credential
+           ↓
+       Pairing
+           ↓
+       submit code
+           ↓
+       Gateway
+           ↓
+       employee/device binding
+           ↓
+       receive device token
+           ↓
+       SecureStore
+           ↓
+       Home
+19. PAIRING CREDENTIAL PERSISTENCE
+Use expo-secure-store for small secrets such as the device credential.
+Expo describes SecureStore as encrypted local key/value storage intended for tokens, keys and other secrets. Expo documentation
+SecureStore should contain only necessary secrets.
+Example:
+device token
+device identifier if required
+organization binding identifier if required
+Do not store large Home payloads in SecureStore.
+20. LOCAL DATABASE
+Use expo-sqlite for durable non-secret operational state.
+Expo SQLite persists its database across application restarts, making it appropriate for the mobile outbox/cache. Expo documentation
+SQLite responsibilities:
+location outbox
+pending duty operations
+cached messages
+cached current assignment
+sync metadata
+sequence numbers
+last known server state
+21. WHITE-SCREEN PROBLEM — MUST BE ELIMINATED
+A completely white screen is an unacceptable terminal application state.
+There must always be a visible state.
+Possible startup states:
+SPLASH
+BOOTING
+PAIRING
+READY
+OFFLINE_READY
+RECOVERY
+FATAL_ERROR
+Never:
+undefined → blank View
+22. BOOT STATE MACHINE
+Create an explicit application bootstrap controller.
+Example:
+NATIVE START
+     │
+     ▼
+SA splash
+     │
+     ▼
+Initialize local database
+     │
+     ▼
+Read SecureStore
+     │
+     ▼
+Restore identity
+     │
+     ▼
+Restore cached Home data
+     │
+     ▼
+Initialize network monitor
+     │
+     ▼
+Validate session/device when possible
+     │
+     ├── online + valid
+     │        ↓
+     │      READY
+     │
+     ├── offline + cached identity
+     │        ↓
+     │   OFFLINE_READY
+     │
+     ├── no identity
+     │        ↓
+     │     PAIRING
+     │
+     └── unrecoverable local failure
+              ↓
+           RECOVERY
+Network availability must not be required simply to render the app shell.
+23. SPLASH SCREEN
+Use the SA Command/SA Employee S logo.
+Suggested appearance:
+#191919 background
+
+        [ S ]
+
+     SA Employee
+    SA Productions
+Keep it minimal.
+Use expo-splash-screen correctly.
+Expo recommends keeping the native splash visible only until the application is ready and warns that hiding it before content is ready can create a blank-screen interval. Expo documentation
+Do not keep the splash blocked indefinitely by:
+API call
+GPS
+gateway
+messages
+remote Home data
+Local application boot determines when the shell can render.
+Remote data loads after that.
+24. ROOT ERROR BOUNDARY
+The root route must have an error boundary.
+Expo Router supports route/navigator-level error boundaries specifically so rendering failures can display recovery UI instead of destroying the visible application. Expo documentation
+Example recovery experience:
+Something went wrong
+
+SA Employee couldn't load this screen.
+
+[ Try again ]
+
+Connection: Online
+Device: Connected
+
+[ Restart app ]
+Development details can be logged.
+Employees should not see stack traces.
+25. ROUTE ERROR BOUNDARIES
+Critical routes should have recovery boundaries:
+Home
+Work
+Messages
+Pairing
+Settings / Device
+A failure in Messages must not blank the entire application.
+26. DARK NAVIGATION THEME
+The entire navigation stack must use the SA dark theme.
+Expo documents that mismatched navigation-stack backgrounds can cause white flashes during transitions; the root navigator should therefore use a matching dark theme. Expo documentation
+There should be no:
+white transition flash
+white startup frame
+white modal background
+white status/navigation bar flash
+27. DUTY SYSTEM
+Duty is one of the most important application systems.
+State must no longer be represented as one boolean.
+Use a state machine such as:
+OFF_DUTY
+STARTING
+ON_DUTY_TRACKING
+ON_DUTY_DEGRADED
+ENDING
+END_PENDING_SYNC
+ERROR
+28. START DUTY TRANSACTION
+Start Duty must not immediately show:
+Location sharing active
+just because the server accepted the duty session.
+Required sequence:
+Employee taps Start Duty
+        │
+        ▼
+Validate device credential
+        │
+        ▼
+Check foreground location permission
+        │
+        ▼
+Check background permission where required
+        │
+        ▼
+Check location services
+        │
+        ▼
+Create/restore duty session
+        │
+        ▼
+Register/start location task
+        │
+        ▼
+Confirm task registration
+        │
+        ▼
+Obtain first usable location OR
+enter explicit acquiring state
+        │
+        ▼
+ON_DUTY_TRACKING
+Only then may the UI say:
+Location sharing active
+29. DUTY UI STATES
+Starting
+STARTING DUTY
+
+Preparing location sharing…
+
+[ spinner ]
+Waiting for GPS
+ON DUTY
+
+Acquiring location…
+Keep location enabled.
+Healthy
+ON DUTY                       LIVE
+
+● Location sharing active
+
+Last update
+8 sec ago
+Network unavailable
+ON DUTY                     OFFLINE
+
+Location is being saved on this phone.
+Updates will sync automatically.
+
+12 updates waiting
+Permission lost
+ACTION REQUIRED
+
+Location permission was disabled.
+
+Duty remains active, but SA Employee
+cannot share your location.
+
+[ Open settings ]
+Tracking failure
+LOCATION INTERRUPTED
+
+SA Employee couldn't continue location sharing.
+
+[ Restart location ]
+Never lie about tracking state.
+30. BACKGROUND LOCATION
+Continue using:
+expo-location
+expo-task-manager
+Expo requires background location tasks to be defined in top-level scope using TaskManager.defineTask, and documents that Android background behavior remains subject to OS/vendor restrictions. Expo documentation
+The background task must not be declared inside:
+React component
+hook
+button handler
+route component
+It must be registered at module/top-level scope as required by the platform.
+31. LOCATION PERMISSIONS
+The rebuilt application must explicitly handle:
+foreground permission
+precise location
+background location
+location services disabled
+permission denied
+permission permanently denied
+permission removed while on duty
+Do not assume global Android location being enabled means SA Employee has permission.
+32. ANDROID FOREGROUND SERVICE
+When required for active background location, use the appropriate Android foreground-service configuration.
+The employee should see a persistent system notification while actively sharing duty location.
+Example:
+SA Employee
+
+On duty · Location sharing active
+This is intentional transparency.
+33. LOCATION TASK STARTUP MUST BE INDEPENDENT OF KEEP-AWAKE
+The previously observed:
+Unable to activate keep awake
+must not be capable of preventing location tracking.
+Keep-awake is not a prerequisite for background GPS.
+Therefore:
+keep-awake
+must either:
+- be removed if unnecessary; or
+- operate as best-effort UI behavior;
+- have its errors caught;
+- never abort Start Duty;
+- never control the tracking state machine.
+Do not chain:
+await activateKeepAwake()
+await startLocation()
+such that failure of the first prevents the second.
+34. LOCATION SAMPLING
+Initial field-test target:
+time interval:        ~20 seconds
+distance interval:    ~20 metres
+deferred/batch window ~30 seconds
+These values should be configurable.
+Do not hard-code them across multiple files.
+Create one location policy/configuration object.
+35. LOCATION POINT MODEL
+Each point should contain only necessary information.
+Conceptually:
+sessionId
+sequenceNo
+capturedAt
+latitude
+longitude
+accuracy
+speed if useful
+heading if useful
+source/device metadata where necessary
+Do not put exact GPS coordinates in ordinary application logs.
+36. LOCAL LOCATION OUTBOX
+Every collected point should first become durable enough to survive network failure.
+Preferred flow:
+GPS callback
+    │
+    ▼
+validate point
+    │
+    ▼
+SQLite outbox
+    │
+    ▼
+sync worker
+    │
+    ▼
+Gateway
+    │
+    ▼
+ACK
+    │
+    ▼
+delete acknowledged point
+Do not rely on:
+GPS callback
+    ↓
+fetch()
+    ↓
+hope it succeeds
+37. LOCATION IDEMPOTENCY
+Use:
+sessionId + sequenceNo
+or the equivalent existing gateway contract.
+A retry must not create duplicate telemetry.
+38. LOCATION BATCHES
+Upload bounded batches.
+Initial target:
+max 25 points
+oldest first
+On acknowledgement:
+delete acknowledged rows only
+Never clear the entire queue merely because one request returned successfully.
+39. OFFLINE DUTY
+The app must support being on duty without network connectivity.
+Example:
+GPS works
+Internet fails
+     │
+     ▼
+points stored locally
+     │
+     ▼
+UI says OFFLINE / SAVING LOCALLY
+     │
+Internet returns
+     │
+     ▼
+batch replay
+     │
+     ▼
+Gateway ACK
+     │
+     ▼
+queue drains
+40. END DUTY
+Privacy rule:
+End Duty must stop local location collection immediately.
+
+Network connectivity is secondary.
+Flow:
+Employee taps End Duty
+        │
+        ▼
+stop local tracking
+        │
+        ▼
+close local duty state
+        │
+        ├── server available
+        │       ↓
+        │    close server duty
+        │
+        └── server unavailable
+                ↓
+           queue duty-end operation
+                ↓
+           synchronize later
+The app must never continue GPS collection simply because the gateway is unreachable.
+41. RESTART RECOVERY
+When Android restarts/recreates the application process:
+restore device identity
+restore local DB
+restore cached employee
+inspect local duty state
+inspect server state when reachable
+inspect registered background task
+reconcile state
+If local state says:
+ON DUTY
+but the location task is no longer active:
+do not silently display healthy tracking.
+Show:
+ON DUTY
+Location sharing needs to restart.
+
+[ Resume location ]
+or safely resume according to the validated lifecycle.
+42. FORCE-STOP REALITY
+Do not claim impossible guarantees.
+Expo's current documentation states that Android background location stops if the application is terminated, and vendor behavior can differ when an app is removed from recents. Expo documentation
+SA Command must therefore use freshness rather than assuming that duty == active means the phone is live.
+43. LOCATION HEALTH
+Track location subsystem health independently.
+Possible states:
+STARTING
+ACQUIRING
+LIVE
+QUEUING_OFFLINE
+STALE
+PERMISSION_BLOCKED
+SERVICE_DISABLED
+TASK_STOPPED
+ERROR
+The duty card derives its UI from this state.
+44. OWNER-SIDE STATUS
+Do not rewrite the working owner map unless required by a confirmed API contract issue.
+Existing SA Command Navigator remains responsible for displaying:
+LIVE
+STALE
+OFFLINE
+OFF DUTY
+based on telemetry freshness.
+The mobile redevelopment should feed the existing architecture correctly.
+45. MOBILE UI DESIGN SYSTEM
+Use the existing SA Command design language.
+Primary dark palette:
+app background       #191919
+workspace/background #1D1D1D
+surface              #2A2A2A
+raised surface       #2E2E2E
+soft surface         #242424
+
+primary text         #F6F6F2
+secondary text       #C1C1BB
+tertiary text        #868680
+
+border soft          rgba(255,255,255,.055)
+border               rgba(255,255,255,.09)
+border strong        rgba(255,255,255,.14)
+
+accent               #D94B35
+success              #4F956A
+warning              #C58A34
+danger               #C9534B
+info                  #5F7FA4
+46. MOBILE GEOMETRY
+Recommended:
+screen horizontal padding  16–20
+section spacing            20–28
+card radius                20–24
+button radius              16–18
+small control radius       12–14
+bottom nav radius          22–28
+Avoid excessive nesting of rounded rectangles.
+Hierarchy should come from:
+spacing
+typography
+surface elevation
+border strength
+not ten different colors.
+47. TYPOGRAPHY
+Use native/system typography unless a carefully selected open font is already part of the project.
+Hierarchy:
+Greeting             large / strong
+Page title           strong
+Section label        small uppercase / tracked
+Card title           medium strong
+Primary content      normal
+Metadata             smaller muted
+Status               small semibold
+Avoid giant marketing-site headings.
+This is operational software.
+48. OPEN-SOURCE-FIRST UI STRATEGY
+We are intentionally minimizing unnecessary custom component invention.
+Use three layers:
+LAYER 1
+React Native / Expo native primitives
+
+LAYER 2
+React Native Reusables / established OSS components
+
+LAYER 3
+SA-specific compositions inspired by Aceternity
+Do not make an AI agent rebuild:
+buttons
+dialogs
+tabs
+cards
+separators
+badges
+skeletons
+inputs
+bottom sheets
+if a stable compatible primitive already exists.
+49. REACT NATIVE REUSABLES
+Preferred native component reference:
+React Native Reusables GitHub
+It provides shadcn-style open-source React Native components using NativeWind/Uniwind and is MIT licensed. GitHub
+Candidate primitives:
+Button
+Card
+Badge
+Separator
+Input
+Dialog
+Alert Dialog
+Avatar
+Skeleton
+Tabs where appropriate
+Progress
+Sheet / modal primitives where appropriate
+Do not import the entire library blindly.
+Copy/use only the components actually required.
+Review each component for Android behavior before adoption; some complex portal-based primitives have platform-specific requirements. React Native Reusables
+50. ACETERNITY UI
+Design reference:
+Aceternity UI Components
+Aceternity currently provides React/Next.js components built with Tailwind and Motion. Aceternity UI
+Therefore:
+Aceternity is a design/composition source, not a drop-in React Native dependency.
+
+Do not install web DOM dependencies simply to recreate an effect.
+51. ACETERNITY PATTERNS TO ADAPT
+Suitable concepts include:
+Bento / Feature Sections
+Use Aceternity's bento/feature composition as inspiration for:
+Today's Production
+Duty
+Next Action
+Connection
+Messages
+Aceternity itself provides numerous feature/bento layouts. Aceternity UI
+Animated Tabs
+Adapt the visual language for:
+Home / Work / Messages
+but implement it using native navigation/Reanimated rather than web Motion.
+Stateful Button
+Excellent conceptual match for:
+Start Duty
+Starting…
+Location ready
+End Duty
+Ending…
+Expandable Cards
+Can be adapted for:
+production details
+assignment instructions
+message details
+device diagnostics
+Card Spotlight
+A very restrained static/native adaptation may be used for the primary Duty card.
+No mouse-following behavior.
+Carousel
+Potentially useful for multiple assignments only if actually needed.
+Do not add one merely because it looks impressive.
+52. ACETERNITY PATTERNS NOT TO USE
+Avoid mobile adaptations of:
+meteor effects
+shooting stars
+vortex backgrounds
+mouse-following effects
+3D hover cards
+glare following cursor
+GitHub globe
+heavy shader backgrounds
+parallax hero sections
+infinite decorative animation
+pointer effects
+hover effects
+marketing hero animations
+SA Employee is a work application.
+Visual polish must improve usability rather than consume GPU/battery.
+53. MOTION
+Use React Native Reanimated for meaningful native motion.
+Scroll-driven animations can use Reanimated's native animated scroll handlers rather than routing every frame through ordinary React state. SWMansion Docs
+Motion language:
+fast
+controlled
+subtle
+physical
+non-bouncy
+Typical durations:
+tap feedback       100–160ms
+small transition   160–220ms
+card entrance      200–300ms
+screen transition  native/navigation controlled
+54. ALLOWED ANIMATIONS
+Examples:
+card fade + 4–8px translation
+duty status dot pulse
+button state transition
+bottom-tab active indicator
+message unread indicator
+skeleton shimmer
+expand/collapse
+connection banner slide
+subtle header compression while scrolling
+55. FORBIDDEN MOTION
+Do not use:
+continuous card floating
+large spring bounce
+background particles
+glowing neon
+tilt based on phone movement
+3D card rotation
+long intro animation
+animation blocking interaction
+56. SCROLL PERFORMANCE
+Scrolling must remain smooth while:
+GPS points arrive
+network state changes
+messages sync
+duty timer updates
+background queue uploads
+Do not update the entire Home React tree every second.
+Separate frequently changing state.
+Example:
+DutyTimer
+should not cause:
+Messages
+Work card
+Header
+Bottom navigation
+to rerender unnecessarily.
+57. LIST PERFORMANCE
+Use:
+FlatList
+SectionList
+for long lists.
+Use:
+stable keys
+memoized row components where useful
+reasonable initial render count
+bounded images
+React Native documents virtualized lists specifically for improved memory/performance with larger data sets. React Native
+Do not prematurely add a more complicated list engine unless profiling shows the native lists are insufficient.
+58. SKELETON STATES
+Every remote-data section needs a loading state.
+Examples:
+Home skeleton
+Work skeleton
+Messages skeleton
+Do not replace the whole screen with:
+Loading...
+and do not blank previously cached information while refreshing.
+59. STALE-WHILE-REFRESH EXPERIENCE
+Preferred behavior:
+show cached content immediately
+        +
+refresh from server
+        +
+update quietly
+rather than:
+clear screen
+show spinner
+wait for API
+redraw everything
+This will make the application feel dramatically faster.
+60. EMPTY STATES
+Design real empty states.
+Examples:
+No production assigned today
+
+You're all caught up.
+No new messages.
+
+No tasks assigned.
+
+You're currently off duty.
+Empty data is not an error.
+61. CONNECTION BANNER
+Do not permanently waste large screen space.
+Use a compact state surface.
+Examples:
+Offline · Updates saved locally
+or:
+Reconnecting…
+Healthy connection can be represented subtly.
+Problems receive more visibility.
+62. HAPTICS
+Where already supported by Expo and appropriate, subtle haptics may be used for:
+Start Duty confirmation
+End Duty confirmation
+successful pairing
+important action acknowledgement
+Do not vibrate for ordinary navigation.
+63. ACCESSIBILITY
+At minimum:
+- adequate touch targets;
+- accessibility labels on icon-only buttons;
+- status not communicated by color alone;
+- text remains readable with Android font scaling;
+- meaningful loading descriptions;
+- buttons disabled correctly while transactions are active.
+64. DEVICE / SETTINGS SCREEN
+Provide a small employee/device screen accessible from the Home header.
+Sections:
+Employee
+Arjun Verma
+
+Organization
+SA Productions
+
+Device
+Connected
+
+Location permission
+Allowed
+
+Background location
+Allowed
+
+Location services
+Enabled
+
+Duty
+On duty
+
+Last location
+12 sec ago
+
+Pending updates
+0
+
+Connection
+Online
+
+App
+SA Employee
+version x.x.x
+Actions:
+Retry connection
+Open Android settings
+Refresh employee data
+View sync status
+Unpair device
+Unpair must require confirmation.
+65. DIAGNOSTICS WITHOUT EXPOSING SECRETS
+A diagnostics panel can dramatically reduce future debugging cost.
+Allow copying safe diagnostics such as:
+app version
+Android version
+device model
+gateway environment name
+connection state
+permission state
+duty state
+location task state
+last successful sync
+pending queue count
+last error category
+Never display/copy:
+raw device token
+Navigator admin key
+database credentials
+exact historical GPS dump
+66. LOGGING
+Use structured development logging.
+Categories:
+BOOT
+AUTH
+PAIRING
+API
+DUTY
+LOCATION
+SYNC
+MESSAGES
+NAVIGATION
+Production logging should be minimal.
+Never log:
+raw authentication token
+pairing code after submission
+password
+exact GPS coordinates in routine logs
+sensitive employee information
+67. MOBILE ARCHITECTURE
+Recommended structure:
+apps/navigator-mobile/
+│
+├── app/
+│   ├── _layout.tsx
+│   ├── index.tsx
+│   ├── pairing.tsx
+│   ├── recovery.tsx
+│   │
+│   └── (employee)/
+│       ├── _layout.tsx
+│       ├── home.tsx
+│       ├── work.tsx
+│       ├── messages.tsx
+│       └── device.tsx
+│
+├── src/
+│   ├── components/
+│   │   ├── ui/
+│   │   ├── cards/
+│   │   ├── navigation/
+│   │   └── states/
+│   │
+│   ├── theme/
+│   │   ├── tokens.ts
+│   │   ├── typography.ts
+│   │   └── spacing.ts
+│   │
+│   ├── api/
+│   │   ├── client.ts
+│   │   ├── errors.ts
+│   │   └── endpoints/
+│   │
+│   ├── auth/
+│   │   ├── deviceCredentials.ts
+│   │   └── pairing.ts
+│   │
+│   ├── boot/
+│   │   └── bootstrap.ts
+│   │
+│   ├── duty/
+│   │   ├── dutyService.ts
+│   │   ├── dutyState.ts
+│   │   └── reconciliation.ts
+│   │
+│   ├── location/
+│   │   ├── backgroundTask.ts
+│   │   ├── locationService.ts
+│   │   ├── locationPolicy.ts
+│   │   └── permissions.ts
+│   │
+│   ├── sync/
+│   │   ├── syncEngine.ts
+│   │   ├── locationOutbox.ts
+│   │   └── retryPolicy.ts
+│   │
+│   ├── storage/
+│   │   ├── database.ts
+│   │   ├── migrations.ts
+│   │   └── secureStore.ts
+│   │
+│   ├── network/
+│   │   └── networkMonitor.ts
+│   │
+│   ├── messages/
+│   ├── work/
+│   └── utils/
+│
+└── assets/
+    ├── icon/
+    └── splash/
+Exact paths can follow the existing repository where changing them provides no benefit.
+The important goal is separation of responsibilities.
+68. DO NOT REWRITE WORKING BACKEND ARCHITECTURE
+Preserve unless a confirmed contract bug requires change:
+Navigator Gateway
+Navigator PostgreSQL
+employee_ref boundary
+pairing architecture
+device credential model
+duty endpoints
+mobile Home projection
+message projection
+location ingestion
+latest-location projection
+STOMP/realtime owner path
+SA Command Navigator map
+The primary redevelopment target is:
+apps/navigator-mobile
+Backend/gateway changes must be surgical.
+69. SECURITY BOUNDARY
+Continue using pseudonymous employee identity at the Gateway.
+Gateway should not receive unnecessary:
+salary
+payroll data
+private HR notes
+owner credentials
+full company records
+Employee phone should receive only information necessary for that employee.
+70. MOBILE AUTHORIZATION
+Every employee endpoint must be scoped to the authenticated paired device/employee.
+A phone must not be able to request:
+another employee's assignment
+another employee's messages
+another employee's location
+company payroll
+owner Navigator data
+simply by changing an ID.
+71. DEVELOPMENT BUILD STRATEGY
+Stop rebuilding the native app on every normal development startup.
+Normal development:
+services
++
+Metro
++
+ADB reverse
++
+existing dev build
+Native rebuild only when native-affecting changes occur, such as:
+app icon
+display name
+package/native configuration
+Expo native module
+permissions
+Android manifest/config plugin
+foreground service configuration
+native dependency
+This redevelopment does require at least one clean native rebuild because the name/icon/native location configuration are being validated.
+72. START SCRIPT UPDATE
+Eventually:
+.\start-demo.ps1 -Mobile
+should:
+start databases
+start Gateway
+start backend
+start desktop
+detect Android device
+configure ADB reverse
+start Metro
+launch existing SA Employee dev build
+It should not automatically run a complete Gradle rebuild every time.
+Provide a separate explicit option such as:
+.\start-demo.ps1 -Mobile -RebuildMobile
+for native rebuilds.
+73. ADB DEVICE HANDLING
+ADB uses device serial:
+WGVCUKRKPJDUX4IZ
+Expo previously expected the model:
+DN2101
+The launcher must not confuse these.
+For ADB:
+serial
+For Expo commands requiring a named device:
+resolve ro.product.model
+Do not hard-code the current OnePlus permanently.
+Discover connected device/model dynamically.
+74. APP DISPLAY NAME
+Native display name:
+SA Employee
+Launcher label:
+SA Employee
+Splash:
+SA Employee
+SA Productions
+Internal Navigator terminology may remain where it describes backend architecture.
+75. PACKAGE ID
+Do not casually change the Android package/application ID merely because the display name changed.
+If the current package is:
+in.saproductions.navigator
+retain it for this redevelopment unless there is a concrete reason to migrate.
+Display name and icon can change independently.
+Changing the package ID creates a different Android application identity and affects:
+installed app identity
+SecureStore
+permissions
+upgrade path
+device pairing persistence
+If a package migration is eventually desired, treat it as a separate migration decision.
+76. DEVELOPMENT WHITE SCREEN VS RELEASE WHITE SCREEN
+Do not confuse Metro/dev-client failure with application failure.
+Test both:
+Development build
+Validates:
+fast iteration
+Metro
+ADB
+runtime errors
+Standalone/release-like Android build
+Validates:
+real startup
+bundled JS
+splash
+navigation
+no Metro dependency
+background tasks
+permissions
+process restart
+Expo explicitly notes that splash behavior in development builds may differ from standalone behavior, so final splash/boot validation must use a release-like build. Expo documentation
+77. PERFORMANCE TARGET
+The application should feel immediate on the actual employee phone.
+Targets are engineering goals rather than synthetic guarantees:
+cached cold-start shell       < ~2 seconds where practical
+tab response                  immediate
+scroll                        visually smooth / target 60fps
+button feedback               immediate
+no blocking network calls     on UI thread
+no full-screen reload         during ordinary refresh
+no repeated native rebuild    for JS-only changes
+78. BATTERY POLICY
+Location tracking must balance operational usefulness with battery.
+Avoid:
+maximum GPS accuracy constantly without need
+1-second polling
+continuous decorative animation
+permanent keep-awake
+unbounded network retries
+Initial field tests should measure:
+30 minutes
+1 hour
+2+ hours
+of active duty.
+Record:
+battery delta
+point frequency
+queue behavior
+background survival
+device temperature
+network usage
+79. ONEPLUS / OXYGENOS FIELD TEST
+The current physical test device is a OnePlus Nord2 5G.
+Field validation must explicitly test:
+screen unlocked
+screen locked
+app foreground
+app background
+removed from recent apps
+battery optimization default
+battery optimization adjusted if necessary
+Wi-Fi → mobile data
+mobile data → Wi-Fi
+temporary airplane mode
+GPS disabled/re-enabled
+permission revoked/re-granted
+Do not optimize only for the development scenario where the phone stays unlocked over USB.
+80. TEST MATRIX
+Pairing
+valid code
+invalid code
+expired code
+used code
+offline submission
+gateway unavailable
+rapid repeated attempts
+successful restart after pairing
+Boot
+first install
+paired cold start
+offline cold start
+online cold start
+process recreation
+corrupt local cache
+SecureStore failure
+API timeout
+Navigation
+Home → Work
+Work → Messages
+Messages → Home
+Android back
+rapid tab switching
+background → foreground
+rotation if supported
+Duty
+start successfully
+permission denied
+GPS disabled
+network offline
+Gateway timeout
+duplicate tap
+restart while on duty
+end duty online
+end duty offline
+Location
+foreground point
+background point
+locked-screen point
+offline queue
+queue replay
+duplicate upload
+stale point
+permission revocation
+location service disabled
+Messages
+initial load
+empty
+many messages
+offline cached
+new message
+pull refresh
+gateway unavailable
+81. AUTOMATED TESTING
+Maintain/add tests around:
+bootstrap state machine
+pairing error normalization
+credential restoration
+API client
+duty state machine
+location state machine
+location queue
+idempotency/sequence generation
+offline duty end
+sync retry
+message cache
+navigation boot decisions
+Avoid tests that merely assert implementation details.
+Test observable state transitions.
+82. REAL DEVICE ACCEPTANCE TEST
+Automated tests are not enough for location.
+The mobile redevelopment is not considered complete until a real Android device demonstrates:
+Pair
+↓
+Home loads
+↓
+Start Duty
+↓
+permission accepted
+↓
+first GPS point
+↓
+Gateway receives point
+↓
+Navigator DB stores point
+↓
+latest-location projection updates
+↓
+SA Command receives state
+↓
+real employee marker appears on desktop map
+This is the critical end-to-end gate.
+83. BACKGROUND ACCEPTANCE TEST
+After foreground success:
+Start Duty
+↓
+verify LIVE
+↓
+lock phone
+↓
+walk/move device
+↓
+wait
+↓
+desktop continues receiving updates
+↓
+unlock phone
+↓
+SA Employee still healthy
+Then:
+disconnect internet
+↓
+continue movement
+↓
+points accumulate locally
+↓
+restore internet
+↓
+queue replays
+↓
+desktop catches up
+84. END-DUTY ACCEPTANCE TEST
+On Duty
+↓
+End Duty
+↓
+local location task stops
+↓
+foreground notification disappears
+↓
+no new GPS points generated
+↓
+server session closes or pending-close queues
+↓
+desktop eventually shows OFF DUTY
+No telemetry after successful local End Duty.
+85. SIMULATOR DURING REAL DEVICE TESTING
+The existing Navigator simulator can contaminate the map with fake LIVE employees.
+Once the real phone ingestion path is ready for verification:
+NAVIGATOR_SIMULATOR_ENABLED=false
+for the clean field-test environment.
+Do not delete the simulator.
+It remains useful for development.
+86. UI ACCEPTANCE GATE
+SA Employee is not visually complete until:
+- SA Command logo is used;
+- name is SA Employee;
+- splash is branded;
+- Home is sectioned;
+- Home scrolls correctly;
+- Work scrolls correctly;
+- Messages uses a proper list;
+- bottom navigation works consistently;
+- cards follow SA Command geometry;
+- dark surfaces match SA Command;
+- loading states exist;
+- empty states exist;
+- error states exist;
+- offline states exist;
+- duty state animates cleanly;
+- no white navigation flash exists;
+- no layout clipping exists;
+- keyboard does not destroy pairing layout;
+- content works on the real OnePlus;
+- animations remain smooth.
+87. RELIABILITY ACCEPTANCE GATE
+Must pass:
+20 cold launches without blank screen
+20 Home/Work/Messages navigation cycles
+10 background/foreground cycles
+5 network disconnect/reconnect cycles
+5 application process restarts
+pairing persists correctly
+cached Home renders offline
+messages remain visible offline
+no unhandled promise rejection during normal operation
+88. LOCATION ACCEPTANCE GATE
+Must prove:
+foreground GPS
+background GPS
+screen-lock operation
+latest-location projection
+desktop marker
+offline queue
+replay
+duplicate protection
+permission failure UI
+GPS-disabled UI
+End Duty stop
+restart reconciliation
+Until these pass:
+Location tracking remains field-test functionality.
+
+89. CONNECTIVITY ACCEPTANCE GATE
+The application must survive:
+Gateway unavailable
+backend unavailable
+Wi-Fi loss
+mobile-data loss
+ADB reverse loss in development
+timeout
+temporary DNS/network error
+without:
+white screen
+lost pairing
+infinite spinner
+application crash
+incorrect "Location sharing active"
+90. NO FAKE SUCCESS
+This rule applies across the entire application.
+Do not show:
+Connected
+until connectivity is known.
+Do not show:
+Location sharing active
+until tracking is confirmed.
+Do not show:
+Message sent/received
+based on assumptions.
+Do not show:
+Duty ended
+until local tracking has stopped.
+UI must represent actual subsystem state.
+91. IMPLEMENTATION ORDER
+Phase 0 — Preserve
+Before redevelopment:
+preserve working Gateway contracts
+preserve backend contracts
+preserve current tests
+preserve production release
+identify current mobile files worth retaining
+Phase 1 — Native Foundation
+Implement/fix:
+SA Employee display name
+SA Command logo
+adaptive icon
+splash
+dark navigation theme
+root error boundary
+boot state machine
+stable Expo Router structure
+Goal:
+Application can be launched/restarted repeatedly without a blank screen.
+
+Phase 2 — Identity + Connectivity
+Implement:
+SecureStore credential restoration
+pairing redevelopment
+network monitor
+central API client
+error normalization
+offline boot
+cached identity
+Goal:
+Pair once, restart safely, understand connection state.
+
+Phase 3 — UI Foundation
+Implement:
+design tokens
+native component primitives
+Home
+Work
+Messages
+bottom navigation
+loading states
+empty states
+error states
+scroll behavior
+animations
+Goal:
+SA Employee visibly belongs to SA Command.
+
+Phase 4 — Duty Engine
+Implement:
+explicit duty state machine
+permission checks
+Start Duty transaction
+End Duty transaction
+tracking health
+reconciliation
+Goal:
+Duty state represents reality.
+
+Phase 5 — Location Engine
+Implement/fix:
+top-level TaskManager task
+background location
+SQLite outbox
+batching
+idempotency
+retry
+offline replay
+first-point confirmation
+foreground service
+Goal:
+Real phone appears correctly on SA Command.
+
+Phase 6 — Recovery
+Test/fix:
+offline
+restarts
+background
+lock screen
+permission loss
+GPS loss
+Gateway loss
+battery optimization
+Phase 7 — Native Android Build
+Perform clean native rebuild.
+Validate:
+name
+icon
+splash
+permissions
+foreground service
+standalone boot
+no Metro dependency
+Phase 8 — Physical Field Test
+Use actual employee-style workflow.
+Do not field-test by staring at logs only.
+Test:
+install
+pair
+leave PC
+start duty
+put phone in pocket
+lock screen
+move location
+receive message
+lose network
+restore network
+end duty
+restart
+92. TOKEN / AI DEVELOPMENT STRATEGY
+AI coding budget is limited.
+Do not ask an agent to:
+explore entire repository
+restate architecture
+invent a design system
+rebuild generic components
+research libraries from scratch
+write essays before coding
+This document already defines those decisions.
+Implementation agent instructions should say:
+Read REMAKE.md once.
+Inspect only relevant existing mobile/gateway contracts.
+Do not restate the specification.
+Do not modify release/.
+Reuse existing working backend contracts.
+Reuse OSS/native components where appropriate.
+Implement directly.
+Run focused tests after each subsystem.
+Run one final regression.
+93. OPEN-SOURCE REUSE RULE
+Before writing a substantial UI primitive or infrastructure utility:
+1. check whether Expo/React Native already provides it;
+2. check existing project dependencies;
+3. check React Native Reusables;
+4. check a mature compatible OSS implementation;
+5. adapt Aceternity visual patterns where appropriate;
+6. custom-build only what is SA-specific.
+Open source should save engineering effort.
+It must not introduce unnecessary dependency complexity.
+94. DEPENDENCY RULE
+Every new dependency must answer:
+What problem does this solve?
+Is it maintained?
+Does it work on Android?
+Does it work with our Expo/RN version?
+Is the license acceptable?
+Does native installation require rebuilding?
+Could an existing dependency already solve it?
+Do not install ten libraries to reproduce one card animation.
+95. RESEARCH REFERENCES
+Visual design inspiration:
+Aceternity UI component catalog
+Native reusable components:
+React Native Reusables repository
+Routing/error recovery:
+Expo Router error handling and loading states
+Background GPS:
+Expo Location documentation
+Secure credentials:
+Expo SecureStore documentation
+Persistent local queue/cache:
+Expo SQLite documentation
+Connectivity:
+Expo NetInfo documentation
+Native splash:
+Expo SplashScreen documentation
+Scroll animation:
+React Native Reanimated scroll handler documentation
+List performance:
+React Native FlatList documentation
+These are references, not instructions to install every library.
+96. WHAT MUST NOT CHANGE
+During this redevelopment:
+DO NOT modify release/
+DO NOT rebuild SA Command itself unnecessarily
+DO NOT expose main PostgreSQL to employee phones
+DO NOT give mobile app owner credentials
+DO NOT put Navigator admin secrets in mobile bundle
+DO NOT give employees the owner map
+DO NOT connect GPS directly to payroll deductions
+DO NOT implement hidden tracking
+DO NOT silently continue tracking after End Duty
+DO NOT replace working Gateway architecture without evidence
+DO NOT introduce web-only Aceternity components into native runtime
+97. DEFINITION OF DONE
+SA Employee V2 is complete when an employee can:
+install SA Employee
+        ↓
+see SA-branded splash
+        ↓
+pair once
+        ↓
+restart app without pairing again
+        ↓
+open a polished Home
+        ↓
+scroll naturally
+        ↓
+view today's work
+        ↓
+read messages
+        ↓
+Start Duty
+        ↓
+see honest GPS state
+        ↓
+lock phone
+        ↓
+continue duty tracking
+        ↓
+lose network
+        ↓
+continue collecting locally
+        ↓
+regain network
+        ↓
+automatically synchronize
+        ↓
+appear LIVE on SA Command
+        ↓
+End Duty
+        ↓
+location collection stops
+        ↓
+restart later
+        ↓
+application opens normally
+while the owner can see the employee's real, freshness-aware operational state inside SA Command.
+No ADB.
+No Metro.
+No developer intervention.
+No white screen.
+No fake LIVE state.
+No silent tracking.
+No fragile pairing.
+98. FINAL PRODUCT STANDARD
+The old application was a proof that the architecture could work.
+SA Employee must be the version that feels like a product.
+The standard is:
+simple for the employee
+polished on the surface
+reliable under failure
+offline tolerant
+privacy explicit
+secure by boundary
+smooth under interaction
+native in behavior
+consistent with SA Command
+serious underneath
+The employee should never need to understand:
+Gateway
+ADB
+STOMP
+SQLite outbox
+background task
+device token
+location projection
+retry policy
+They should experience:
+Open app.
+See work.
+Start duty.
+Do job.
+Receive updates.
+End duty.
+Everything complicated belongs underneath.
+99. FINAL RULE
+Do not optimize SA Employee for the perfect development environment. Optimize it for an employee carrying an Android phone through a real production day with weak internet, a locked screen, interruptions, restarts and no developer standing beside them.
+
+That is the environment in which this redevelopment succeeds or fails.
+100. TARGET
+SA Command
+Management intelligence and operational control.
+SA Employee
+The employee's daily operational companion.
+                  SA PRODUCTIONS
+
+                ┌──────────────┐
+                │  SA Command  │
+                │    Owner     │
+                └──────┬───────┘
+                       │
+                 Controlled Core
+                       │
+                ┌──────┴───────┐
+                │ SA Employee  │
+                │  Workforce   │
+                └──────────────┘
+One company. Two purpose-built interfaces. One controlled operational system.

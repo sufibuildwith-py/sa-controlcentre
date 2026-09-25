@@ -64,6 +64,8 @@ public class SecurityConfig {
                     .permitAll()
                     .requestMatchers(HttpMethod.OPTIONS, "/**")
                     .permitAll()
+                    .requestMatchers("/api/v1/finance/**", "/api/v1/productions/*/finance", "/api/v1/employees/*/finance")
+                    .hasRole("OWNER")
                     .anyRequest()
                     .authenticated())
         .logout(l -> l.disable())

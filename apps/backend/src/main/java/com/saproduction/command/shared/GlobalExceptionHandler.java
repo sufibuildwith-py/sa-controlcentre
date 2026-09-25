@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.http.*;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -36,6 +37,12 @@ public class GlobalExceptionHandler {
   ResponseEntity<ErrorEnvelope> credentials() {
     return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
         .body(body("INVALID_CREDENTIALS", "Email or password is incorrect.", Map.of()));
+  }
+
+  @ExceptionHandler(HttpMessageNotReadableException.class)
+  ResponseEntity<ErrorEnvelope> malformedRequest() {
+    return ResponseEntity.badRequest()
+        .body(body("INVALID_REQUEST_BODY", "Please review the request fields and formats.", Map.of()));
   }
 
   @ExceptionHandler(Exception.class)

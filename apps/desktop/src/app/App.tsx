@@ -37,7 +37,25 @@ const ProductionDetailPage = lazy(() =>
     import("../features/communications/CommunicationsPage").then((m) => ({
       default: m.CommunicationsPage,
     })),
-  );
+  ),
+  HeadquartersPage = lazy(() =>
+    import("../features/headquarters/HeadquartersPage").then((m) => ({
+      default: m.HeadquartersPage,
+    })),
+  ),
+  FinancePage = lazy(() =>
+    import("../features/finance/FinancePage").then((m) => ({
+      default: m.FinancePage,
+    })),
+  ),
+  NavigatorPage =
+    import.meta.env.VITE_NAVIGATOR_ENABLED === "true"
+      ? lazy(() =>
+          import("../features/navigator/NavigatorPage").then((m) => ({
+            default: m.NavigatorPage,
+          })),
+        )
+      : null;
 export function App() {
   const setup = useQuery({
     queryKey: ["owner-setup"],
@@ -90,6 +108,11 @@ export function App() {
           <Route path="/attendance" element={<AttendancePage />} />
           <Route path="/productions" element={<ProductionsPage />} />
           <Route path="/productions/:id" element={<ProductionDetailPage />} />
+          <Route path="/headquarters" element={<HeadquartersPage />} />
+          <Route path="/finance" element={<FinancePage />} />
+          {NavigatorPage && (
+            <Route path="/navigator" element={<NavigatorPage />} />
+          )}
           <Route path="/work" element={<WorkPage />} />
           <Route path="/calendar" element={<CalendarPage />} />
           <Route path="/meetings" element={<MeetingsPage />} />

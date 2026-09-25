@@ -5,3 +5,7 @@ app:
   messaging:
     provider: console
     worker-enabled: true
+  navigator:
+    enabled: true
+    service-key: ${NAVIGATOR_SERVICE_KEY:demo-navigator-admin-change-me}
+    simulator-enabled: true

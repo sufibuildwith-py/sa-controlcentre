@@ -1,0 +1,24 @@
+import { beforeEach,describe,expect,it,vi } from "vitest";
+import { transition } from "./state/mobileState";
+import { MAX_BATCH,MAX_POINTS,oldestBatch,retryDelayMs } from "./queue/queuePolicy";
+import { dutyLabel,locationHealth } from "./duty/dutyState";
+const secure=new Map<string,string>();
+vi.mock("expo-secure-store",()=>({WHEN_UNLOCKED_THIS_DEVICE_ONLY:1,getItemAsync:vi.fn((key:string)=>Promise.resolve(secure.get(key)??null)),setItemAsync:vi.fn((key:string,value:string)=>{secure.set(key,value);return Promise.resolve()}),deleteItemAsync:vi.fn((key:string)=>{secure.delete(key);return Promise.resolve()})}));
+describe("SA Navigator mobile",()=>{
+ beforeEach(()=>secure.clear());
+ it("stores the device credential only through SecureStore",async()=>{const {credentials}=await import("./storage/credentials");await credentials.set("secret");expect(await credentials.get()).toBe("secret");});
+ it("clears a revoked device credential",async()=>{const {credentials}=await import("./storage/credentials");await credentials.set("secret");await credentials.clear();expect(await credentials.get()).toBeNull();});
+ it("requires explicit start after pairing",()=>expect(transition("UNPAIRED","PAIRED")).toBe("PAIRED_IDLE"));
+ it("passes through permission check before tracking",()=>expect(transition("PAIRED_IDLE","START")).toBe("PERMISSION_CHECK"));
+ it("stops active and offline sessions",()=>{expect(transition("TRACKING_ACTIVE","STOP")).toBe("PAIRED_IDLE");expect(transition("TRACKING_OFFLINE_QUEUE","STOP")).toBe("PAIRED_IDLE");});
+ it("moves active sharing into and out of offline queue",()=>expect(transition(transition("TRACKING_ACTIVE","OFFLINE"),"ONLINE")).toBe("TRACKING_ACTIVE"));
+ it("uses bounded exponential backoff",()=>{expect(retryDelayMs(0)).toBe(5000);expect(retryDelayMs(20)).toBe(300000);});
+ it("replays oldest valid points in batches of at most 25",()=>{const now=Date.now(),points=Array.from({length:40},(_,i)=>({id:i,createdAt:now-i*1000}));const batch=oldestBatch(points,now);expect(batch).toHaveLength(MAX_BATCH);expect(batch[0].id).toBe(39);});
+ it("drops points older than the 24 hour policy",()=>expect(oldestBatch([{createdAt:Date.now()-25*60*60*1000}])).toHaveLength(0));
+ it("documents the hard queue cap",()=>expect(MAX_POINTS).toBe(5000));
+ it("transitions any connected state to revoked",()=>expect(transition("TRACKING_ACTIVE","REVOKE")).toBe("REVOKED"));
+ it("does not report live before the location task starts",()=>expect(locationHealth(true,false,new Date().toISOString(),true)).toBe("TASK_STOPPED"));
+ it("reports acquiring until the first usable point exists",()=>expect(locationHealth(true,true,undefined,true)).toBe("ACQUIRING"));
+ it("reports queued offline tracking separately from duty",()=>expect(locationHealth(true,true,new Date().toISOString(),false)).toBe("QUEUING_OFFLINE"));
+ it("uses an honest pending-sync duty label",()=>expect(dutyLabel("END_PENDING_SYNC")).toBe("Off duty · Sync pending"));
+});

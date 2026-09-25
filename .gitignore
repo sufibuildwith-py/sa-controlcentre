@@ -23,3 +23,9 @@ release/windows/*.exe
 release/windows/*.msi
 release/macos/*.dmg
 release/*.zip
+demo-artifacts/finance-workbook.xlsx
+
+.gradle/
+build/
+.idea/
+*.iml

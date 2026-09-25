@@ -1,0 +1,33 @@
+spring:
+  application:
+    name: sa-navigator-gateway
+  datasource:
+    url: ${NAVIGATOR_DATABASE_URL:jdbc:postgresql://127.0.0.1:5433/navigator}
+    username: ${NAVIGATOR_DATABASE_USERNAME:navigator}
+    password: ${NAVIGATOR_DATABASE_PASSWORD:navigator_demo}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate.jdbc.time_zone: UTC
+  flyway:
+    enabled: true
+server:
+  port: ${PORT:8091}
+  error:
+    include-message: never
+    include-stacktrace: never
+  max-http-request-header-size: 16KB
+management.endpoints.web.exposure.include: health,info,metrics
+navigator:
+  organization-public-id: ${NAVIGATOR_ORGANIZATION_PUBLIC_ID:6be51f4b-e5bd-4e91-8d60-4e41a72ad86f}
+  admin-key: ${NAVIGATOR_ADMIN_KEY:demo-navigator-admin-change-me}
+  pairing-pepper: ${NAVIGATOR_PAIRING_PEPPER:demo-pairing-pepper-change-me}
+  allowed-origins: ${NAVIGATOR_ALLOWED_ORIGINS:http://localhost:1420}
+  simulator-enabled: ${NAVIGATOR_SIMULATOR_ENABLED:true}
+  retention:
+    raw-days: ${NAVIGATOR_RAW_RETENTION_DAYS:14}
+    latest-hours: ${NAVIGATOR_LATEST_RETENTION_HOURS:24}
+    pairing-hours: ${NAVIGATOR_PAIRING_RETENTION_HOURS:24}
+    audit-days: ${NAVIGATOR_AUDIT_RETENTION_DAYS:90}

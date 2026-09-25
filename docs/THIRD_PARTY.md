@@ -19,6 +19,12 @@ SA Command uses packages as dependencies and does not vendor Aceternity or CodeF
 | CodeFronts motion references | https://codefronts.com/motion/ | Site/example-specific | Design reference only; retrieved 2026-09-18 | Subtle hover/timing inspiration; no source copied |
 | Spring Boot | https://github.com/spring-projects/spring-boot | Apache-2.0 | Maven lock by resolved POM | Backend runtime, web, validation, data and security |
 | Flyway | https://github.com/flyway/flyway | Apache-2.0 | Maven dependency | Append-only PostgreSQL migrations |
+| Apache POI | https://github.com/apache/poi | Apache-2.0 | Backend Maven dependency | Demo-only XLSX staging; workbook bytes are not bundled or committed |
 | Testcontainers | https://github.com/testcontainers/testcontainers-java | MIT | Maven test dependency | PostgreSQL integration tests |
 | Schedule-X | https://github.com/schedule-x/schedule-x | MIT | npm lockfile; `CalendarPage.tsx`, `phase2.css` | Accessible month, week and agenda calendar engine, fully restyled to the SA visual system |
 | Temporal polyfill | https://github.com/fullcalendar/temporal-polyfill | MIT | npm lockfile; `CalendarPage.tsx` | Zoned date/time values supplied to Schedule-X |
+| MapLibre GL JS | https://github.com/maplibre/maplibre-gl-js | BSD-3-Clause | desktop npm lockfile; demo-only Navigator | Map rendering, markers and camera |
+| OpenFreeMap | https://openfreemap.org/ | Service terms; OpenStreetMap-derived data attribution | demo tile/style service | Navigator demo basemap; on-map attribution remains enabled |
+| @stomp/stompjs | https://github.com/stomp-js/stompjs | Apache-2.0 | desktop npm lockfile | Short-lived-ticket Navigator realtime client |
+| Expo and selected Expo packages | https://github.com/expo/expo | MIT | `apps/navigator-mobile/package-lock.json` | React Native shell, location, background task, SecureStore and SQLite |
+| Turf.js | https://github.com/Turfjs/turf | MIT | approved for individually imported modules only; no N1 runtime module required yet | Future bounded geometry helpers without the full bundle |

@@ -19,12 +19,22 @@ import {
 } from "../../components/ui/sa";
 import { api } from "../../lib/api";
 import type { Dashboard } from "../../types/domain";
+import { financeApi } from "../finance/finance.api";
 export function CommandPage() {
   const navigate = useNavigate();
   const dashboard = useQuery({
     queryKey: ["dashboard"],
     queryFn: () => api<Dashboard>("/dashboard"),
   });
+  const finance = useQuery({ queryKey: ["finance", "overview"], queryFn: financeApi.overview, retry: false });
+  const workbookOwners = useQuery({ queryKey: ["finance", "workbook-owners"], queryFn: financeApi.workbookOwners, retry: false, enabled: import.meta.env.VITE_APP_MODE === "demo" });
+  const ownerPosition = (code: "AZ" | "AK") => {
+    if (import.meta.env.VITE_APP_MODE === "demo") {
+      if (workbookOwners.isPending || workbookOwners.isError) return "—";
+      if (workbookOwners.data?.available) return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(workbookOwners.data.owners.find(owner => owner.code === code)?.position ?? 0);
+    }
+    return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(finance.data?.accounts.find(account => account.code === `${code}-2`)?.position ?? 0);
+  };
   const now = new Date();
   if (dashboard.isPending)
     return (
@@ -60,6 +70,11 @@ export function CommandPage() {
         subtitle="Here’s the live operating picture for today."
       />
       <SABentoGrid className="command-grid">
+        {finance.data && <SABentoCard interactive className="command-finance-strip" onClick={() => navigate("/finance")}>
+          <span className="eyebrow">Finance · realized position</span>
+          <strong>{new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(finance.data.overallResult)}</strong>
+          <div><span>AZ · {ownerPosition("AZ")}</span><span>AK · {ownerPosition("AK")}</span></div>
+        </SABentoCard>}
         <SABentoCard className="time-card">
           <span className="eyebrow">Local time</span>
           <strong className="hero-time">

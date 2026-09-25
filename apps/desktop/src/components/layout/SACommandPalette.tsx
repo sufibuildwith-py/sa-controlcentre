@@ -12,6 +12,7 @@ import {
   Users,
   Video,
   WalletCards,
+  Boxes,
   X,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -20,6 +21,7 @@ import type { Employee, Production, WorkTask } from "../../types/domain";
 import { useUiStore } from "../../app/store/ui";
 import type { NavigateFunction } from "react-router-dom";
 import { useOverlayFocusRestore } from "../ui/sa";
+import { headquartersApi } from "../../features/headquarters/headquarters.api";
 export function SACommandPalette({
   onNavigate,
 }: {
@@ -42,6 +44,12 @@ export function SACommandPalette({
   const tasks = useQuery({
     queryKey: ["tasks", "palette"],
     queryFn: () => api<WorkTask[]>("/tasks"),
+  });
+  const equipment = useQuery({
+    queryKey: ["headquarters", "equipment", "palette"],
+    queryFn: () => headquartersApi.equipment(0, ""),
+    enabled: open,
+    staleTime: 30_000,
   });
   const act = (fn: () => void) => {
     fn();
@@ -70,6 +78,12 @@ export function SACommandPalette({
               <CommandMenu.Group heading="Navigate">
                 <Item icon={Home} onSelect={() => act(() => onNavigate("/"))}>
                   Open Command
+                </Item>
+                <Item
+                  icon={Boxes}
+                  onSelect={() => act(() => onNavigate("/headquarters"))}
+                >
+                  Open Headquarters
                 </Item>
                 <Item
                   icon={Users}
@@ -120,6 +134,14 @@ export function SACommandPalette({
                   onSelect={() => act(() => openEmployee())}
                 >
                   Add employee
+                </Item>
+                <Item
+                  icon={Boxes}
+                  onSelect={() =>
+                    act(() => onNavigate("/headquarters?create=equipment"))
+                  }
+                >
+                  Add equipment
                 </Item>
                 <Item
                   icon={Video}
@@ -244,6 +266,28 @@ export function SACommandPalette({
                   ))}
                 </CommandMenu.Group>
               )}
+              {equipment.data?.items.length ? (
+                <CommandMenu.Group heading="Equipment">
+                  {equipment.data.items.slice(0, 20).map((item) => (
+                    <Item
+                      key={item.id}
+                      value={`${item.name} ${item.internalCode ?? ""} ${item.category ?? ""}`}
+                      icon={Boxes}
+                      onSelect={() =>
+                        act(() =>
+                          onNavigate(`/headquarters?equipment=${item.id}`),
+                        )
+                      }
+                    >
+                      <span>{item.name}</span>
+                      <small>
+                        {item.internalCode ??
+                          item.trackingMode.replaceAll("_", " ")}
+                      </small>
+                    </Item>
+                  ))}
+                </CommandMenu.Group>
+              ) : null}
             </CommandMenu.List>
             <footer>
               <span>↑↓ Navigate</span>

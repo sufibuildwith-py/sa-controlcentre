@@ -55,6 +55,12 @@ app:
       app-secret: ${META_WHATSAPP_APP_SECRET:}
       verify-token: ${META_WHATSAPP_VERIFY_TOKEN:}
   desktop-origins: ${DESKTOP_ORIGINS:http://localhost:1420,tauri://localhost,http://tauri.localhost}
+  navigator:
+    enabled: ${NAVIGATOR_ENABLED:false}
+    gateway-url: ${NAVIGATOR_GATEWAY_URL:http://127.0.0.1:8091}
+    organization-public-id: ${NAVIGATOR_ORGANIZATION_PUBLIC_ID:6be51f4b-e5bd-4e91-8d60-4e41a72ad86f}
+    service-key: ${NAVIGATOR_SERVICE_KEY:}
+    simulator-enabled: ${NAVIGATOR_SIMULATOR_ENABLED:false}
 logging:
   pattern:
     level: "%5p [traceId=%X{traceId:-}]"

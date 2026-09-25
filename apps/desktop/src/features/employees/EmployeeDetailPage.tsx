@@ -29,6 +29,9 @@ import type {
   EmployeeOperations,
 } from "../../types/domain";
 import { initials } from "./PeoplePage";
+import { navigatorEnabled } from "../navigator/navigator.types";
+import { EmployeeNavigatorPanel } from "../navigator/EmployeeNavigatorPanel";
+import { financeApi, financeAmount } from "../finance/finance.api";
 export function EmployeeDetailPage() {
   const { id } = useParams(),
     location = useLocation(),
@@ -41,8 +44,10 @@ export function EmployeeDetailPage() {
         "attendance",
         "work",
         "payroll",
+        "finance",
         "performance",
         "communication",
+        ...(navigatorEnabled ? ["navigator"] : []),
       ].includes(requestedTab ?? "")
         ? requestedTab!
         : "overview",
@@ -63,6 +68,7 @@ export function EmployeeDetailPage() {
     queryFn: () => api<EmployeeOperations>(`/employees/${id}/operations`),
     enabled: !!id && ["work", "payroll", "performance"].includes(tab),
   });
+  const finance = useQuery({ queryKey: ["finance", "employee", id], queryFn: () => financeApi.employee(id!), enabled: !!id && tab === "finance" });
   const communications = useQuery({
     queryKey: ["employee", id, "communications"],
     queryFn: () => api<CommunicationCentre>(`/messages?employeeId=${id}`),
@@ -139,8 +145,10 @@ export function EmployeeDetailPage() {
           { value: "attendance", label: "Attendance" },
           { value: "work", label: "Work" },
           { value: "payroll", label: "Payroll" },
+          { value: "finance", label: "Finance" },
           { value: "performance", label: "Performance" },
           { value: "communication", label: "Communication" },
+          ...(navigatorEnabled ? [{ value: "navigator", label: "Navigator" }] : []),
         ]}
       >
         <SATabContent value="overview">
@@ -193,6 +201,13 @@ export function EmployeeDetailPage() {
               </SAButton>
             </div>
           </SABentoGrid>
+        </SATabContent>
+        <SATabContent value="finance">
+          {finance.isPending ? <SkeletonCard/> : finance.isError || !finance.data ? <EmptyState title="Finance unavailable" description="This employee's financial ledger could not be loaded."/> : <SABentoGrid className="finance-metrics">
+            <SABentoCard><span className="eyebrow">Earned</span><strong className="metric">{financeAmount(finance.data.earned)}</strong></SABentoCard>
+            <SABentoCard><span className="eyebrow">Paid</span><strong className="metric">{financeAmount(finance.data.paid)}</strong></SABentoCard>
+            <SABentoCard><span className="eyebrow">Outstanding</span><strong className="metric">{financeAmount(finance.data.outstanding)}</strong><SAButton onClick={() => navigate(`/finance?employee=${e.id}`)}>Open Finance ledger</SAButton></SABentoCard>
+          </SABentoGrid>}
         </SATabContent>
         <SATabContent value="attendance">
           {attendance.isPending ? (
@@ -324,6 +339,7 @@ export function EmployeeDetailPage() {
             />
           )}
         </SATabContent>
+        {navigatorEnabled && <SATabContent value="navigator"><EmployeeNavigatorPanel employeeId={e.id}/></SATabContent>}
       </SATabs>
       <ConfirmAction
         open={confirm}

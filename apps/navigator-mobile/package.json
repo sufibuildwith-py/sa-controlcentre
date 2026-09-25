@@ -1,0 +1,35 @@
+{
+  "name": "sa-employee",
+  "version": "2.0.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start --dev-client",
+    "android": "expo run:android",
+    "check": "tsc --noEmit",
+    "test": "vitest run",
+    "ios": "expo run:ios"
+  },
+  "dependencies": {
+    "@react-native-community/netinfo": "11.4.1",
+    "expo": "~54.0.0",
+    "expo-constants": "~18.0.0",
+    "expo-dev-client": "~6.0.0",
+    "expo-linking": "~8.0.8",
+    "expo-location": "~19.0.0",
+    "expo-router": "~6.0.0",
+    "expo-secure-store": "~15.0.0",
+    "expo-splash-screen": "~31.0.13",
+    "expo-sqlite": "~16.0.0",
+    "expo-task-manager": "~14.0.0",
+    "react": "19.1.0",
+    "react-native": "0.81.4",
+    "react-native-safe-area-context": "~5.6.0",
+    "react-native-screens": "~4.16.0"
+  },
+  "devDependencies": {
+    "@types/react": "~19.1.0",
+    "typescript": "~5.9.2",
+    "vitest": "^3.2.4"
+  }
+}

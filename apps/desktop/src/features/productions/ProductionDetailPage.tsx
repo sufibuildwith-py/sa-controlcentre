@@ -1,8 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, CalendarDays, MapPin, Plus, Users } from "lucide-react";
+import {
+  ArrowLeft,
+  Boxes,
+  CalendarDays,
+  MapPin,
+  Plus,
+  Users,
+} from "lucide-react";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ApiError, api, json } from "../../lib/api";
+import { financeApi, financeAmount } from "../finance/finance.api";
 import type {
   Employee,
   Priority,
@@ -80,6 +88,7 @@ export function ProductionDetailPage() {
       >(`/audit?entityType=PRODUCTION&entityId=${id}`),
     enabled: !!id && tab === "activity",
   });
+  const finance = useQuery({ queryKey: ["finance", "production", id], queryFn: () => financeApi.production(id!), enabled: !!id && tab === "finance" });
   const transition = useMutation({
     mutationFn: (status: ProductionStatus) =>
       api<Production>(`/productions/${id}/transition`, {
@@ -222,6 +231,8 @@ export function ProductionDetailPage() {
           "crew",
           "tasks",
           "schedule",
+          "equipment",
+          "finance",
           "notes",
           "activity",
         ].map((value) => ({
@@ -334,6 +345,31 @@ export function ProductionDetailPage() {
               </SABentoCard>
             ))}
           </div>
+        </SATabContent>
+        <SATabContent value="equipment">
+          <SABentoCard className="production-equipment-entry">
+            <div>
+              <Boxes size={20} />
+              <h3>Headquarters equipment plan</h3>
+              <p>
+                Review reservations, dispatches, venue custody, returns and
+                unresolved equipment for this production.
+              </p>
+            </div>
+            <SAButton
+              variant="primary"
+              onClick={() => navigate(`/headquarters?production=${p.id}`)}
+            >
+              Open Headquarters
+            </SAButton>
+          </SABentoCard>
+        </SATabContent>
+        <SATabContent value="finance">
+          {finance.isPending ? <SkeletonCard /> : finance.isError || !finance.data ? <EmptyState title="Finance unavailable" description="This production's financial summary could not be loaded." /> : <SABentoGrid className="finance-metrics">
+            <SABentoCard><span className="eyebrow">Contracted</span><strong className="metric">{financeAmount(finance.data.production.contracted)}</strong></SABentoCard>
+            <SABentoCard><span className="eyebrow">Received</span><strong className="metric">{financeAmount(finance.data.received)}</strong><span className="muted">Outstanding {financeAmount(finance.data.outstanding)}</span></SABentoCard>
+            <SABentoCard><span className="eyebrow">Realized margin</span><strong className="metric">{financeAmount(finance.data.realizedMargin)}</strong><span className="muted">Contracted margin {financeAmount(finance.data.contractedMargin)}</span><SAButton onClick={() => navigate(`/finance?production=${p.id}`)}>Open Finance</SAButton></SABentoCard>
+          </SABentoGrid>}
         </SATabContent>
         <SATabContent value="schedule">
           <SABentoCard>

@@ -11,6 +11,9 @@ import "./styles/phase3.css";
 import "./styles/shell.css";
 import "./styles/communications.css";
 import "./styles/settings.css";
+import "./styles/navigator.css";
+import "./styles/headquarters.css";
+import "./styles/finance.css";
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <BrowserRouter>

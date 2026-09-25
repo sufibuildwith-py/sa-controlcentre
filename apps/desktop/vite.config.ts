@@ -12,5 +12,5 @@ export default defineConfig(({ command, mode }) => {
     const connect = config.app.security.csp.split(';').find((part: string) => part.trim().startsWith('connect-src '));
     if (!connect?.split(/\s+/).includes(url.origin) || connect.includes('*')) throw new Error('Add the exact production API origin to the packaged Tauri CSP before building.');
   }
-  return {plugins:[react()],clearScreen:false,server:{port:1420,strictPort:true,watch:{ignored:['**/src-tauri/**']}},test:{environment:'jsdom',setupFiles:['./src/test/setup.ts'],css:true,include:['src/**/*.test.{ts,tsx}']}};
+  return {plugins:[react()],clearScreen:false,optimizeDeps:{exclude:['maplibre-gl']},server:{port:1420,strictPort:true,watch:{ignored:['**/src-tauri/**']}},test:{environment:'jsdom',setupFiles:['./src/test/setup.ts'],css:true,include:['src/**/*.test.{ts,tsx}']}};
 });
