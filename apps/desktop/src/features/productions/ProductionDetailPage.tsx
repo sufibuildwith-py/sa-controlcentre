@@ -88,7 +88,11 @@ export function ProductionDetailPage() {
       >(`/audit?entityType=PRODUCTION&entityId=${id}`),
     enabled: !!id && tab === "activity",
   });
-  const finance = useQuery({ queryKey: ["finance", "production", id], queryFn: () => financeApi.production(id!), enabled: !!id && tab === "finance" });
+  const finance = useQuery({
+    queryKey: ["finance", "production", id],
+    queryFn: () => financeApi.production(id!),
+    enabled: !!id && tab === "finance",
+  });
   const transition = useMutation({
     mutationFn: (status: ProductionStatus) =>
       api<Production>(`/productions/${id}/transition`, {
@@ -221,6 +225,9 @@ export function ProductionDetailPage() {
               Edit production
             </SAButton>
           )}
+          <SAButton onClick={() => navigate(`/billing?productionId=${p.id}`)}>
+            Create Bill
+          </SAButton>
         </div>
       </SABentoCard>
       <SATabs
@@ -365,11 +372,60 @@ export function ProductionDetailPage() {
           </SABentoCard>
         </SATabContent>
         <SATabContent value="finance">
-          {finance.isPending ? <SkeletonCard /> : finance.isError || !finance.data ? <EmptyState title="Finance unavailable" description="This production's financial summary could not be loaded." /> : <SABentoGrid className="finance-metrics">
-            <SABentoCard><span className="eyebrow">Contracted</span><strong className="metric">{financeAmount(finance.data.production.contracted)}</strong></SABentoCard>
-            <SABentoCard><span className="eyebrow">Received</span><strong className="metric">{financeAmount(finance.data.received)}</strong><span className="muted">Outstanding {financeAmount(finance.data.outstanding)}</span></SABentoCard>
-            <SABentoCard><span className="eyebrow">Realized margin</span><strong className="metric">{financeAmount(finance.data.realizedMargin)}</strong><span className="muted">Contracted margin {financeAmount(finance.data.contractedMargin)}</span><SAButton onClick={() => navigate(`/finance?production=${p.id}`)}>Open Finance</SAButton></SABentoCard>
-          </SABentoGrid>}
+          {finance.isPending ? (
+            <SkeletonCard />
+          ) : finance.isError || !finance.data ? (
+            <EmptyState
+              title="Finance unavailable"
+              description="This production's financial summary could not be loaded."
+            />
+          ) : (
+            <SABentoGrid className="finance-metrics">
+              <SABentoCard>
+                <span className="eyebrow">Contracted</span>
+                <strong className="metric">
+                  {financeAmount(finance.data.production.contracted)}
+                </strong>
+              </SABentoCard>
+              <SABentoCard>
+                <span className="eyebrow">Received</span>
+                <strong className="metric">
+                  {financeAmount(finance.data.received)}
+                </strong>
+                <span className="muted">
+                  Outstanding {financeAmount(finance.data.outstanding)}
+                </span>
+              </SABentoCard>
+              <SABentoCard>
+                <span className="eyebrow">Realized margin</span>
+                <strong className="metric">
+                  {financeAmount(finance.data.realizedMargin)}
+                </strong>
+                <span className="muted">
+                  Contracted margin{" "}
+                  {financeAmount(finance.data.contractedMargin)}
+                </span>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "0.5rem",
+                    marginTop: "0.5rem",
+                  }}
+                >
+                  <SAButton
+                    onClick={() => navigate(`/billing?productionId=${p.id}`)}
+                  >
+                    Create Bill
+                  </SAButton>
+                  <SAButton
+                    onClick={() => navigate(`/finance?production=${p.id}`)}
+                  >
+                    Open Finance
+                  </SAButton>
+                </div>
+              </SABentoCard>
+            </SABentoGrid>
+          )}
         </SATabContent>
         <SATabContent value="schedule">
           <SABentoCard>

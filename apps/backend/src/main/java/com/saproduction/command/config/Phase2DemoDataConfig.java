@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.*;
 import org.springframework.core.annotation.Order;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 @Configuration
 public class Phase2DemoDataConfig {
@@ -26,9 +27,12 @@ public class Phase2DemoDataConfig {
       CalendarService calendar,
       WorkTaskService tasks,
       MeetingService meetings,
-      PayrollService payroll) {
+      PayrollService payroll,
+      JdbcTemplate jdbc) {
     return args -> {
-      if (!enabled || productionRepository.count() > 0) return;
+      if (!enabled) return;
+      seedCounterparties(jdbc);
+      if (productionRepository.count() > 0) return;
       ZoneId zone = ZoneId.of(zoneName);
       LocalDate today = LocalDate.now(zone);
       List<Employee> people =
@@ -317,5 +321,23 @@ public class Phase2DemoDataConfig {
       value = service.transition(value.id(), next);
     }
     return value;
+  }
+
+  private static void seedCounterparties(JdbcTemplate jdbc) {
+    List<String> clients =
+        List.of("Northstar Foods", "Sharma Family", "Nivara Living", "Lucknow Heritage");
+    for (String client : clients) {
+      Integer existing =
+          jdbc.queryForObject(
+              "SELECT count(*) FROM finance_counterparties WHERE lower(display_name) = lower(?)",
+              Integer.class,
+              client);
+      if (existing == null || existing == 0) {
+        jdbc.update(
+            "INSERT INTO finance_counterparties(id, display_name, role, active) VALUES(?, ?, 'CUSTOMER', true)",
+            UUID.randomUUID(),
+            client);
+      }
+    }
   }
 }
