@@ -10,7 +10,6 @@ import java.time.LocalDate;
 import java.util.*;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.springframework.http.*;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -140,7 +139,7 @@ public class BillingService {
   }
 
   @Transactional(readOnly=true)
-  public ResponseEntity<byte[]> export(UUID id) {
+  public Map<String,Object> export(UUID id) {
     Map<String,Object> data=get(id);
     @SuppressWarnings("unchecked")
     Map<String,Object> bill=(Map<String,Object>)data.get("bill");
