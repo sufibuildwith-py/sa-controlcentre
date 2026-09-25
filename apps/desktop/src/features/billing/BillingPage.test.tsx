@@ -25,21 +25,26 @@ vi.mock("../finance/finance.api", () => ({
   },
 }));
 
+vi.mock("../../lib/api", () => ({
+  api: vi.fn(),
+}));
+
 import { billingApi } from "./billing.api";
 import { financeApi } from "../finance/finance.api";
+import { api } from "../../lib/api";
 
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
 });
 
-function renderPage() {
+function renderPage(initialEntry = "/billing") {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
 
   return render(
-    <MemoryRouter initialEntries={["/billing"]}>
+    <MemoryRouter initialEntries={[initialEntry]}>
       <QueryClientProvider client={queryClient}>
         <BillingPage />
       </QueryClientProvider>
@@ -240,5 +245,70 @@ describe("BillingPage", () => {
 
     // Verify canonical finance link is displayed
     expect(screen.getByRole("link", { name: /View in Finance/i })).toBeInTheDocument();
+  });
+
+  it("prefills production, matching customer, event name, venue, and date when navigated with productionId", async () => {
+    vi.mocked(billingApi.list).mockResolvedValue([]);
+    vi.mocked(api).mockResolvedValue({
+      id: "prod-1",
+      title: "Mega Showcase",
+      clientName: "Northstar Foods",
+      eventDate: "2026-11-20",
+      venueName: "Grand Arena",
+    } as any);
+    vi.mocked(financeApi.counterparties).mockResolvedValue({
+      items: [{ id: "c-northstar", displayName: "Northstar Foods" }],
+      page: 0,
+      size: 50,
+      total: 1,
+    } as any);
+    vi.mocked(financeApi.productions).mockResolvedValue({
+      items: [{ id: "prod-1", title: "Mega Showcase", clientName: "Northstar Foods", eventDate: "2026-11-20" }],
+      page: 0,
+      size: 50,
+      total: 1,
+    } as any);
+
+    renderPage("/billing?productionId=prod-1");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Billing" })).toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole("combobox", { name: /Production \/ Job/i })).toHaveValue("prod-1");
+      expect(screen.getByRole("combobox", { name: /Customer/i })).toHaveValue("c-northstar");
+      expect(screen.getByPlaceholderText("e.g. Annual Gala 2026")).toHaveValue("Mega Showcase");
+      expect(screen.getByPlaceholderText("Venue location")).toHaveValue("Grand Arena");
+      expect(screen.getByLabelText(/Date/i)).toHaveValue("2026-11-20");
+    });
+
+    // Verify financial amounts are NOT inferred or copied
+    expect(screen.getByLabelText("Rate 1")).toHaveValue(0);
+    expect(screen.getAllByText("₹0.00").length).toBeGreaterThan(0);
+  });
+
+  it("prefills customer when navigated with counterpartyId", async () => {
+    vi.mocked(billingApi.list).mockResolvedValue([]);
+    vi.mocked(financeApi.counterparties).mockResolvedValue({
+      items: [{ id: "c-sharma", displayName: "Sharma Family" }],
+      page: 0,
+      size: 50,
+      total: 1,
+    } as any);
+    vi.mocked(financeApi.productions).mockResolvedValue({ items: [], page: 0, size: 50, total: 0 } as any);
+
+    renderPage("/billing?counterpartyId=c-sharma");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Billing" })).toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole("combobox", { name: /Customer/i })).toHaveValue("c-sharma");
+    });
+
+    // Verify financial amounts are NOT inferred or copied
+    expect(screen.getByLabelText("Rate 1")).toHaveValue(0);
   });
 });

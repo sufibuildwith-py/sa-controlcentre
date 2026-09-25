@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, FileDown, FilePlus2, Send, X, ArrowUpRight } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
+import { api } from "../../lib/api";
+import type { Production } from "../../types/domain";
 import { financeApi } from "../finance/finance.api";
 import { billingApi, type BillingCreate, type BillingLine } from "./billing.api";
 import { EmptyState, MetricCard, SABentoCard, SABentoGrid, SAButton, SkeletonCard, StatusBadge } from "../../components/ui/sa";
@@ -40,9 +42,18 @@ export function BillingPage() {
   const [exportingPdf, setExportingPdf] = useState(false);
   const [form, setForm] = useState<BillingCreate>(emptyForm);
 
+  const [searchParams] = useSearchParams();
+  const urlProductionId = searchParams.get("productionId");
+  const urlCounterpartyId = searchParams.get("counterpartyId") || searchParams.get("partyId");
+
   const bills = useQuery({ queryKey: ["billing"], queryFn: billingApi.list });
   const parties = useQuery({ queryKey: ["finance", "parties", "billing"], queryFn: () => financeApi.counterparties(0, "") });
   const productions = useQuery({ queryKey: ["finance", "productions", "billing"], queryFn: () => financeApi.productions(0, "") });
+  const productionDetail = useQuery({
+    queryKey: ["production", urlProductionId],
+    queryFn: () => api<Production>(`/productions/${urlProductionId}`),
+    enabled: !!urlProductionId && !selected,
+  });
   const detail = useQuery({ queryKey: ["billing", selected], queryFn: () => billingApi.get(selected!), enabled: !!selected });
 
   // Synchronize detail data into form when selected bill changes
@@ -89,6 +100,52 @@ export function BillingPage() {
       });
     }
   }, [detail.data, selected]);
+
+  // Prefill fields when navigated with productionId or counterpartyId for a new bill
+  useEffect(() => {
+    if (!selected) {
+      if (urlProductionId) {
+        const prodFromList = productions.data?.items.find((p) => p.id === urlProductionId);
+        const prod = productionDetail.data || prodFromList;
+        const clientName = prod ? ("clientName" in prod ? prod.clientName : null) : null;
+        let matchedCounterpartyId: string | null = null;
+        if (clientName && parties.data?.items) {
+          const found = parties.data.items.find(
+            (c) => c.displayName.trim().toLowerCase() === clientName.trim().toLowerCase()
+          );
+          if (found) matchedCounterpartyId = found.id;
+        }
+
+        const partyIdToUse = matchedCounterpartyId || urlCounterpartyId || undefined;
+        const party = parties.data?.items.find((p) => p.id === partyIdToUse);
+        const gstin = party ? ((party as any)?.gstin ?? "") : "";
+
+        setForm((prev) => ({
+          ...prev,
+          productionId: urlProductionId,
+          eventName: prev.eventName || (prod ? prod.title : ""),
+          venue: prev.venue || (productionDetail.data?.venueName ?? ""),
+          billDate: prev.billDate && prev.billDate !== today() ? prev.billDate : (prod?.eventDate || today()),
+          counterpartyId: prev.counterpartyId || matchedCounterpartyId || (urlCounterpartyId ?? ""),
+          gstin: prev.gstin || gstin,
+        }));
+      } else if (urlCounterpartyId) {
+        const party = parties.data?.items.find((p) => p.id === urlCounterpartyId);
+        setForm((prev) => ({
+          ...prev,
+          counterpartyId: urlCounterpartyId,
+          gstin: prev.gstin || ((party as any)?.gstin ?? ""),
+        }));
+      }
+    }
+  }, [
+    selected,
+    urlProductionId,
+    urlCounterpartyId,
+    productionDetail.data,
+    productions.data,
+    parties.data,
+  ]);
 
   const selectedBill = selected && detail.data ? detail.data.bill : null;
   const currentStatus = selectedBill ? selectedBill.status : null;
