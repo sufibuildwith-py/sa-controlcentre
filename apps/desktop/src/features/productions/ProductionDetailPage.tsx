@@ -61,6 +61,51 @@ export function ProductionDetailPage() {
     [employeeId, setEmployeeId] = useState(""),
     [role, setRole] = useState("Crew"),
     [conflict, setConflict] = useState<ApiError | null>(null);
+
+  const [contractOpen, setContractOpen] = useState(false);
+  const [receiptOpen, setReceiptOpen] = useState(false);
+  const [expenseOpen, setExpenseOpen] = useState(false);
+  const [earningOpen, setEarningOpen] = useState(false);
+
+  const [contractRequestKey, setContractRequestKey] = useState(generateKey());
+  const [receiptRequestKey, setReceiptRequestKey] = useState(generateKey());
+  const [expenseRequestKey, setExpenseRequestKey] = useState(generateKey());
+  const [earningRequestKey, setEarningRequestKey] = useState(generateKey());
+
+  const [contractError, setContractError] = useState("");
+  const [receiptError, setReceiptError] = useState("");
+  const [expenseError, setExpenseError] = useState("");
+  const [earningError, setEarningError] = useState("");
+
+  const [contractForm, setContractForm] = useState({
+    amount: "",
+    date: "",
+    description: "",
+  });
+  const [receiptForm, setReceiptForm] = useState({
+    amount: "",
+    receiverAccount: "AZ-2",
+    date: "",
+    description: "",
+    counterpartyId: "",
+    legacyType: "ADD",
+  });
+  const [expenseForm, setExpenseForm] = useState({
+    amount: "",
+    payerAccount: "AZ-2",
+    categoryCode: "TRANSPORT",
+    date: "",
+    description: "",
+    counterpartyId: "",
+    employeeId: "",
+  });
+  const [earningForm, setEarningForm] = useState({
+    employeeId: "",
+    amount: "",
+    date: "",
+    description: "",
+  });
+
   const production = useQuery({
     queryKey: ["production", id],
     queryFn: () => api<Production>(`/productions/${id}`),
@@ -91,7 +136,128 @@ export function ProductionDetailPage() {
   const finance = useQuery({
     queryKey: ["finance", "production", id],
     queryFn: () => financeApi.production(id!),
-    enabled: !!id && tab === "finance",
+    enabled: !!id,
+  });
+  const financeConfig = useQuery({
+    queryKey: ["finance", "config"],
+    queryFn: () => financeApi.config(),
+  });
+  const counterparties = useQuery({
+    queryKey: ["counterparties"],
+    queryFn: () => financeApi.counterparties(0),
+  });
+
+  const setContractMutation = useMutation({
+    mutationFn: () => {
+      const amt = Number(contractForm.amount);
+      return financeApi.setContract({
+        idempotencyKey: contractRequestKey,
+        productionId: id!,
+        amount: amt,
+        date: contractForm.date,
+        description: contractForm.description.trim(),
+      });
+    },
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["finance", "production", id] });
+      client.invalidateQueries({ queryKey: ["production", id] });
+      client.invalidateQueries({ queryKey: ["productions"] });
+      setContractOpen(false);
+      setContractError("");
+    },
+    onError: (err: unknown) => {
+      if (err instanceof ApiError) {
+        setContractError(err.message);
+      } else if (err instanceof Error) {
+        setContractError(err.message);
+      }
+    },
+  });
+
+  const recordReceiptMutation = useMutation({
+    mutationFn: () => {
+      const amt = Number(receiptForm.amount);
+      return financeApi.recordReceipt({
+        idempotencyKey: receiptRequestKey,
+        productionId: id!,
+        amount: amt,
+        date: receiptForm.date,
+        description: receiptForm.description.trim(),
+        receiverAccount: receiptForm.receiverAccount,
+        counterpartyId: receiptForm.counterpartyId || undefined,
+        legacyType: receiptForm.legacyType || undefined,
+      });
+    },
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["finance", "production", id] });
+      client.invalidateQueries({ queryKey: ["finance"] });
+      setReceiptOpen(false);
+      setReceiptError("");
+    },
+    onError: (err: unknown) => {
+      if (err instanceof ApiError) {
+        setReceiptError(err.message);
+      } else if (err instanceof Error) {
+        setReceiptError(err.message);
+      }
+    },
+  });
+
+  const logExpenseMutation = useMutation({
+    mutationFn: () => {
+      const amt = Number(expenseForm.amount);
+      return financeApi.logExpense({
+        idempotencyKey: expenseRequestKey,
+        amount: amt,
+        date: expenseForm.date,
+        description: expenseForm.description.trim(),
+        payerAccount: expenseForm.payerAccount,
+        productionId: id!,
+        counterpartyId: expenseForm.counterpartyId || undefined,
+        employeeId: expenseForm.employeeId || undefined,
+        categoryCode: expenseForm.categoryCode || undefined,
+      });
+    },
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["finance", "production", id] });
+      client.invalidateQueries({ queryKey: ["finance"] });
+      setExpenseOpen(false);
+      setExpenseError("");
+    },
+    onError: (err: unknown) => {
+      if (err instanceof ApiError) {
+        setExpenseError(err.message);
+      } else if (err instanceof Error) {
+        setExpenseError(err.message);
+      }
+    },
+  });
+
+  const addEarningMutation = useMutation({
+    mutationFn: () => {
+      const amt = Number(earningForm.amount);
+      return financeApi.addEarning({
+        idempotencyKey: earningRequestKey,
+        employeeId: earningForm.employeeId,
+        productionId: id!,
+        amount: amt,
+        date: earningForm.date,
+        description: earningForm.description.trim(),
+      });
+    },
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["finance", "production", id] });
+      client.invalidateQueries({ queryKey: ["finance"] });
+      setEarningOpen(false);
+      setEarningError("");
+    },
+    onError: (err: unknown) => {
+      if (err instanceof ApiError) {
+        setEarningError(err.message);
+      } else if (err instanceof Error) {
+        setEarningError(err.message);
+      }
+    },
   });
   const transition = useMutation({
     mutationFn: (status: ProductionStatus) =>
@@ -223,6 +389,23 @@ export function ProductionDetailPage() {
               }}
             >
               Edit production
+            </SAButton>
+          )}
+          {finance.data && !finance.data.production.contracted && (
+            <SAButton
+              variant="primary"
+              onClick={() => {
+                setContractRequestKey(generateKey());
+                setContractForm({
+                  amount: "",
+                  date: p.eventDate || new Date().toISOString().slice(0, 10),
+                  description: `Contract for ${p.title}`,
+                });
+                setContractError("");
+                setContractOpen(true);
+              }}
+            >
+              Set Contract
             </SAButton>
           )}
           <SAButton onClick={() => navigate(`/billing?productionId=${p.id}`)}>
@@ -380,51 +563,272 @@ export function ProductionDetailPage() {
               description="This production's financial summary could not be loaded."
             />
           ) : (
-            <SABentoGrid className="finance-metrics">
-              <SABentoCard>
-                <span className="eyebrow">Contracted</span>
-                <strong className="metric">
-                  {financeAmount(finance.data.production.contracted)}
-                </strong>
-              </SABentoCard>
-              <SABentoCard>
-                <span className="eyebrow">Received</span>
-                <strong className="metric">
-                  {financeAmount(finance.data.received)}
-                </strong>
-                <span className="muted">
-                  Outstanding {financeAmount(finance.data.outstanding)}
-                </span>
-              </SABentoCard>
-              <SABentoCard>
-                <span className="eyebrow">Realized margin</span>
-                <strong className="metric">
-                  {financeAmount(finance.data.realizedMargin)}
-                </strong>
-                <span className="muted">
-                  Contracted margin{" "}
-                  {financeAmount(finance.data.contractedMargin)}
-                </span>
-                <div
-                  style={{
-                    display: "flex",
-                    gap: "0.5rem",
-                    marginTop: "0.5rem",
-                  }}
-                >
-                  <SAButton
-                    onClick={() => navigate(`/billing?productionId=${p.id}`)}
-                  >
-                    Create Bill
-                  </SAButton>
-                  <SAButton
-                    onClick={() => navigate(`/finance?production=${p.id}`)}
-                  >
-                    Open Finance
-                  </SAButton>
-                </div>
-              </SABentoCard>
-            </SABentoGrid>
+            (() => {
+              const contracted = finance.data.production.contracted || 0;
+              const received = finance.data.received || 0;
+              const outstanding = finance.data.outstanding || 0;
+              const transactions = finance.data.transactions || [];
+              const directExpenses = transactions
+                .filter((t) => t.type === "PRODUCTION_EXPENSE")
+                .reduce((sum, t) => sum + (t.amount || 0), 0);
+              const directExpensesCount = transactions.filter(
+                (t) => t.type === "PRODUCTION_EXPENSE",
+              ).length;
+              const crewLabor = transactions
+                .filter((t) => t.type === "EMPLOYEE_EARNING")
+                .reduce((sum, t) => sum + (t.amount || 0), 0);
+              const crewLaborCount = transactions.filter(
+                (t) => t.type === "EMPLOYEE_EARNING",
+              ).length;
+              const realizedMargin = finance.data.realizedMargin || 0;
+              const contractedMargin = finance.data.contractedMargin || 0;
+
+              return (
+                <>
+                  <div className="production-finance-dock">
+                    <SAButton
+                      variant={contracted > 0 ? "secondary" : "primary"}
+                      disabled={contracted > 0}
+                      onClick={() => {
+                        setContractRequestKey(generateKey());
+                        setContractForm({
+                          amount: "",
+                          date:
+                            p.eventDate ||
+                            new Date().toISOString().slice(0, 10),
+                          description: `Contract for ${p.title}`,
+                        });
+                        setContractError("");
+                        setContractOpen(true);
+                      }}
+                    >
+                      {contracted > 0
+                        ? `Contract Set (${financeAmount(contracted)})`
+                        : "Set Contract"}
+                    </SAButton>
+                    <SAButton
+                      disabled={contracted <= 0 || outstanding <= 0}
+                      onClick={() => {
+                        setReceiptRequestKey(generateKey());
+                        setReceiptForm({
+                          amount: "",
+                          receiverAccount: "AZ-2",
+                          date: new Date().toISOString().slice(0, 10),
+                          description: `Client receipt for ${p.title}`,
+                          counterpartyId: "",
+                          legacyType: "ADD",
+                        });
+                        setReceiptError("");
+                        setReceiptOpen(true);
+                      }}
+                    >
+                      Record Receipt
+                    </SAButton>
+                    <SAButton
+                      onClick={() => {
+                        setExpenseRequestKey(generateKey());
+                        setExpenseForm({
+                          amount: "",
+                          payerAccount: "AZ-2",
+                          categoryCode: "TRANSPORT",
+                          date: new Date().toISOString().slice(0, 10),
+                          description: `Expense for ${p.title}`,
+                          counterpartyId: "",
+                          employeeId: "",
+                        });
+                        setExpenseError("");
+                        setExpenseOpen(true);
+                      }}
+                    >
+                      Log Expense
+                    </SAButton>
+                    <SAButton
+                      onClick={() => {
+                        setEarningRequestKey(generateKey());
+                        setEarningForm({
+                          employeeId: p.members[0]?.employeeId || "",
+                          amount: "",
+                          date:
+                            p.eventDate ||
+                            new Date().toISOString().slice(0, 10),
+                          description: `Crew shift for ${p.title}`,
+                        });
+                        setEarningError("");
+                        setEarningOpen(true);
+                      }}
+                    >
+                      Add Crew Earning
+                    </SAButton>
+                    <SAButton
+                      onClick={() => navigate(`/billing?productionId=${p.id}`)}
+                    >
+                      Create Bill
+                    </SAButton>
+                    <SAButton
+                      variant="ghost"
+                      onClick={() => navigate(`/finance?production=${p.id}`)}
+                    >
+                      Open Finance
+                    </SAButton>
+                  </div>
+
+                  <SABentoGrid className="finance-metrics">
+                    <SABentoCard>
+                      <span className="eyebrow">Contracted Revenue</span>
+                      <strong className="metric">
+                        {financeAmount(contracted)}
+                      </strong>
+                      <span className="muted">
+                        {contracted > 0
+                          ? "Commercial contract active"
+                          : "No contract set yet"}
+                      </span>
+                    </SABentoCard>
+                    <SABentoCard>
+                      <span className="eyebrow">Received</span>
+                      <strong className="metric">
+                        {financeAmount(received)}
+                      </strong>
+                      <span className="muted">
+                        Outstanding {financeAmount(outstanding)}
+                      </span>
+                    </SABentoCard>
+                    <SABentoCard>
+                      <span className="eyebrow">Direct Expenses</span>
+                      <strong className="metric">
+                        {financeAmount(directExpenses)}
+                      </strong>
+                      <span className="muted">
+                        {directExpensesCount} logged operational expenses
+                      </span>
+                    </SABentoCard>
+                    <SABentoCard>
+                      <span className="eyebrow">Crew Labor Costs</span>
+                      <strong className="metric">
+                        {financeAmount(crewLabor)}
+                      </strong>
+                      <span className="muted">
+                        {crewLaborCount} crew shift earnings accrued
+                      </span>
+                    </SABentoCard>
+                    <SABentoCard>
+                      <span className="eyebrow">Realized Margin</span>
+                      <strong className="metric">
+                        {financeAmount(realizedMargin)}
+                      </strong>
+                      <span className="muted">
+                        Contracted margin {financeAmount(contractedMargin)}
+                      </span>
+                    </SABentoCard>
+                    <SABentoCard>
+                      <span className="eyebrow">Profit Split (65% / 35%)</span>
+                      {realizedMargin > 0 ? (
+                        <>
+                          <strong
+                            className="metric"
+                            style={{ fontSize: "1.1rem" }}
+                          >
+                            AZ: {financeAmount(realizedMargin * 0.65)} · AK:{" "}
+                            {financeAmount(realizedMargin * 0.35)}
+                          </strong>
+                          <span className="muted">
+                            Distributed on realized margin
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <strong
+                            className="metric"
+                            style={{ fontSize: "1.1rem" }}
+                          >
+                            ₹0.00
+                          </strong>
+                          <span className="muted">No profit realized yet</span>
+                        </>
+                      )}
+                    </SABentoCard>
+                  </SABentoGrid>
+
+                  <SABentoCard className="production-timeline-card">
+                    <h3>Financial Activity Timeline</h3>
+                    <p className="subtitle">
+                      Chronological audit record of all canonical double-entry
+                      postings for this production.
+                    </p>
+                    {transactions.length === 0 ? (
+                      <EmptyState
+                        title="No financial activity recorded"
+                        description="Use the action bar above to set the contract, record advances, log operational expenses, or accrue crew labor."
+                      />
+                    ) : (
+                      <div className="production-timeline">
+                        {transactions.map((tx) => {
+                          const isReceipt = tx.type === "PRODUCTION_RECEIPT";
+                          const isCost =
+                            tx.type === "PRODUCTION_EXPENSE" ||
+                            tx.type === "EMPLOYEE_EARNING";
+                          const tone = isReceipt
+                            ? "success"
+                            : tx.type === "PRODUCTION_EXPENSE"
+                              ? "warning"
+                              : tx.type === "EMPLOYEE_EARNING"
+                                ? "info"
+                                : "neutral";
+                          const label =
+                            tx.type === "PRODUCTION_CONTRACT"
+                              ? "Contract"
+                              : tx.type === "PRODUCTION_RECEIPT"
+                                ? "Receipt"
+                                : tx.type === "PRODUCTION_EXPENSE"
+                                  ? "Expense"
+                                  : tx.type === "EMPLOYEE_EARNING"
+                                    ? "Crew Earning"
+                                    : tx.type === "INVOICE_ISSUED"
+                                      ? "Invoice"
+                                      : tx.type.replaceAll("_", " ");
+                          return (
+                            <div
+                              key={tx.id}
+                              className="production-timeline-item"
+                            >
+                              <div className="production-timeline-left">
+                                <span className="production-timeline-date">
+                                  {longDate(tx.date)}
+                                </span>
+                                <StatusBadge tone={tone}>{label}</StatusBadge>
+                                <div className="production-timeline-content">
+                                  <strong>{tx.description}</strong>
+                                  <span>
+                                    TX #{tx.transactionNo} · {tx.status}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="production-timeline-right">
+                                <span
+                                  className={`production-timeline-amount ${
+                                    isReceipt
+                                      ? "positive"
+                                      : isCost
+                                        ? "negative"
+                                        : ""
+                                  }`}
+                                >
+                                  {isReceipt
+                                    ? `+${financeAmount(tx.amount)}`
+                                    : isCost
+                                      ? `-${financeAmount(tx.amount)}`
+                                      : financeAmount(tx.amount)}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </SABentoCard>
+                </>
+              );
+            })()
           )}
         </SATabContent>
         <SATabContent value="schedule">
@@ -612,12 +1016,471 @@ export function ProductionDetailPage() {
           </SAButton>
         </div>
       </SAModal>
+      <SAModal
+        open={contractOpen}
+        onOpenChange={setContractOpen}
+        title="Set Contract"
+        description={`Establish the contracted commercial value for ${p.title} in canonical Finance.`}
+      >
+        <div className="form-grid">
+          <FormField label="Contract Amount (₹)" error={contractError}>
+            <input
+              aria-label="Contract amount"
+              type="number"
+              step="0.01"
+              min="0.01"
+              required
+              placeholder="e.g. 150000"
+              value={contractForm.amount}
+              onChange={(e) => {
+                setContractError("");
+                setContractForm({ ...contractForm, amount: e.target.value });
+              }}
+            />
+          </FormField>
+          <FormField label="Effective Date">
+            <input
+              aria-label="Contract date"
+              type="date"
+              required
+              value={contractForm.date}
+              onChange={(e) =>
+                setContractForm({ ...contractForm, date: e.target.value })
+              }
+            />
+          </FormField>
+          <FormField label="Description / Reference">
+            <input
+              aria-label="Contract description"
+              required
+              value={contractForm.description}
+              onChange={(e) =>
+                setContractForm({
+                  ...contractForm,
+                  description: e.target.value,
+                })
+              }
+            />
+          </FormField>
+        </div>
+        {contractError && <p className="form-error">{contractError}</p>}
+        <div className="modal-actions">
+          <SAButton onClick={() => setContractOpen(false)}>Cancel</SAButton>
+          <SAButton
+            variant="primary"
+            disabled={
+              setContractMutation.isPending ||
+              !contractForm.amount ||
+              Number(contractForm.amount) <= 0 ||
+              !contractForm.date ||
+              !contractForm.description.trim()
+            }
+            onClick={() => {
+              if (setContractMutation.isPending) return;
+              const amt = Number(contractForm.amount);
+              if (isNaN(amt) || amt <= 0) {
+                setContractError("Amount must be a positive number.");
+                return;
+              }
+              setContractMutation.mutate();
+            }}
+          >
+            {setContractMutation.isPending ? "Setting…" : "Set Contract"}
+          </SAButton>
+        </div>
+      </SAModal>
+      <SAModal
+        open={receiptOpen}
+        onOpenChange={setReceiptOpen}
+        title="Record Client Receipt"
+        description={`Record client advance or payment for ${p.title}. Outstanding balance: ${finance.data ? financeAmount(finance.data.outstanding) : "—"}`}
+      >
+        <div className="form-grid">
+          <FormField label="Receipt Amount (₹)" error={receiptError}>
+            <input
+              aria-label="Receipt amount"
+              type="number"
+              step="0.01"
+              min="0.01"
+              max={finance.data?.outstanding || undefined}
+              required
+              placeholder="e.g. 50000"
+              value={receiptForm.amount}
+              onChange={(e) => {
+                setReceiptError("");
+                setReceiptForm({ ...receiptForm, amount: e.target.value });
+              }}
+            />
+          </FormField>
+          <FormField label="Received By (Owner Account)">
+            <select
+              aria-label="Receiver owner account"
+              value={receiptForm.receiverAccount}
+              onChange={(e) =>
+                setReceiptForm({
+                  ...receiptForm,
+                  receiverAccount: e.target.value,
+                })
+              }
+            >
+              <option value="AZ-2">Azeem (AZ-2)</option>
+              <option value="AK-2">Akash (AK-2)</option>
+            </select>
+          </FormField>
+          <FormField label="Date">
+            <input
+              aria-label="Receipt date"
+              type="date"
+              required
+              value={receiptForm.date}
+              onChange={(e) =>
+                setReceiptForm({ ...receiptForm, date: e.target.value })
+              }
+            />
+          </FormField>
+          <FormField label="Payment Method">
+            <select
+              aria-label="Receipt payment mode"
+              value={receiptForm.legacyType}
+              onChange={(e) =>
+                setReceiptForm({ ...receiptForm, legacyType: e.target.value })
+              }
+            >
+              <option value="ADD">Client Advance / Direct (ADD)</option>
+              <option value="BANK">Bank Transfer (NEFT/RTGS/IMPS)</option>
+              <option value="UPI">UPI</option>
+              <option value="CASH">Cash</option>
+            </select>
+          </FormField>
+          <FormField label="Counterparty / Client">
+            <select
+              aria-label="Receipt counterparty"
+              value={receiptForm.counterpartyId}
+              onChange={(e) =>
+                setReceiptForm({
+                  ...receiptForm,
+                  counterpartyId: e.target.value,
+                })
+              }
+            >
+              <option value="">Default ({p.clientName})</option>
+              {counterparties.data?.items.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.displayName} ({c.role})
+                </option>
+              ))}
+            </select>
+          </FormField>
+          <FormField label="Description">
+            <input
+              aria-label="Receipt description"
+              required
+              value={receiptForm.description}
+              onChange={(e) =>
+                setReceiptForm({ ...receiptForm, description: e.target.value })
+              }
+            />
+          </FormField>
+        </div>
+        {receiptError && <p className="form-error">{receiptError}</p>}
+        <div className="modal-actions">
+          <SAButton onClick={() => setReceiptOpen(false)}>Cancel</SAButton>
+          <SAButton
+            variant="primary"
+            disabled={
+              recordReceiptMutation.isPending ||
+              !receiptForm.amount ||
+              Number(receiptForm.amount) <= 0 ||
+              !receiptForm.date ||
+              !receiptForm.description.trim()
+            }
+            onClick={() => {
+              if (recordReceiptMutation.isPending) return;
+              const amt = Number(receiptForm.amount);
+              if (isNaN(amt) || amt <= 0) {
+                setReceiptError("Amount must be a positive number.");
+                return;
+              }
+              if (finance.data?.outstanding && amt > finance.data.outstanding) {
+                setReceiptError(
+                  `Amount exceeds outstanding balance of ${financeAmount(finance.data.outstanding)}.`,
+                );
+                return;
+              }
+              recordReceiptMutation.mutate();
+            }}
+          >
+            {recordReceiptMutation.isPending ? "Recording…" : "Record Receipt"}
+          </SAButton>
+        </div>
+      </SAModal>
+      <SAModal
+        open={expenseOpen}
+        onOpenChange={setExpenseOpen}
+        title="Log Production Expense"
+        description={`Record direct operational cost paid for ${p.title}.`}
+      >
+        <div className="form-grid">
+          <FormField label="Amount (₹)" error={expenseError}>
+            <input
+              aria-label="Expense amount"
+              type="number"
+              step="0.01"
+              min="0.01"
+              required
+              placeholder="e.g. 4500"
+              value={expenseForm.amount}
+              onChange={(e) => {
+                setExpenseError("");
+                setExpenseForm({ ...expenseForm, amount: e.target.value });
+              }}
+            />
+          </FormField>
+          <FormField label="Paid By (Owner Account)">
+            <select
+              aria-label="Expense payer account"
+              value={expenseForm.payerAccount}
+              onChange={(e) =>
+                setExpenseForm({ ...expenseForm, payerAccount: e.target.value })
+              }
+            >
+              <option value="AZ-2">Azeem (AZ-2)</option>
+              <option value="AK-2">Akash (AK-2)</option>
+            </select>
+          </FormField>
+          <FormField label="Expense Category">
+            <select
+              aria-label="Expense category"
+              value={expenseForm.categoryCode}
+              onChange={(e) =>
+                setExpenseForm({ ...expenseForm, categoryCode: e.target.value })
+              }
+            >
+              {(
+                financeConfig.data?.expenseCategories || [
+                  { code: "TRANSPORT", displayName: "Transport" },
+                  { code: "FOOD", displayName: "Food" },
+                  { code: "RENTAL", displayName: "Rental" },
+                  { code: "EQUIPMENT", displayName: "Equipment" },
+                  { code: "PETROL", displayName: "Petrol" },
+                  { code: "OTHER", displayName: "Other" },
+                ]
+              ).map((cat) => (
+                <option key={cat.code} value={cat.code}>
+                  {cat.displayName}
+                </option>
+              ))}
+            </select>
+          </FormField>
+          <FormField label="Date">
+            <input
+              aria-label="Expense date"
+              type="date"
+              required
+              value={expenseForm.date}
+              onChange={(e) =>
+                setExpenseForm({ ...expenseForm, date: e.target.value })
+              }
+            />
+          </FormField>
+          <FormField label="Vendor / Counterparty (Optional)">
+            <select
+              aria-label="Expense vendor"
+              value={expenseForm.counterpartyId}
+              onChange={(e) =>
+                setExpenseForm({
+                  ...expenseForm,
+                  counterpartyId: e.target.value,
+                })
+              }
+            >
+              <option value="">None / Direct</option>
+              {counterparties.data?.items.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.displayName} ({c.role})
+                </option>
+              ))}
+            </select>
+          </FormField>
+          <FormField label="Associated Crew (Optional)">
+            <select
+              aria-label="Expense crew member"
+              value={expenseForm.employeeId}
+              onChange={(e) =>
+                setExpenseForm({ ...expenseForm, employeeId: e.target.value })
+              }
+            >
+              <option value="">None / General</option>
+              {employees.data?.map((emp) => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.displayName}
+                </option>
+              ))}
+            </select>
+          </FormField>
+          <FormField label="Description / Purpose">
+            <input
+              aria-label="Expense description"
+              required
+              placeholder="e.g. Venue sound technician travel"
+              value={expenseForm.description}
+              onChange={(e) =>
+                setExpenseForm({ ...expenseForm, description: e.target.value })
+              }
+            />
+          </FormField>
+        </div>
+        {expenseError && <p className="form-error">{expenseError}</p>}
+        <div className="modal-actions">
+          <SAButton onClick={() => setExpenseOpen(false)}>Cancel</SAButton>
+          <SAButton
+            variant="primary"
+            disabled={
+              logExpenseMutation.isPending ||
+              !expenseForm.amount ||
+              Number(expenseForm.amount) <= 0 ||
+              !expenseForm.date ||
+              !expenseForm.description.trim()
+            }
+            onClick={() => {
+              if (logExpenseMutation.isPending) return;
+              const amt = Number(expenseForm.amount);
+              if (isNaN(amt) || amt <= 0) {
+                setExpenseError("Amount must be a positive number.");
+                return;
+              }
+              logExpenseMutation.mutate();
+            }}
+          >
+            {logExpenseMutation.isPending ? "Logging…" : "Log Expense"}
+          </SAButton>
+        </div>
+      </SAModal>
+      <SAModal
+        open={earningOpen}
+        onOpenChange={setEarningOpen}
+        title="Add Crew Labor Earning"
+        description={`Record labor cost obligation for a crew member on ${p.title}. Accrues an employee payable obligation without marking it paid.`}
+      >
+        <div className="form-grid">
+          <FormField label="Crew Member / Employee" error={earningError}>
+            <select
+              aria-label="Crew member"
+              required
+              value={earningForm.employeeId}
+              onChange={(e) => {
+                setEarningError("");
+                setEarningForm({ ...earningForm, employeeId: e.target.value });
+              }}
+            >
+              <option value="">Choose employee…</option>
+              {p.members.length > 0 && (
+                <optgroup label="Assigned Crew">
+                  {p.members.map((m) => (
+                    <option key={m.employeeId} value={m.employeeId}>
+                      {m.employeeName} ({m.productionRole})
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              <optgroup label="All Employees">
+                {employees.data?.map((emp) => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.displayName} ({emp.employeeCode})
+                  </option>
+                ))}
+              </optgroup>
+            </select>
+          </FormField>
+          <FormField label="Earning Amount (₹)">
+            <input
+              aria-label="Earning amount"
+              type="number"
+              step="0.01"
+              min="0.01"
+              required
+              placeholder="e.g. 3500"
+              value={earningForm.amount}
+              onChange={(e) =>
+                setEarningForm({ ...earningForm, amount: e.target.value })
+              }
+            />
+          </FormField>
+          <FormField label="Shift Date">
+            <input
+              aria-label="Earning shift date"
+              type="date"
+              required
+              value={earningForm.date}
+              onChange={(e) =>
+                setEarningForm({ ...earningForm, date: e.target.value })
+              }
+            />
+          </FormField>
+          <FormField label="Shift Description / Reference">
+            <input
+              aria-label="Earning description"
+              required
+              placeholder="e.g. On-site sound engineering shift"
+              value={earningForm.description}
+              onChange={(e) =>
+                setEarningForm({ ...earningForm, description: e.target.value })
+              }
+            />
+          </FormField>
+        </div>
+        {earningError && <p className="form-error">{earningError}</p>}
+        <div className="modal-actions">
+          <SAButton onClick={() => setEarningOpen(false)}>Cancel</SAButton>
+          <SAButton
+            variant="primary"
+            disabled={
+              addEarningMutation.isPending ||
+              !earningForm.employeeId ||
+              !earningForm.amount ||
+              Number(earningForm.amount) <= 0 ||
+              !earningForm.date ||
+              !earningForm.description.trim()
+            }
+            onClick={() => {
+              if (addEarningMutation.isPending) return;
+              if (!earningForm.employeeId) {
+                setEarningError("Please choose an employee.");
+                return;
+              }
+              const amt = Number(earningForm.amount);
+              if (isNaN(amt) || amt <= 0) {
+                setEarningError("Amount must be a positive number.");
+                return;
+              }
+              addEarningMutation.mutate();
+            }}
+          >
+            {addEarningMutation.isPending ? "Adding…" : "Add Crew Earning"}
+          </SAButton>
+        </div>
+      </SAModal>
     </>
   );
 }
-const longDate = (v: string) =>
-  new Intl.DateTimeFormat("en-IN", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }).format(new Date(`${v}T00:00:00`));
+const longDate = (v: string) => {
+  if (!v) return "";
+  try {
+    return new Intl.DateTimeFormat("en-IN", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }).format(new Date(`${v.slice(0, 10)}T00:00:00`));
+  } catch {
+    return v;
+  }
+};
+const generateKey = () =>
+  typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (c) =>
+        (
+          +c ^
+          (crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (+c / 4)))
+        ).toString(16),
+      );
