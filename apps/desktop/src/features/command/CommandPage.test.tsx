@@ -202,6 +202,10 @@ describe("CommandPage", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Employee payment obligations pending")).toBeInTheDocument();
 
+    // Phase 3: named action labels (not the generic "Investigate")
+    expect(screen.getByText("Review Invoices")).toBeInTheDocument();
+    expect(screen.getByText("Process Payroll")).toBeInTheDocument();
+
     // Check Operations (default productions tab)
     expect(screen.getByText("Northstar Brand Summit")).toBeInTheDocument();
 
@@ -209,9 +213,13 @@ describe("CommandPage", () => {
     expect(screen.getByText("Advance payment received")).toBeInTheDocument();
     expect(screen.getByText("Disbursement for Sept work")).toBeInTheDocument();
 
-    // Check Quick Actions
+    // Check Quick Actions (Phase 3 — same labels, polished dock)
     expect(screen.getByRole("button", { name: /New Production/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Record Receipt/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Log Expense/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Disburse Salary/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Create Bill/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Finance Console/i })).toBeInTheDocument();
   });
 
   it("renders healthy clear empty state when zero attention items", async () => {

@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, useReducedMotion, AnimatePresence, type HTMLMotionProps } from "motion/react";
 import {
   AlertCircle,
+  ArrowDownLeft,
   ArrowRight,
   ArrowUpRight,
+  Building2,
   Calendar,
   CheckCircle2,
   ChevronDown,
@@ -14,17 +16,21 @@ import {
   Clapperboard,
   Clock,
   CreditCard,
+  DollarSign,
+  ExternalLink,
   FileText,
   PieChart,
+  ReceiptText,
   RefreshCw,
   ShieldAlert,
   Users,
   Wallet,
+  Zap,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { WorkspaceHeader } from "../../components/layout/AppShell";
-import { EmptyState, SkeletonCard, Tooltip, SAProgress } from "../../components/ui/sa";
-import { commandApi, type CommandDashboardView, type DashboardProduction, type DashboardTask } from "./command.api";
+import { EmptyState, Tooltip, SAProgress } from "../../components/ui/sa";
+import { commandApi, type CommandAttentionItem, type CommandDashboardView, type DashboardProduction, type DashboardTask } from "./command.api";
 import { CardSpotlight } from "./components/CardSpotlight";
 import { FollowingPointer } from "./components/FollowingPointer";
 import { DirectionAwareHover } from "./components/DirectionAwareHover";
@@ -458,7 +464,7 @@ export function CommandPage() {
           </CardSpotlight>
         </FollowingPointer>
 
-        {/* Attention Center Panel (Phase 2 Centerpiece) */}
+        {/* Attention Center Panel (Phase 3 Centerpiece — Actionable Queue) */}
         <div className="command-panel-card command-attention-panel">
           <div className="command-attention-header">
             <h3>Attention Queue ({d.attention.length})</h3>
@@ -469,63 +475,71 @@ export function CommandPage() {
 
           <div className="command-attention-list">
             {d.attention.length > 0 ? (
-              d.attention.map((item) => (
-                <DirectionAwareHover
+              d.attention.map((item, i) => (
+                <motion.div
                   key={item.id}
-                  onClick={() => navigate(item.route)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => e.key === "Enter" && navigate(item.route)}
-                  aria-label={`${item.severity} alert: ${item.title}`}
+                  initial={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.18, delay: reducedMotion ? 0 : i * 0.05, ease: "easeOut" }}
                 >
-                  <div className="command-attention-card">
-                    {/* Top Row: Severity + Category + Amount */}
-                    <div className="command-attention-top">
-                      <div className="command-attention-badge-group">
-                        <span
-                          className={`command-severity-pill severity-${item.severity.toLowerCase()}`}
-                        >
+                  <DirectionAwareHover
+                    onClick={() => navigate(item.route)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => e.key === "Enter" && navigate(item.route)}
+                    aria-label={`${item.severity} alert: ${item.title}`}
+                  >
+                    <div className="command-attention-card">
+                      {/* Top Row: Severity + Category + Amount */}
+                      <div className="command-attention-top">
+                        <div className="command-attention-badge-group">
                           <span
-                            style={{
-                              width: 5,
-                              height: 5,
-                              borderRadius: "50%",
-                              backgroundColor: "currentColor",
-                            }}
-                          />
-                          {item.severity}
-                        </span>
-                        <span className="command-category-pill">{item.category}</span>
+                            className={`command-severity-pill severity-${item.severity.toLowerCase()}`}
+                          >
+                            <span
+                              style={{
+                                width: 5,
+                                height: 5,
+                                borderRadius: "50%",
+                                backgroundColor: "currentColor",
+                              }}
+                            />
+                            {item.severity}
+                          </span>
+                          <span className="command-category-pill">{item.category}</span>
+                        </div>
+
+                        {item.amount != null && item.amount > 0 && (
+                          <span className="command-attention-amount-pill">
+                            {formatInr(item.amount)}
+                          </span>
+                        )}
                       </div>
 
-                      {item.amount != null && item.amount > 0 && (
-                        <span className="command-attention-amount-pill">
-                          {formatInr(item.amount)}
-                        </span>
+                      {/* Headline and Description */}
+                      <div className="command-attention-body">
+                        <strong>{item.title}</strong>
+                        <p>{item.description}</p>
+                      </div>
+
+                      {/* Rationale / Why this matters */}
+                      {item.reason && (
+                        <div className="command-attention-reason">
+                          <span>Why:</span>
+                          <em>{item.reason}</em>
+                        </div>
                       )}
-                    </div>
 
-                    {/* Headline and Description */}
-                    <div className="command-attention-body">
-                      <strong>{item.title}</strong>
-                      <p>{item.description}</p>
-                    </div>
-
-                    {/* Rationale / Why this matters */}
-                    {item.reason && (
-                      <div className="command-attention-reason">
-                        <span>Why:</span>
-                        <em>{item.reason}</em>
+                      {/* Phase 3: Named action footer — specific to item type */}
+                      <div className="command-attention-footer">
+                        <span className="command-attention-action-label">
+                          {attentionActionLabel(item)}
+                        </span>
+                        <ExternalLink size={12} />
                       </div>
-                    )}
-
-                    {/* Action Link Footer */}
-                    <div className="command-attention-footer">
-                      <span>Investigate</span>
-                      <ArrowRight size={13} />
                     </div>
-                  </div>
-                </DirectionAwareHover>
+                  </DirectionAwareHover>
+                </motion.div>
               ))
             ) : (
               <div className="command-attention-clear">
@@ -812,7 +826,10 @@ export function CommandPage() {
                 color: "var(--text-3)",
                 cursor: "pointer",
               }}
-              onClick={() => navigate("/finance")}
+              role="button"
+              tabIndex={0}
+              onClick={() => navigate("/finance?tab=TRANSACTIONS")}
+              onKeyDown={(e) => e.key === "Enter" && navigate("/finance?tab=TRANSACTIONS")}
             >
               View ledger →
             </span>
@@ -825,13 +842,16 @@ export function CommandPage() {
                   tx.type.includes("RECEIPT") || tx.type === "INVOICE_PAYMENT";
                 const entity =
                   tx.counterpartyName || tx.employeeName || tx.productionTitle || "Operating";
+                const txRoute = activityRoute(tx.type);
                 return (
                   <div
                     key={tx.id}
                     className="command-timeline-row"
-                    onClick={() => navigate("/finance")}
+                    onClick={() => navigate(txRoute)}
                     role="button"
                     tabIndex={0}
+                    onKeyDown={(e) => e.key === "Enter" && navigate(txRoute)}
+                    aria-label={`${formatTxType(tx.type)}: ${entity} — ${formatInr(tx.amount)}`}
                   >
                     <div className="command-timeline-left">
                       <span className="command-timeline-badge">{formatTxType(tx.type)}</span>
@@ -840,14 +860,19 @@ export function CommandPage() {
                         <span>{tx.description}</span>
                       </div>
                     </div>
-                    <strong
-                      className={`command-timeline-amount ${
-                        isPositive ? "positive" : "neutral"
-                      }`}
-                    >
-                      {isPositive ? "+" : "-"}
-                      {formatInr(tx.amount)}
-                    </strong>
+                    <div className="command-timeline-right">
+                      <strong
+                        className={`command-timeline-amount ${
+                          isPositive ? "positive" : "neutral"
+                        }`}
+                      >
+                        {isPositive ? "+" : "-"}
+                        {formatInr(tx.amount)}
+                      </strong>
+                      <span className="command-timeline-date">
+                        {tx.date}
+                      </span>
+                    </div>
                   </div>
                 );
               })
@@ -860,65 +885,80 @@ export function CommandPage() {
         </div>
       </motion.div>
 
-      {/* 5. Quick Actions Dock */}
+      {/* 5. Quick Actions Dock — Phase 3 polished command surface */}
       <motion.div className="command-quick-actions-bar" {...anim(0.2)}>
-        <span style={{ fontSize: "11px", fontWeight: 600, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.06em", marginRight: 4 }}>
-          Quick Actions
-        </span>
+        <div className="command-dock-label">
+          <Zap size={12} style={{ color: "var(--text-3)" }} />
+          <span>Quick Actions</span>
+        </div>
 
-        <button
-          type="button"
-          className="command-quick-action-btn"
-          onClick={() => navigate("/productions")}
-        >
-          <Clapperboard size={14} />
-          New Production
-        </button>
+        <div className="command-dock-separator" aria-hidden="true" />
 
-        <button
-          type="button"
-          className="command-quick-action-btn"
-          onClick={() => navigate("/finance")}
-        >
-          <ArrowRight size={14} />
-          Record Receipt
-        </button>
-
-        <button
-          type="button"
-          className="command-quick-action-btn"
-          onClick={() => navigate("/finance")}
-        >
-          <ArrowUpRight size={14} />
-          Log Expense
-        </button>
-
-        <button
-          type="button"
-          className="command-quick-action-btn"
-          onClick={() => navigate("/payroll")}
-        >
-          <Wallet size={14} />
-          Disburse Salary
-        </button>
-
-        <button
-          type="button"
-          className="command-quick-action-btn"
-          onClick={() => navigate("/billing")}
-        >
-          <FileText size={14} />
-          Create Bill
-        </button>
-
-        <button
-          type="button"
-          className="command-quick-action-btn"
-          onClick={() => navigate("/finance")}
-        >
-          <PieChart size={14} />
-          Finance Console
-        </button>
+        {(
+          [
+            {
+              id: "new-production",
+              label: "New Production",
+              hint: "Productions",
+              icon: <Clapperboard size={14} />,
+              route: "/productions",
+            },
+            {
+              id: "record-receipt",
+              label: "Record Receipt",
+              hint: "Finance · Productions tab",
+              icon: <ArrowDownLeft size={14} />,
+              route: "/finance?tab=PRODUCTIONS",
+            },
+            {
+              id: "log-expense",
+              label: "Log Expense",
+              hint: "Finance · Transactions",
+              icon: <ReceiptText size={14} />,
+              route: "/finance?tab=TRANSACTIONS",
+            },
+            {
+              id: "disburse-salary",
+              label: "Disburse Salary",
+              hint: "Payroll",
+              icon: <Wallet size={14} />,
+              route: "/payroll",
+            },
+            {
+              id: "create-bill",
+              label: "Create Bill",
+              hint: "Billing",
+              icon: <FileText size={14} />,
+              route: "/billing",
+            },
+            {
+              id: "finance-console",
+              label: "Finance Console",
+              hint: "Finance overview",
+              icon: <PieChart size={14} />,
+              route: "/finance",
+            },
+          ] as const
+        ).map((action, i) => (
+          <motion.div
+            key={action.id}
+            initial={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.16, delay: reducedMotion ? 0 : 0.22 + i * 0.04, ease: "easeOut" }}
+          >
+            <Tooltip content={action.hint}>
+              <button
+                type="button"
+                className="command-quick-action-btn"
+                onClick={() => navigate(action.route)}
+                aria-label={action.label}
+              >
+                {action.icon}
+                {action.label}
+              </button>
+            </Tooltip>
+          </motion.div>
+        ))}
       </motion.div>
     </div>
   );
@@ -955,5 +995,60 @@ function formatTxType(type: string) {
       return "Accrual";
     default:
       return type.replace(/_/g, " ").toLowerCase();
+  }
+}
+
+/**
+ * Phase 3: Maps financial activity transaction type to the most relevant
+ * Finance tab deep-link. This is a presentation-only helper — it does not
+ * change any financial data. The canonical Finance page remains authoritative.
+ */
+function activityRoute(type: string): string {
+  if (type === "COUNTERPARTY_RECEIPT" || type === "COUNTERPARTY_CHARGE") {
+    return "/finance?tab=PARTIES";
+  }
+  if (type === "INVOICE_PAYMENT") {
+    return "/finance?tab=INVOICES";
+  }
+  if (type === "PRODUCTION_RECEIPT" || type === "PRODUCTION_EXPENSE") {
+    return "/finance?tab=PRODUCTIONS";
+  }
+  if (
+    type === "EMPLOYEE_PAYMENT" ||
+    type === "EMPLOYEE_EARNING" ||
+    type === "MONTHLY_SALARY_ACCRUAL"
+  ) {
+    return "/finance?tab=EMPLOYEES";
+  }
+  if (type === "EQUIPMENT_PURCHASE" || type === "EQUIPMENT_PAYMENT") {
+    return "/finance?tab=EQUIPMENT";
+  }
+  if (type === "OWNER_CREDIT" || type === "OWNER_DEBIT" || type === "TRANSFER") {
+    return "/finance?tab=OWNERS";
+  }
+  return "/finance?tab=TRANSACTIONS";
+}
+
+/**
+ * Phase 3: Returns a specific named action label for each attention item type,
+ * replacing the generic "Investigate →" text. The action describes where the
+ * owner will go and what they can do there. No new routes are invented.
+ */
+function attentionActionLabel(item: CommandAttentionItem): string {
+  switch (item.type) {
+    case "RECONCILIATION_BROKEN":
+      return "Open Reconciliation Control";
+    case "RECONCILIATION_WARNING":
+      return "Review Reconciliation";
+    case "OVERDUE_INVOICES":
+      return "Review Invoices";
+    case "UNPAID_SALARY":
+      return "Process Payroll";
+    case "OVERDUE_TASKS":
+      return "View Overdue Tasks";
+    case "ATTENDANCE_INCOMPLETE":
+      return "Mark Attendance";
+    default:
+      return "Investigate";
   }
 }
