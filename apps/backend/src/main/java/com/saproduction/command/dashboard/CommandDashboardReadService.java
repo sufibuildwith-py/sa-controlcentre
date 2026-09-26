@@ -490,7 +490,7 @@ public class CommandDashboardReadService {
 
   private List<QuickAction> getQuickActions() {
     return List.of(
-        new QuickAction("NEW_PRODUCTION", "New Production", "clapperboard", "/productions"),
+        new QuickAction("NEW_PRODUCTION", "New Production", "clapperboard", "/productions?create=production"),
         new QuickAction("RECORD_RECEIPT", "Record Receipt", "arrow-down-left", "/finance"),
         new QuickAction("LOG_EXPENSE", "Log Expense", "arrow-up-right", "/finance"),
         new QuickAction("DISBURSE_SALARY", "Disburse Salary", "wallet", "/payroll"),
