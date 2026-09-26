@@ -322,55 +322,9 @@ public class CommandDashboardReadService {
               null));
     }
 
-    // 4. Productions past date with outstanding commercial receivable (MEDIUM)
-    var prodSettlement =
-        jdbc.queryForMap(
-            """
-            SELECT count(*) AS count, coalesce(sum(f.contracted_amount - coalesce(rec.amount, 0)), 0) AS total
-            FROM productions p
-            JOIN finance_production_profiles f ON f.production_id = p.id
-            LEFT JOIN (
-              SELECT a.production_id, sum(a.amount) AS amount
-              FROM finance_production_receipt_allocations a
-              JOIN finance_transactions t ON t.id = a.transaction_id AND t.status = 'POSTED'
-              GROUP BY a.production_id
-            ) rec ON rec.production_id = p.id
-            WHERE p.event_date <= ?
-              AND p.status NOT IN ('CANCELLED')
-              AND (f.contracted_amount - coalesce(rec.amount, 0)) > 0
-            """,
-            date);
-
-    int prodSettleCount =
-        prodSettlement != null && prodSettlement.get("count") instanceof Number num
-            ? num.intValue()
-            : 0;
-    BigDecimal prodSettleTotal =
-        prodSettlement != null && prodSettlement.get("total") instanceof BigDecimal bd
-            ? bd
-            : BigDecimal.ZERO;
-    if (prodSettleCount > 0 && prodSettleTotal.compareTo(BigDecimal.ZERO) > 0) {
-      items.add(
-          new AttentionItem(
-              "production-settlement",
-              "MEDIUM",
-              "PRODUCTION_SETTLEMENT_PENDING",
-              "PRODUCTION",
-              prodSettleCount
-                  + " production"
-                  + (prodSettleCount == 1 ? "" : "s")
-                  + " missing settlement",
-              "Productions scheduled on or before today carry uncollected contracted balances.",
-              formatInr(prodSettleTotal) + " contracted balance unsettled on past productions",
-              "PRODUCTION",
-              null,
-              prodSettleTotal,
-              prodSettleCount,
-              "/productions",
-              null));
-    }
-
-    // 5. Overdue tasks requiring attention (MEDIUM)
+    // 4. Overdue tasks requiring attention (MEDIUM)
+    // Overdue is an authoritative real-time invariant matching WorkTaskService.view() (due_at < now()),
+    // representing active physical exceptions that remain uncompleted on the ground.
     int overdueTasks =
         Objects.requireNonNullElse(
             jdbc.queryForObject(

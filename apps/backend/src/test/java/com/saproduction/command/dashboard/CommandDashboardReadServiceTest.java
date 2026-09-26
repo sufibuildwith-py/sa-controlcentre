@@ -133,19 +133,16 @@ class CommandDashboardReadServiceTest {
         .thenReturn(
             Map.of("received", BigDecimal.ZERO, "disbursed", BigDecimal.ZERO, "tx_count", 0L));
 
-    // Attention subqueries with actionable items
     when(jdbc.queryForMap(contains("finance_invoices"), eq(date)))
         .thenReturn(Map.of("count", 3L, "total", new BigDecimal("482000.00")));
     when(jdbc.queryForMap(contains("finance_employee_obligations")))
         .thenReturn(Map.of("count", 2L, "total", new BigDecimal("35000.00")));
-    when(jdbc.queryForMap(contains("finance_production_profiles"), eq(date)))
-        .thenReturn(Map.of("count", 1L, "total", new BigDecimal("120000.00")));
     when(jdbc.queryForObject(contains("tasks WHERE due_at < now()"), eq(Integer.class)))
         .thenReturn(5);
 
     CommandDashboard result = service.getDashboard(date);
 
-    assertThat(result.attention()).hasSize(5);
+    assertThat(result.attention()).hasSize(4);
 
     // 1. Critical reconciliation broken
     AttentionItem recon = result.attention().get(0);
@@ -173,15 +170,8 @@ class CommandDashboardReadServiceTest {
     assertThat(sal.count()).isEqualTo(2);
     assertThat(sal.route()).isEqualTo("/payroll");
 
-    // 4. Medium production settlement
-    AttentionItem prod = result.attention().get(3);
-    assertThat(prod.severity()).isEqualTo("MEDIUM");
-    assertThat(prod.type()).isEqualTo("PRODUCTION_SETTLEMENT_PENDING");
-    assertThat(prod.category()).isEqualTo("PRODUCTION");
-    assertThat(prod.amount()).isEqualTo(new BigDecimal("120000.00"));
-
-    // 5. Medium overdue tasks
-    AttentionItem tasks = result.attention().get(4);
+    // 4. Medium overdue tasks (real-time exception)
+    AttentionItem tasks = result.attention().get(3);
     assertThat(tasks.severity()).isEqualTo("MEDIUM");
     assertThat(tasks.type()).isEqualTo("OVERDUE_TASKS");
     assertThat(tasks.category()).isEqualTo("WORK");
@@ -355,5 +345,49 @@ class CommandDashboardReadServiceTest {
     assertThat(t.isOverdue()).isTrue();
     assertThat(t.bucket()).isEqualTo("OVERDUE");
     assertThat(t.productionTitle()).isEqualTo("Summit 2026");
+  }
+
+  @Test
+  void taskOverdueStateIsRealTimeIndependentOfSelectedDate() {
+    LocalDate historicalDate = LocalDate.of(2026, 8, 1);
+    when(financeReads.overview()).thenReturn(Map.of("overallResult", BigDecimal.ZERO));
+    when(financeReads.accounts()).thenReturn(List.of());
+    when(financeReads.reconciliation())
+        .thenReturn(
+            Map.of(
+                "status", "RECONCILED",
+                "employeePayables", BigDecimal.ZERO,
+                "invoiceReceivables", BigDecimal.ZERO));
+    when(jdbc.queryForObject(contains("finance_counterparty_charges"), eq(BigDecimal.class)))
+        .thenReturn(BigDecimal.ZERO);
+    when(jdbc.queryForMap(contains("finance_transactions"), eq(historicalDate)))
+        .thenReturn(Map.of("received", BigDecimal.ZERO, "disbursed", BigDecimal.ZERO, "tx_count", 0L));
+    when(jdbc.queryForMap(contains("finance_invoices"), eq(historicalDate)))
+        .thenReturn(Map.of("count", 0L, "total", BigDecimal.ZERO));
+    when(jdbc.queryForMap(contains("finance_employee_obligations")))
+        .thenReturn(Map.of("count", 0L, "total", BigDecimal.ZERO));
+
+    // Tasks due on historical date = 4
+    when(jdbc.queryForObject(contains("FROM tasks"), eq(Integer.class), eq(historicalDate)))
+        .thenReturn(4);
+
+    // Live overdue tasks in physical reality = 2
+    when(jdbc.queryForObject(contains("tasks WHERE due_at < now()"), eq(Integer.class)))
+        .thenReturn(2);
+
+    CommandDashboard result = service.getDashboard(historicalDate);
+
+    // Selected date query bounds tasks due on that date
+    assertThat(result.today().tasks()).isEqualTo(4);
+
+    // Attention queue retains live real-time overdue exception (due_at < now())
+    assertThat(result.attention()).hasSize(1);
+    AttentionItem item = result.attention().get(0);
+    assertThat(item.type()).isEqualTo("OVERDUE_TASKS");
+    assertThat(item.count()).isEqualTo(2);
+
+    // Does NOT contain speculative PRODUCTION_SETTLEMENT_PENDING
+    assertThat(result.attention())
+        .noneMatch(a -> "PRODUCTION_SETTLEMENT_PENDING".equals(a.type()));
   }
 }
