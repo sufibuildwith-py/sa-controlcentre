@@ -12,16 +12,18 @@ import { useUiStore } from "../../app/store/ui";
 import {
   ConfirmAction,
   EmptyState,
+  FormField,
   SAButton,
   SABentoCard,
   SABentoGrid,
+  SAModal,
   SAProgress,
   SATabContent,
   SATabs,
   SkeletonCard,
   StatusBadge,
 } from "../../components/ui/sa";
-import { api } from "../../lib/api";
+import { api, ApiError } from "../../lib/api";
 import type {
   AttendanceMonth,
   CommunicationCentre,
@@ -68,7 +70,11 @@ export function EmployeeDetailPage() {
     queryFn: () => api<EmployeeOperations>(`/employees/${id}/operations`),
     enabled: !!id && ["work", "payroll", "performance"].includes(tab),
   });
-  const finance = useQuery({ queryKey: ["finance", "employee", id], queryFn: () => financeApi.employee(id!), enabled: !!id && tab === "finance" });
+  const finance = useQuery({
+    queryKey: ["finance", "employee", id],
+    queryFn: () => financeApi.employee(id!),
+    enabled: !!id && tab === "finance",
+  });
   const communications = useQuery({
     queryKey: ["employee", id, "communications"],
     queryFn: () => api<CommunicationCentre>(`/messages?employeeId=${id}`),
@@ -81,6 +87,87 @@ export function EmployeeDetailPage() {
       client.setQueryData(["employee", id], data);
       client.invalidateQueries({ queryKey: ["employees"] });
       setConfirm(false);
+    },
+  });
+
+  const [earningOpen, setEarningOpen] = useState(false);
+  const [payoutOpen, setPayoutOpen] = useState(false);
+  const [earningRequestKey, setEarningRequestKey] = useState(generateKey());
+  const [payoutRequestKey, setPayoutRequestKey] = useState(generateKey());
+  const [earningError, setEarningError] = useState("");
+  const [payoutError, setPayoutError] = useState("");
+  const [earningForm, setEarningForm] = useState({
+    amount: "",
+    date: new Date().toISOString().slice(0, 10),
+    description: "",
+    productionId: "",
+  });
+  const [payoutForm, setPayoutForm] = useState({
+    amount: "",
+    date: new Date().toISOString().slice(0, 10),
+    description: "",
+    payerAccount: "AZ-2" as "AZ-2" | "AK-2",
+  });
+
+  const productions = useQuery({
+    queryKey: ["productions"],
+    queryFn: () => api<Array<{ id: string; title: string }>>("/productions"),
+    enabled: !!id && earningOpen,
+  });
+
+  const addEarningMutation = useMutation({
+    mutationFn: () => {
+      const amt = Number(earningForm.amount);
+      return financeApi.addEarning({
+        idempotencyKey: earningRequestKey,
+        employeeId: id!,
+        amount: amt,
+        date: earningForm.date,
+        description: earningForm.description.trim(),
+        productionId: earningForm.productionId || undefined,
+      });
+    },
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["finance", "employee", id] });
+      client.invalidateQueries({ queryKey: ["employee", id] });
+      client.invalidateQueries({ queryKey: ["finance"] });
+      setEarningOpen(false);
+      setEarningError("");
+    },
+    onError: (err: unknown) => {
+      if (err instanceof ApiError) {
+        setEarningError(err.message);
+      } else if (err instanceof Error) {
+        setEarningError(err.message);
+      }
+    },
+  });
+
+  const recordPayoutMutation = useMutation({
+    mutationFn: () => {
+      const amt = Number(payoutForm.amount);
+      return financeApi.recordEmployeePayment({
+        idempotencyKey: payoutRequestKey,
+        employeeId: id!,
+        amount: amt,
+        date: payoutForm.date,
+        description: payoutForm.description.trim(),
+        payerAccount: payoutForm.payerAccount,
+      });
+    },
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["finance", "employee", id] });
+      client.invalidateQueries({ queryKey: ["employee", id] });
+      client.invalidateQueries({ queryKey: ["finance"] });
+      setPayoutOpen(false);
+      setPayoutError("");
+    },
+    onError: (err: unknown) => {
+      if (err instanceof ApiError) {
+        setPayoutError(err.message);
+      } else if (err instanceof Error) {
+        setPayoutError(err.message);
+      }
     },
   });
   if (employee.isPending) return <SkeletonCard />;
@@ -148,7 +235,9 @@ export function EmployeeDetailPage() {
           { value: "finance", label: "Finance" },
           { value: "performance", label: "Performance" },
           { value: "communication", label: "Communication" },
-          ...(navigatorEnabled ? [{ value: "navigator", label: "Navigator" }] : []),
+          ...(navigatorEnabled
+            ? [{ value: "navigator", label: "Navigator" }]
+            : []),
         ]}
       >
         <SATabContent value="overview">
@@ -203,11 +292,172 @@ export function EmployeeDetailPage() {
           </SABentoGrid>
         </SATabContent>
         <SATabContent value="finance">
-          {finance.isPending ? <SkeletonCard/> : finance.isError || !finance.data ? <EmptyState title="Finance unavailable" description="This employee's financial ledger could not be loaded."/> : <SABentoGrid className="finance-metrics">
-            <SABentoCard><span className="eyebrow">Earned</span><strong className="metric">{financeAmount(finance.data.earned)}</strong></SABentoCard>
-            <SABentoCard><span className="eyebrow">Paid</span><strong className="metric">{financeAmount(finance.data.paid)}</strong></SABentoCard>
-            <SABentoCard><span className="eyebrow">Outstanding</span><strong className="metric">{financeAmount(finance.data.outstanding)}</strong><SAButton onClick={() => navigate(`/finance?employee=${e.id}`)}>Open Finance ledger</SAButton></SABentoCard>
-          </SABentoGrid>}
+          {finance.isPending ? (
+            <SkeletonCard />
+          ) : finance.isError || !finance.data ? (
+            <EmptyState
+              title="Finance unavailable"
+              description="This employee's financial ledger could not be loaded."
+            />
+          ) : (
+            <div className="employee-finance-pane">
+              <div
+                className="section-actions"
+                style={{
+                  marginBottom: "1rem",
+                  display: "flex",
+                  gap: "0.75rem",
+                  flexWrap: "wrap",
+                  alignItems: "center",
+                }}
+              >
+                <SAButton
+                  variant="primary"
+                  onClick={() => {
+                    setEarningRequestKey(generateKey());
+                    setEarningForm({
+                      amount: "",
+                      date: new Date().toISOString().slice(0, 10),
+                      description: `Shift labor for ${e.displayName}`,
+                      productionId: "",
+                    });
+                    setEarningError("");
+                    setEarningOpen(true);
+                  }}
+                >
+                  Add Shift Earning
+                </SAButton>
+                <SAButton
+                  disabled={finance.data.outstanding <= 0}
+                  onClick={() => {
+                    setPayoutRequestKey(generateKey());
+                    setPayoutForm({
+                      amount:
+                        finance.data && finance.data.outstanding > 0
+                          ? finance.data.outstanding.toFixed(2)
+                          : "",
+                      date: new Date().toISOString().slice(0, 10),
+                      description: `Disbursement to ${e.displayName}`,
+                      payerAccount: "AZ-2",
+                    });
+                    setPayoutError("");
+                    setPayoutOpen(true);
+                  }}
+                >
+                  Record Payout
+                </SAButton>
+                <SAButton onClick={() => navigate(`/finance?employee=${e.id}`)}>
+                  Open Finance ledger
+                </SAButton>
+              </div>
+
+              <SABentoGrid className="finance-metrics">
+                <SABentoCard>
+                  <span className="eyebrow">Earned</span>
+                  <strong className="metric">
+                    {financeAmount(finance.data.earned)}
+                  </strong>
+                </SABentoCard>
+                <SABentoCard>
+                  <span className="eyebrow">Paid</span>
+                  <strong className="metric">
+                    {financeAmount(finance.data.paid)}
+                  </strong>
+                </SABentoCard>
+                <SABentoCard>
+                  <span className="eyebrow">Outstanding</span>
+                  <strong className="metric">
+                    {financeAmount(finance.data.outstanding)}
+                  </strong>
+                </SABentoCard>
+              </SABentoGrid>
+
+              <SABentoCard style={{ marginTop: "1.25rem" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: "0.75rem",
+                  }}
+                >
+                  <div>
+                    <h3
+                      style={{
+                        margin: 0,
+                        fontSize: "1rem",
+                        fontWeight: 600,
+                      }}
+                    >
+                      Earned Obligations
+                    </h3>
+                    <p
+                      style={{
+                        margin: "0.25rem 0 0",
+                        fontSize: "0.8125rem",
+                        color: "var(--muted)",
+                      }}
+                    >
+                      Accrued payroll and shift earnings linked to canonical
+                      Finance.
+                    </p>
+                  </div>
+                  <span className="status-badge status-badge--neutral">
+                    {finance.data.obligations.length} obligation
+                    {finance.data.obligations.length === 1 ? "" : "s"}
+                  </span>
+                </div>
+                {finance.data.obligations.length === 0 ? (
+                  <p
+                    style={{
+                      color: "var(--muted)",
+                      fontSize: "0.875rem",
+                      margin: "1rem 0",
+                    }}
+                  >
+                    No recorded earnings or salary obligations yet.
+                  </p>
+                ) : (
+                  <div className="operations-list">
+                    {finance.data.obligations.map((ob) => (
+                      <div
+                        key={ob.id}
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          padding: "0.625rem 0.75rem",
+                          borderBottom: "1px solid var(--border)",
+                        }}
+                      >
+                        <div>
+                          <strong>{ob.description || "Obligation"}</strong>
+                          <div
+                            style={{
+                              fontSize: "0.8125rem",
+                              color: "var(--muted)",
+                            }}
+                          >
+                            {ob.date} ·{" "}
+                            <span className="status-badge status-badge--neutral">
+                              {ob.type === "FIXED_SALARY"
+                                ? "Fixed Salary"
+                                : ob.type === "WORK_EARNING"
+                                  ? "Shift Earning"
+                                  : ob.type}
+                            </span>
+                          </div>
+                        </div>
+                        <strong style={{ fontSize: "0.9375rem" }}>
+                          {financeAmount(ob.amount)}
+                        </strong>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </SABentoCard>
+            </div>
+          )}
         </SATabContent>
         <SATabContent value="attendance">
           {attendance.isPending ? (
@@ -339,7 +589,11 @@ export function EmployeeDetailPage() {
             />
           )}
         </SATabContent>
-        {navigatorEnabled && <SATabContent value="navigator"><EmployeeNavigatorPanel employeeId={e.id}/></SATabContent>}
+        {navigatorEnabled && (
+          <SATabContent value="navigator">
+            <EmployeeNavigatorPanel employeeId={e.id} />
+          </SATabContent>
+        )}
       </SATabs>
       <ConfirmAction
         open={confirm}
@@ -351,6 +605,189 @@ export function EmployeeDetailPage() {
         pending={deactivate.isPending}
         onConfirm={() => deactivate.mutate()}
       />
+
+      <SAModal
+        open={earningOpen}
+        onOpenChange={setEarningOpen}
+        title="Add Shift Earning"
+        description={`Record labor cost obligation for ${e.displayName}. Accrues an employee payable obligation in canonical Finance.`}
+      >
+        <div className="form-grid">
+          <FormField label="Earning Amount (₹)" error={earningError}>
+            <input
+              aria-label="Shift earning amount"
+              type="number"
+              step="0.01"
+              min="0.01"
+              required
+              placeholder="e.g. 3500"
+              value={earningForm.amount}
+              onChange={(e) => {
+                setEarningError("");
+                setEarningForm({ ...earningForm, amount: e.target.value });
+              }}
+            />
+          </FormField>
+          <FormField label="Shift Date">
+            <input
+              aria-label="Shift earning date"
+              type="date"
+              required
+              value={earningForm.date}
+              onChange={(e) =>
+                setEarningForm({ ...earningForm, date: e.target.value })
+              }
+            />
+          </FormField>
+          <FormField label="Production (Optional)">
+            <select
+              aria-label="Shift production"
+              value={earningForm.productionId}
+              onChange={(e) =>
+                setEarningForm({ ...earningForm, productionId: e.target.value })
+              }
+            >
+              <option value="">None / Independent Shift</option>
+              {productions.data?.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.title}
+                </option>
+              ))}
+            </select>
+          </FormField>
+          <FormField label="Description / Shift Notes">
+            <input
+              aria-label="Shift earning description"
+              required
+              placeholder="e.g. On-site sound engineering shift"
+              value={earningForm.description}
+              onChange={(e) =>
+                setEarningForm({ ...earningForm, description: e.target.value })
+              }
+            />
+          </FormField>
+        </div>
+        {earningError && <p className="form-error">{earningError}</p>}
+        <div className="modal-actions">
+          <SAButton onClick={() => setEarningOpen(false)}>Cancel</SAButton>
+          <SAButton
+            variant="primary"
+            disabled={
+              addEarningMutation.isPending ||
+              !earningForm.amount ||
+              Number(earningForm.amount) <= 0 ||
+              !earningForm.date ||
+              !earningForm.description.trim()
+            }
+            onClick={() => {
+              if (addEarningMutation.isPending) return;
+              const amt = Number(earningForm.amount);
+              if (isNaN(amt) || amt <= 0) {
+                setEarningError("Amount must be a positive number.");
+                return;
+              }
+              addEarningMutation.mutate();
+            }}
+          >
+            {addEarningMutation.isPending ? "Adding…" : "Add Earning"}
+          </SAButton>
+        </div>
+      </SAModal>
+
+      <SAModal
+        open={payoutOpen}
+        onOpenChange={setPayoutOpen}
+        title="Record Employee Payout"
+        description={`Disburse payment to ${e.displayName} from an owner cash account. Reduces open obligations via FIFO allocation.`}
+      >
+        <div className="form-grid">
+          <FormField label="Payout Amount (₹)" error={payoutError}>
+            <input
+              aria-label="Payout amount"
+              type="number"
+              step="0.01"
+              min="0.01"
+              required
+              placeholder="e.g. 5000"
+              value={payoutForm.amount}
+              onChange={(e) => {
+                setPayoutError("");
+                setPayoutForm({ ...payoutForm, amount: e.target.value });
+              }}
+            />
+          </FormField>
+          <FormField label="Payer Account (Owner Position)">
+            <select
+              aria-label="Payout payer account"
+              required
+              value={payoutForm.payerAccount}
+              onChange={(e) =>
+                setPayoutForm({
+                  ...payoutForm,
+                  payerAccount: e.target.value as "AZ-2" | "AK-2",
+                })
+              }
+            >
+              <option value="AZ-2">AZ-2 (Azeem)</option>
+              <option value="AK-2">AK-2 (Akash)</option>
+            </select>
+          </FormField>
+          <FormField label="Payment Date">
+            <input
+              aria-label="Payout date"
+              type="date"
+              required
+              value={payoutForm.date}
+              onChange={(e) =>
+                setPayoutForm({ ...payoutForm, date: e.target.value })
+              }
+            />
+          </FormField>
+          <FormField label="Description / Reference">
+            <input
+              aria-label="Payout description"
+              required
+              placeholder="e.g. Bank transfer payment"
+              value={payoutForm.description}
+              onChange={(e) =>
+                setPayoutForm({ ...payoutForm, description: e.target.value })
+              }
+            />
+          </FormField>
+        </div>
+        {payoutError && <p className="form-error">{payoutError}</p>}
+        <div className="modal-actions">
+          <SAButton onClick={() => setPayoutOpen(false)}>Cancel</SAButton>
+          <SAButton
+            variant="primary"
+            disabled={
+              recordPayoutMutation.isPending ||
+              !payoutForm.amount ||
+              Number(payoutForm.amount) <= 0 ||
+              !payoutForm.date ||
+              !payoutForm.description.trim() ||
+              !payoutForm.payerAccount
+            }
+            onClick={() => {
+              if (recordPayoutMutation.isPending) return;
+              const amt = Number(payoutForm.amount);
+              if (isNaN(amt) || amt <= 0) {
+                setPayoutError("Amount must be a positive number.");
+                return;
+              }
+              if (finance.data && amt > finance.data.outstanding) {
+                setPayoutError(
+                  `Amount cannot exceed outstanding balance (${financeAmount(finance.data.outstanding)}).`,
+                );
+                return;
+              }
+              recordPayoutMutation.mutate();
+            }}
+          >
+            {recordPayoutMutation.isPending ? "Recording…" : "Record Payout"}
+          </SAButton>
+        </div>
+      </SAModal>
     </>
   );
 }
@@ -461,3 +898,12 @@ const month = (n: number) =>
   new Intl.DateTimeFormat("en-IN", { month: "long" }).format(
     new Date(2026, n - 1, 1),
   );
+const generateKey = () =>
+  typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (c) =>
+        (
+          +c ^
+          (crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (+c / 4)))
+        ).toString(16),
+      );

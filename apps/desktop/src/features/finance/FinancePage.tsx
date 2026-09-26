@@ -33,6 +33,7 @@ import { WorkbookPartyLedgers } from "./WorkbookPartyLedgers";
 import { WorkbookGstLedger } from "./WorkbookGstLedger";
 import { WorkbookPurchasesEquipment } from "./WorkbookPurchasesEquipment";
 import { FinanceControlPlane } from "./FinanceControlPlane";
+import { Party360Drawer } from "./Party360Drawer";
 
 type Tab =
   | "OVERVIEW"
@@ -320,13 +321,19 @@ export function FinancePage() {
         ? "OWNERS"
         : params.has("employee") || params.has("workbookEmployee")
           ? "EMPLOYEES"
-          : params.has("workbookParty") || params.get("tab") === "PARTIES"
+          : params.has("workbookParty") ||
+              params.get("tab") === "PARTIES" ||
+              params.has("partyId") ||
+              params.has("counterpartyId")
             ? "PARTIES"
             : params.has("workbookInvoice")
               ? "INVOICES"
               : params.has("workbookPurchase")
                 ? "EQUIPMENT"
                 : "OVERVIEW",
+  );
+  const [selectedPartyId, setSelectedPartyId] = useState<string | null>(
+    params.get("partyId") ?? params.get("counterpartyId") ?? null,
   );
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState("");
@@ -373,10 +380,20 @@ export function FinancePage() {
     if (next.has("workbookProduction")) setTab("PRODUCTIONS");
     else if (next.has("owner")) setTab("OWNERS");
     else if (next.has("workbookEmployee")) setTab("EMPLOYEES");
-    else if (next.has("workbookParty") || next.get("tab") === "PARTIES")
+    else if (
+      next.has("workbookParty") ||
+      next.get("tab") === "PARTIES" ||
+      next.has("partyId") ||
+      next.has("counterpartyId")
+    )
       setTab("PARTIES");
     else if (next.has("workbookInvoice")) setTab("INVOICES");
     else if (next.has("workbookPurchase")) setTab("EQUIPMENT");
+
+    const partyParam = next.get("partyId") ?? next.get("counterpartyId");
+    if (partyParam) {
+      setSelectedPartyId(partyParam);
+    }
   }, [location.search]);
   const config = useQuery({
     queryKey: ["finance", "config"],
@@ -1337,29 +1354,66 @@ export function FinancePage() {
                   "Role",
                   "Charged",
                   "Received",
-                  "Outstanding",
+                  "Invoiced",
+                  "Total Outstanding",
                   "Action",
                 ]}
               >
-                {parties.data?.items.map((p) => (
-                  <tr key={p.id}>
-                    <td>{p.displayName}</td>
-                    <td>{p.role}</td>
-                    <td>{rupees(p.charged)}</td>
-                    <td>{rupees(p.received)}</td>
-                    <td>{signed(p.charged - p.received)}</td>
-                    <td>
-                      <SAButton
-                        size="sm"
-                        onClick={() =>
-                          navigate(`/billing?counterpartyId=${p.id}`)
-                        }
-                      >
-                        Create bill
-                      </SAButton>
-                    </td>
-                  </tr>
-                ))}
+                {parties.data?.items.map((p) => {
+                  const chargeOutstanding = p.charged - p.received;
+                  const invoiceOutstanding =
+                    (p.invoiced ?? 0) - (p.invoicePaid ?? 0);
+                  const totalOutstanding =
+                    chargeOutstanding + invoiceOutstanding;
+                  return (
+                    <tr key={p.id}>
+                      <td>
+                        <button
+                          type="button"
+                          className="party-table-name-btn"
+                          style={{
+                            background: "none",
+                            border: "none",
+                            padding: 0,
+                            font: "inherit",
+                            color: "inherit",
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            textAlign: "left",
+                            textDecoration: "underline",
+                            textUnderlineOffset: "3px",
+                          }}
+                          onClick={() => setSelectedPartyId(p.id)}
+                        >
+                          {p.displayName}
+                        </button>
+                      </td>
+                      <td>{p.role}</td>
+                      <td>{rupees(p.charged)}</td>
+                      <td>{rupees(p.received)}</td>
+                      <td>{rupees(p.invoiced ?? 0)}</td>
+                      <td>{signed(totalOutstanding)}</td>
+                      <td>
+                        <div style={{ display: "flex", gap: "0.5rem" }}>
+                          <SAButton
+                            size="sm"
+                            onClick={() => setSelectedPartyId(p.id)}
+                          >
+                            Open 360
+                          </SAButton>
+                          <SAButton
+                            size="sm"
+                            onClick={() =>
+                              navigate(`/billing?counterpartyId=${p.id}`)
+                            }
+                          >
+                            Create bill
+                          </SAButton>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </Table>
               <PageNav
                 page={page}
@@ -1938,6 +1992,12 @@ export function FinancePage() {
           </div>
         </form>
       </SAModal>
+      {selectedPartyId && (
+        <Party360Drawer
+          partyId={selectedPartyId}
+          onClose={() => setSelectedPartyId(null)}
+        />
+      )}
     </div>
   );
 }

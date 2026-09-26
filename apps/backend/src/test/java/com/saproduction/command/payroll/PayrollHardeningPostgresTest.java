@@ -3,6 +3,7 @@ package com.saproduction.command.payroll;
 import static org.assertj.core.api.Assertions.*;
 
 import com.saproduction.command.employee.*;
+import com.saproduction.command.finance.FinancePostingService;
 import com.saproduction.command.shared.ApiException;
 import java.time.*;
 import java.util.*;
@@ -10,6 +11,7 @@ import java.util.concurrent.*;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -31,6 +33,13 @@ class PayrollHardeningPostgresTest {
     p.add("app.demo-seed", () -> false);
     p.add("app.messaging.worker-enabled", () -> false);
   }
+
+  // Mock FinancePostingService so approve() exercises operational payroll hardening
+  // (idempotency, race conditions, overpayment guards) without posting immutable
+  // canonical journal entries. The schema trigger finance_protect_journal() blocks
+  // DELETE on journal tables unconditionally. Canonical posting correctness is
+  // verified separately in PayrollBridgeServiceTest.
+  @MockBean FinancePostingService financePosting;
 
   @Autowired PayrollService payroll;
   @Autowired EmployeeRepository employees;

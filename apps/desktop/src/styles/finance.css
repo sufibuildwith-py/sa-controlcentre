@@ -522,3 +522,332 @@
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+/* Production Finance Actions & Activity Timeline */
+.production-finance-dock {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 14px 18px;
+  border-radius: 18px;
+  background: var(--surface-soft);
+  border: 1px solid var(--border-soft);
+  margin-bottom: 22px;
+}
+.production-timeline-card {
+  margin-top: 22px;
+}
+.production-timeline-card h3 {
+  font-size: 17px;
+  font-weight: 560;
+  letter-spacing: -0.02em;
+  margin: 0 0 4px;
+}
+.production-timeline-card p.subtitle {
+  font-size: 13px;
+  color: var(--text-3);
+  margin: 0 0 18px;
+}
+.production-timeline {
+  display: grid;
+  gap: 10px;
+}
+.production-timeline-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  transition: border-color 0.15s ease;
+}
+.production-timeline-item:hover {
+  border-color: var(--border);
+}
+.production-timeline-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.production-timeline-date {
+  font-size: 11px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  min-width: 80px;
+}
+.production-timeline-content {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.production-timeline-content strong {
+  font-size: 13px;
+  font-weight: 560;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.production-timeline-content span {
+  font-size: 11px;
+  color: var(--text-3);
+}
+.production-timeline-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+.production-timeline-amount {
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.production-timeline-amount.positive {
+  color: #10b981;
+}
+.production-timeline-amount.negative {
+  color: var(--text-2);
+}
+
+/* Party 360 Drawer & Dual-Track Presentation */
+.party-360-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(4px);
+  z-index: 990;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.party-360-drawer {
+  width: min(720px, calc(100vw - 40px));
+  height: 100vh;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: sa-drawer-slide-in 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes sa-drawer-slide-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.party-360-header {
+  padding: 24px 28px 20px;
+  border-bottom: 1px solid var(--border-soft);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  background: var(--surface-soft);
+}
+
+.party-360-title-area {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.party-360-title-area h2 {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  margin: 0;
+  color: var(--text-1);
+}
+
+.party-360-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.party-360-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 540;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+}
+
+.party-360-badge.track-invoice {
+  background: rgba(59, 130, 246, 0.08);
+  border-color: rgba(59, 130, 246, 0.25);
+  color: #2563eb;
+}
+
+.party-360-badge.track-charge {
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.25);
+  color: #059669;
+}
+
+.party-360-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.party-360-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 28px;
+  display: grid;
+  gap: 22px;
+}
+
+.party-360-kpis {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+.party-360-card {
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: var(--surface-soft);
+  border: 1px solid var(--border-soft);
+  display: grid;
+  gap: 6px;
+}
+
+.party-360-card.primary {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+}
+
+.party-360-card span.label {
+  font-size: 11.5px;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 560;
+}
+
+.party-360-card strong.value {
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  color: var(--text-1);
+  font-variant-numeric: tabular-nums;
+}
+
+.party-360-card small.hint {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.party-360-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 1px solid var(--border-soft);
+  padding-bottom: 10px;
+}
+
+.party-360-tab {
+  padding: 6px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-3);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.party-360-tab:hover {
+  color: var(--text-1);
+  background: var(--surface-soft);
+}
+
+.party-360-tab.active {
+  color: var(--text-1);
+  background: var(--surface-soft);
+  border-color: var(--border-soft);
+  font-weight: 560;
+}
+
+.party-360-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--surface-soft);
+  border: 1px solid var(--border-soft);
+  gap: 16px;
+}
+
+.party-360-item-info {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.party-360-item-info strong {
+  font-size: 13.5px;
+  font-weight: 560;
+  color: var(--text-1);
+}
+
+.party-360-item-info span {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.party-360-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.party-360-settlement-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 1050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.party-360-settlement-content {
+  width: min(520px, 100%);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2);
+  display: grid;
+  gap: 16px;
+  padding: 24px;
+}
