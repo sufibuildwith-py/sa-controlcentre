@@ -1,21 +1,21 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { motion, useReducedMotion, type HTMLMotionProps } from "motion/react";
+import { motion, useReducedMotion, AnimatePresence, type HTMLMotionProps } from "motion/react";
 import {
   AlertCircle,
   ArrowRight,
   ArrowUpRight,
   Calendar,
-  CalendarDays,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   Clapperboard,
   Clock,
   CreditCard,
   FileText,
   PieChart,
-  Plus,
   RefreshCw,
   ShieldAlert,
   Users,
@@ -24,9 +24,10 @@ import {
 import { useNavigate } from "react-router-dom";
 import { WorkspaceHeader } from "../../components/layout/AppShell";
 import { EmptyState, SkeletonCard, Tooltip, SAProgress } from "../../components/ui/sa";
-import { commandApi, type CommandDashboardView } from "./command.api";
+import { commandApi, type CommandDashboardView, type DashboardProduction, type DashboardTask } from "./command.api";
 import { CardSpotlight } from "./components/CardSpotlight";
 import { FollowingPointer } from "./components/FollowingPointer";
+import { DirectionAwareHover } from "./components/DirectionAwareHover";
 
 export function CommandPage() {
   const navigate = useNavigate();
@@ -35,6 +36,8 @@ export function CommandPage() {
 
   const [dateStr, setDateStr] = useState<string>("");
   const [activeOpTab, setActiveOpTab] = useState<"productions" | "tasks" | "attendance">("productions");
+  const [expandedProdId, setExpandedProdId] = useState<string | null>(null);
+  const [taskFilter, setTaskFilter] = useState<"ALL" | "OVERDUE" | "DUE_TODAY" | "PENDING">("ALL");
 
   const dashboardQuery = useQuery({
     queryKey: ["command-dashboard", dateStr],
@@ -56,6 +59,11 @@ export function CommandPage() {
     setDateStr("");
   };
 
+  const toggleExpandProd = (id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setExpandedProdId((prev) => (prev === id ? null : id));
+  };
+
   const ownerName =
     import.meta.env.VITE_DESKTOP_RELEASE === "true" ? "Azeem" : "Owner";
 
@@ -66,9 +74,15 @@ export function CommandPage() {
           title={`${greeting()}, ${ownerName}.`}
           subtitle="Loading the operating picture…"
         />
-        <div style={{ display: "grid", gap: "16px" }}>
-          <SkeletonCard />
-          <SkeletonCard />
+        <div className="command-skeleton-today">
+          <div className="command-skeleton-card" />
+          <div className="command-skeleton-card" />
+          <div className="command-skeleton-card" />
+          <div className="command-skeleton-card" />
+        </div>
+        <div className="command-skeleton-grid">
+          <div className="command-skeleton-hero" />
+          <div className="command-skeleton-hero" />
         </div>
       </div>
     );
@@ -82,8 +96,8 @@ export function CommandPage() {
           subtitle="Operating picture unavailable"
         />
         <EmptyState
-          title="Command telemetry unavailable"
-          description="Could not load the unified owner dashboard. Please verify connection and retry."
+          title="Command data unavailable"
+          description="Could not load the unified owner dashboard telemetry. Please verify connection and retry."
           action={
             <button
               type="button"
@@ -117,6 +131,15 @@ export function CommandPage() {
           animate: { opacity: 1, y: 0 },
           transition: { duration: 0.22, delay, ease: "easeOut" },
         };
+
+  // Filter tasks if subfilter selected
+  const filteredTasks = d.operations.pendingWork.filter((t) => {
+    if (taskFilter === "ALL") return true;
+    if (taskFilter === "OVERDUE") return t.isOverdue;
+    if (taskFilter === "DUE_TODAY") return t.bucket === "DUE_TODAY";
+    if (taskFilter === "PENDING") return t.bucket === "PENDING" && !t.isOverdue;
+    return true;
+  });
 
   return (
     <div className="command-dashboard-shell">
@@ -305,7 +328,7 @@ export function CommandPage() {
         </div>
       </motion.div>
 
-      {/* 3. Primary Grid: Business Position + Attention */}
+      {/* 3. Primary Grid: Business Position + Attention Queue */}
       <motion.div className="command-primary-grid" {...anim(0.1)}>
         {/* Business Position Hero Card with Spotlight */}
         <FollowingPointer
@@ -336,7 +359,7 @@ export function CommandPage() {
                   className={`command-money-badge status-${d.money.reconciliationStatus.toLowerCase()}`}
                   onClick={(e) => {
                     e.stopPropagation();
-                    navigate("/finance");
+                    navigate("/finance?tab=RECONCILIATION");
                   }}
                   role="button"
                   tabIndex={0}
@@ -361,7 +384,7 @@ export function CommandPage() {
                   className="command-position-tile"
                   onClick={(e) => {
                     e.stopPropagation();
-                    navigate("/finance");
+                    navigate("/finance?tab=OWNERS");
                   }}
                 >
                   <div className="tile-label">
@@ -378,7 +401,7 @@ export function CommandPage() {
                   className="command-position-tile"
                   onClick={(e) => {
                     e.stopPropagation();
-                    navigate("/finance");
+                    navigate("/finance?tab=OWNERS");
                   }}
                 >
                   <div className="tile-label">
@@ -398,7 +421,7 @@ export function CommandPage() {
                   className="command-sub-metric"
                   onClick={(e) => {
                     e.stopPropagation();
-                    navigate("/finance");
+                    navigate("/finance?tab=PARTIES");
                   }}
                 >
                   <span>Party Charges</span>
@@ -411,7 +434,7 @@ export function CommandPage() {
                   className="command-sub-metric"
                   onClick={(e) => {
                     e.stopPropagation();
-                    navigate("/finance");
+                    navigate("/finance?tab=INVOICES");
                   }}
                 >
                   <span>Formal Invoices</span>
@@ -435,7 +458,7 @@ export function CommandPage() {
           </CardSpotlight>
         </FollowingPointer>
 
-        {/* Attention Center Panel */}
+        {/* Attention Center Panel (Phase 2 Centerpiece) */}
         <div className="command-panel-card command-attention-panel">
           <div className="command-attention-header">
             <h3>Attention Queue ({d.attention.length})</h3>
@@ -446,35 +469,69 @@ export function CommandPage() {
 
           <div className="command-attention-list">
             {d.attention.length > 0 ? (
-              d.attention.map((item, idx) => (
-                <div
-                  key={`${item.type}-${idx}`}
-                  className="command-attention-card"
+              d.attention.map((item) => (
+                <DirectionAwareHover
+                  key={item.id}
                   onClick={() => navigate(item.route)}
                   role="button"
                   tabIndex={0}
                   onKeyDown={(e) => e.key === "Enter" && navigate(item.route)}
+                  aria-label={`${item.severity} alert: ${item.title}`}
                 >
-                  <div className="command-attention-left">
-                    <span
-                      className={`command-severity-indicator severity-${item.severity.toLowerCase()}`}
-                    />
-                    <div className="command-attention-text">
+                  <div className="command-attention-card">
+                    {/* Top Row: Severity + Category + Amount */}
+                    <div className="command-attention-top">
+                      <div className="command-attention-badge-group">
+                        <span
+                          className={`command-severity-pill severity-${item.severity.toLowerCase()}`}
+                        >
+                          <span
+                            style={{
+                              width: 5,
+                              height: 5,
+                              borderRadius: "50%",
+                              backgroundColor: "currentColor",
+                            }}
+                          />
+                          {item.severity}
+                        </span>
+                        <span className="command-category-pill">{item.category}</span>
+                      </div>
+
+                      {item.amount != null && item.amount > 0 && (
+                        <span className="command-attention-amount-pill">
+                          {formatInr(item.amount)}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Headline and Description */}
+                    <div className="command-attention-body">
                       <strong>{item.title}</strong>
                       <p>{item.description}</p>
                     </div>
+
+                    {/* Rationale / Why this matters */}
+                    {item.reason && (
+                      <div className="command-attention-reason">
+                        <span>Why:</span>
+                        <em>{item.reason}</em>
+                      </div>
+                    )}
+
+                    {/* Action Link Footer */}
+                    <div className="command-attention-footer">
+                      <span>Investigate</span>
+                      <ArrowRight size={13} />
+                    </div>
                   </div>
-                  <div className="command-attention-action">
-                    <span>Resolve</span>
-                    <ArrowRight size={14} />
-                  </div>
-                </div>
+                </DirectionAwareHover>
               ))
             ) : (
               <div className="command-attention-clear">
-                <CheckCircle2 size={28} style={{ color: "#10b981", strokeWidth: 1.5 }} />
-                <strong>You’re clear</strong>
-                <p>No overdue invoices, salary arrears, or reconciliation alerts.</p>
+                <CheckCircle2 size={30} style={{ color: "#10b981", strokeWidth: 1.5 }} />
+                <strong>Everything is clear</strong>
+                <p>No operational or financial exceptions need attention right now.</p>
               </div>
             )}
           </div>
@@ -483,65 +540,142 @@ export function CommandPage() {
 
       {/* 4. Secondary Grid: Operations & Activity Timeline */}
       <motion.div className="command-secondary-grid" {...anim(0.15)}>
-        {/* Operations Panel with Tabs */}
+        {/* Operations Panel with Animated Tabs */}
         <div className="command-panel-card">
           <div className="command-panel-header">
             <h3>Operations</h3>
-            <div className="command-operations-tabs">
-              <button
-                type="button"
-                className={`command-tab-btn ${activeOpTab === "productions" ? "active" : ""}`}
-                onClick={() => setActiveOpTab("productions")}
-              >
-                Productions ({d.operations.upcomingProductions.length})
-              </button>
-              <button
-                type="button"
-                className={`command-tab-btn ${activeOpTab === "tasks" ? "active" : ""}`}
-                onClick={() => setActiveOpTab("tasks")}
-              >
-                Tasks ({d.operations.pendingWork.length})
-              </button>
-              <button
-                type="button"
-                className={`command-tab-btn ${activeOpTab === "attendance" ? "active" : ""}`}
-                onClick={() => setActiveOpTab("attendance")}
-              >
-                Exceptions ({d.operations.attendanceExceptions.length})
-              </button>
+            <div className="command-operations-tabs" role="tablist">
+              {(
+                [
+                  { id: "productions", label: `Productions (${d.operations.upcomingProductions.length})` },
+                  { id: "tasks", label: `Tasks (${d.operations.pendingWork.length})` },
+                  { id: "attendance", label: `Exceptions (${d.operations.attendanceExceptions.length})` },
+                ] as const
+              ).map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeOpTab === tab.id}
+                  className={`command-tab-btn ${activeOpTab === tab.id ? "active" : ""}`}
+                  onClick={() => setActiveOpTab(tab.id)}
+                >
+                  {tab.label}
+                  {activeOpTab === tab.id && !reducedMotion && (
+                    <motion.div
+                      layoutId="command-ops-indicator"
+                      className="command-tab-indicator"
+                      transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                      style={{ inset: 0 }}
+                    />
+                  )}
+                </button>
+              ))}
             </div>
           </div>
 
           <div className="command-operations-list">
+            {/* PRODUCTIONS TAB */}
             {activeOpTab === "productions" && (
               <>
                 {d.operations.upcomingProductions.length > 0 ? (
-                  d.operations.upcomingProductions.map((p) => (
-                    <div
-                      key={p.id}
-                      className="command-op-item"
-                      onClick={() => navigate(`/productions/${p.id}`)}
-                      role="button"
-                      tabIndex={0}
-                    >
-                      <div className="command-op-info">
-                        <strong>{p.title}</strong>
-                        <span>
-                          {p.clientName} · {p.venueName} ·{" "}
-                          {new Date(`${p.eventDate}T00:00:00`).toLocaleDateString("en-IN", {
-                            day: "2-digit",
-                            month: "short",
-                          })}
-                        </span>
+                  d.operations.upcomingProductions.map((p) => {
+                    const isExpanded = expandedProdId === p.id;
+                    const contracted = p.contractedAmount ?? 0;
+                    const received = p.receivedAmount ?? 0;
+                    const balance = Math.max(0, contracted - received);
+
+                    return (
+                      <div key={p.id} className="command-prod-card">
+                        <div
+                          className="command-prod-main"
+                          onClick={() => toggleExpandProd(p.id)}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => e.key === "Enter" && toggleExpandProd(p.id)}
+                          aria-expanded={isExpanded}
+                        >
+                          <div className="command-prod-info">
+                            <strong>{p.title}</strong>
+                            <span>
+                              {p.clientName} · {p.venueName} ·{" "}
+                              {new Date(`${p.eventDate}T00:00:00`).toLocaleDateString("en-IN", {
+                                day: "2-digit",
+                                month: "short",
+                              })}
+                            </span>
+                          </div>
+
+                          <div className="command-prod-right">
+                            <div style={{ width: 75, textAlign: "right" }}>
+                              <span style={{ fontSize: "11px", fontWeight: 600 }}>
+                                {p.progressPercent}%
+                              </span>
+                              <SAProgress value={p.progressPercent} />
+                            </div>
+                            <span
+                              style={{
+                                color: "var(--text-3)",
+                                display: "inline-flex",
+                                alignItems: "center",
+                              }}
+                            >
+                              {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Expandable Drawer with Financial & Task Detail */}
+                        <AnimatePresence>
+                          {isExpanded && (
+                            <motion.div
+                              initial={reducedMotion ? { opacity: 0 } : { height: 0, opacity: 0 }}
+                              animate={{ height: "auto", opacity: 1 }}
+                              exit={reducedMotion ? { opacity: 0 } : { height: 0, opacity: 0 }}
+                              transition={{ duration: 0.18, ease: "easeOut" }}
+                              className="command-prod-drawer"
+                            >
+                              <div className="command-prod-finance-grid">
+                                <div className="command-prod-finance-tile">
+                                  <span>Contracted</span>
+                                  <strong>{formatInr(contracted)}</strong>
+                                </div>
+                                <div className="command-prod-finance-tile">
+                                  <span>Received</span>
+                                  <strong>{formatInr(received)}</strong>
+                                </div>
+                                <div className="command-prod-finance-tile">
+                                  <span>Unsettled</span>
+                                  <strong style={{ color: balance > 0 ? "#f59e0b" : "var(--text-1)" }}>
+                                    {formatInr(balance)}
+                                  </strong>
+                                </div>
+                              </div>
+
+                              <div className="command-prod-drawer-footer">
+                                <span>
+                                  {p.openTaskCount} open of {p.taskCount} operational tasks
+                                  {p.startTime ? ` · ${p.startTime.slice(0, 5)}–${p.endTime?.slice(0, 5) ?? ""}` : ""}
+                                </span>
+
+                                <button
+                                  type="button"
+                                  className="command-prod-link-btn"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate(`/productions/${p.id}`);
+                                  }}
+                                >
+                                  Open Detail
+                                  <ArrowUpRight size={13} />
+                                </button>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                       </div>
-                      <div style={{ width: 80, textAlign: "right" }}>
-                        <span style={{ fontSize: "11px", fontWeight: 600 }}>
-                          {p.progressPercent}%
-                        </span>
-                        <SAProgress value={p.progressPercent} />
-                      </div>
-                    </div>
-                  ))
+                    );
+                  })
                 ) : (
                   <p style={{ fontSize: "12.5px", color: "var(--text-3)", padding: "16px 0" }}>
                     No upcoming productions scheduled.
@@ -550,16 +684,38 @@ export function CommandPage() {
               </>
             )}
 
+            {/* TASKS TAB */}
             {activeOpTab === "tasks" && (
               <>
-                {d.operations.pendingWork.length > 0 ? (
-                  d.operations.pendingWork.map((t) => (
+                <div className="command-task-subfilters" role="group" aria-label="Task category filter">
+                  {(
+                    [
+                      { id: "ALL", label: "All" },
+                      { id: "OVERDUE", label: "Overdue" },
+                      { id: "DUE_TODAY", label: "Due Today" },
+                      { id: "PENDING", label: "Pending" },
+                    ] as const
+                  ).map((f) => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      className={`command-task-subfilter-btn ${taskFilter === f.id ? "active" : ""}`}
+                      onClick={() => setTaskFilter(f.id)}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+
+                {filteredTasks.length > 0 ? (
+                  filteredTasks.map((t) => (
                     <div
                       key={t.id}
-                      className="command-op-item"
-                      onClick={() => navigate("/work")}
+                      className="command-task-item"
+                      onClick={() => navigate(t.isOverdue ? "/work?view=OVERDUE" : "/work")}
                       role="button"
                       tabIndex={0}
+                      onKeyDown={(e) => e.key === "Enter" && navigate("/work")}
                     >
                       <div className="command-op-info">
                         <strong>{t.title}</strong>
@@ -568,35 +724,43 @@ export function CommandPage() {
                           {t.productionTitle ? ` · ${t.productionTitle}` : ""}
                         </span>
                       </div>
-                      <span
-                        style={{
-                          fontSize: "11px",
-                          fontWeight: 560,
-                          color: t.priority === "URGENT" || t.priority === "HIGH" ? "#ef4444" : "var(--text-3)",
-                        }}
-                      >
-                        {t.priority}
-                      </span>
+
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span className={`command-task-bucket-badge bucket-${t.bucket.toLowerCase()}`}>
+                          {t.bucket === "DUE_TODAY" ? "Today" : t.bucket === "OVERDUE" ? "Overdue" : "Pending"}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: "11px",
+                            fontWeight: 560,
+                            color: t.priority === "URGENT" || t.priority === "HIGH" ? "#ef4444" : "var(--text-3)",
+                          }}
+                        >
+                          {t.priority}
+                        </span>
+                      </div>
                     </div>
                   ))
                 ) : (
                   <p style={{ fontSize: "12.5px", color: "var(--text-3)", padding: "16px 0" }}>
-                    All operational tasks completed.
+                    No tasks matching this filter.
                   </p>
                 )}
               </>
             )}
 
+            {/* ATTENDANCE TAB */}
             {activeOpTab === "attendance" && (
               <>
                 {d.operations.attendanceExceptions.length > 0 ? (
                   d.operations.attendanceExceptions.map((ex) => (
                     <div
                       key={ex.employeeId}
-                      className="command-op-item"
+                      className="command-attendance-row"
                       onClick={() => navigate("/attendance")}
                       role="button"
                       tabIndex={0}
+                      onKeyDown={(e) => e.key === "Enter" && navigate("/attendance")}
                     >
                       <div className="command-op-info">
                         <strong>{ex.employeeName}</strong>
@@ -606,17 +770,26 @@ export function CommandPage() {
                             : ex.status === "ABSENT"
                               ? "Marked absent today"
                               : "No check-in recorded"}
+                          {ex.notes ? ` · ${ex.notes}` : ""}
                         </span>
                       </div>
-                      <span
-                        style={{
-                          fontSize: "11px",
-                          fontWeight: 560,
-                          color: ex.status === "ABSENT" ? "#ef4444" : "#f59e0b",
-                        }}
-                      >
-                        {ex.status}
-                      </span>
+
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span
+                          style={{
+                            fontSize: "11px",
+                            fontWeight: 600,
+                            padding: "2px 7px",
+                            borderRadius: 6,
+                            color: ex.status === "ABSENT" ? "#dc2626" : "#d97706",
+                            background:
+                              ex.status === "ABSENT" ? "rgba(239, 68, 68, 0.12)" : "rgba(245, 158, 11, 0.12)",
+                          }}
+                        >
+                          {ex.status === "UNRECORDED" ? "Missing" : ex.status}
+                        </span>
+                        <ArrowUpRight size={13} style={{ color: "var(--text-3)" }} />
+                      </div>
                     </div>
                   ))
                 ) : (

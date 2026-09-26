@@ -314,23 +314,26 @@ export function FinancePage() {
   const location = useLocation();
   const navigate = useNavigate();
   const params = new URLSearchParams(location.search);
+  const paramTab = params.get("tab")?.toUpperCase() as Tab | undefined;
+  const initialValidTab =
+    paramTab && tabs.some((t) => t.value === paramTab) ? paramTab : null;
   const [tab, setTab] = useState<Tab>(
-    params.has("workbookProduction") || params.has("production")
-      ? "PRODUCTIONS"
-      : params.has("owner")
-        ? "OWNERS"
-        : params.has("employee") || params.has("workbookEmployee")
-          ? "EMPLOYEES"
-          : params.has("workbookParty") ||
-              params.get("tab") === "PARTIES" ||
-              params.has("partyId") ||
-              params.has("counterpartyId")
-            ? "PARTIES"
-            : params.has("workbookInvoice")
-              ? "INVOICES"
-              : params.has("workbookPurchase")
-                ? "EQUIPMENT"
-                : "OVERVIEW",
+    initialValidTab ??
+      (params.has("workbookProduction") || params.has("production")
+        ? "PRODUCTIONS"
+        : params.has("owner")
+          ? "OWNERS"
+          : params.has("employee") || params.has("workbookEmployee")
+            ? "EMPLOYEES"
+            : params.has("workbookParty") ||
+                params.has("partyId") ||
+                params.has("counterpartyId")
+              ? "PARTIES"
+              : params.has("workbookInvoice")
+                ? "INVOICES"
+                : params.has("workbookPurchase")
+                  ? "EQUIPMENT"
+                  : "OVERVIEW"),
   );
   const [selectedPartyId, setSelectedPartyId] = useState<string | null>(
     params.get("partyId") ?? params.get("counterpartyId") ?? null,
@@ -377,12 +380,14 @@ export function FinancePage() {
   });
   useEffect(() => {
     const next = new URLSearchParams(location.search);
-    if (next.has("workbookProduction")) setTab("PRODUCTIONS");
+    const nextTab = next.get("tab")?.toUpperCase() as Tab | undefined;
+    if (nextTab && tabs.some((t) => t.value === nextTab)) {
+      setTab(nextTab);
+    } else if (next.has("workbookProduction")) setTab("PRODUCTIONS");
     else if (next.has("owner")) setTab("OWNERS");
     else if (next.has("workbookEmployee")) setTab("EMPLOYEES");
     else if (
       next.has("workbookParty") ||
-      next.get("tab") === "PARTIES" ||
       next.has("partyId") ||
       next.has("counterpartyId")
     )

@@ -8,6 +8,7 @@ import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.text.NumberFormat;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.*;
@@ -17,11 +18,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Orchestrates bounded SQL projections for the Command Dashboard morning screen. Reuses canonical
- * FinanceReadService and strictly avoids duplicate accounting logic.
+ * Orchestrates bounded SQL projections for the Command Dashboard morning screen.
+ * Reuses canonical FinanceReadService and strictly avoids duplicate accounting logic.
+ * Phase 2 adds structured attention items and enriched operational context.
  */
 @Service
 public class CommandDashboardReadService {
+
+  private static final Map<String, Integer> SEVERITY_PRECEDENCE =
+      Map.of("CRITICAL", 0, "HIGH", 1, "MEDIUM", 2, "INFO", 3);
 
   private final JdbcTemplate jdbc;
   private final FinanceReadService financeReads;
@@ -191,23 +196,35 @@ public class CommandDashboardReadService {
     if ("BROKEN".equalsIgnoreCase(reconciliationStatus)) {
       items.add(
           new AttentionItem(
+              "reconciliation-broken",
               "CRITICAL",
               "RECONCILIATION_BROKEN",
+              "RECONCILIATION",
               "Finance reconciliation broken",
+              "Control discrepancy detected between double-entry journal balance and physical account positions.",
               "Control discrepancy detected across journal entries and account positions.",
-              1,
+              "RECONCILIATION",
               null,
-              "/finance?tab=RECONCILIATION"));
+              null,
+              1,
+              "/finance?tab=RECONCILIATION",
+              "tab=RECONCILIATION"));
     } else if ("WARNING".equalsIgnoreCase(reconciliationStatus)) {
       items.add(
           new AttentionItem(
+              "reconciliation-warning",
               "HIGH",
               "RECONCILIATION_WARNING",
+              "RECONCILIATION",
               "Finance reconciliation needs review",
               "Unresolved migration facts or balance variance in canonical ledger.",
-              1,
+              "Unresolved migration facts or balance variance in canonical ledger.",
+              "RECONCILIATION",
               null,
-              "/finance?tab=RECONCILIATION"));
+              null,
+              1,
+              "/finance?tab=RECONCILIATION",
+              "tab=RECONCILIATION"));
     }
 
     // 2. Overdue formal invoices (HIGH)
@@ -239,17 +256,23 @@ public class CommandDashboardReadService {
     if (overdueInvCount > 0) {
       items.add(
           new AttentionItem(
+              "overdue-invoices",
               "HIGH",
               "OVERDUE_INVOICES",
+              "FINANCE",
               overdueInvCount + " invoice" + (overdueInvCount == 1 ? "" : "s") + " overdue",
+              "Formal invoices with prior invoice date carry outstanding unpaid balance.",
               formatInr(overdueInvTotal)
                   + " outstanding across "
                   + overdueInvCount
                   + " overdue invoice"
                   + (overdueInvCount == 1 ? "" : "s"),
-              overdueInvCount,
+              "INVOICE",
               null,
-              "/finance?tab=INVOICES"));
+              overdueInvTotal,
+              overdueInvCount,
+              "/finance?tab=INVOICES",
+              "tab=INVOICES"));
     }
 
     // 3. Unpaid employee salary obligations (HIGH)
@@ -280,17 +303,23 @@ public class CommandDashboardReadService {
     if (unpaidEmpCount > 0 && unpaidEmpTotal.compareTo(BigDecimal.ZERO) > 0) {
       items.add(
           new AttentionItem(
+              "unpaid-salary",
               "HIGH",
               "UNPAID_SALARY",
+              "PAYROLL",
               "Employee payment obligations pending",
+              "Approved work earnings or monthly salary accruals have not yet been disbursed to crew members.",
               formatInr(unpaidEmpTotal)
                   + " payable across "
                   + unpaidEmpCount
                   + " crew member"
                   + (unpaidEmpCount == 1 ? "" : "s"),
-              unpaidEmpCount,
+              "EMPLOYEE",
               null,
-              "/payroll"));
+              unpaidEmpTotal,
+              unpaidEmpCount,
+              "/payroll",
+              null));
     }
 
     // 4. Productions past date with outstanding commercial receivable (MEDIUM)
@@ -323,16 +352,22 @@ public class CommandDashboardReadService {
     if (prodSettleCount > 0 && prodSettleTotal.compareTo(BigDecimal.ZERO) > 0) {
       items.add(
           new AttentionItem(
+              "production-settlement",
               "MEDIUM",
               "PRODUCTION_SETTLEMENT_PENDING",
+              "PRODUCTION",
               prodSettleCount
                   + " production"
                   + (prodSettleCount == 1 ? "" : "s")
                   + " missing settlement",
+              "Productions scheduled on or before today carry uncollected contracted balances.",
               formatInr(prodSettleTotal) + " contracted balance unsettled on past productions",
-              prodSettleCount,
+              "PRODUCTION",
               null,
-              "/productions"));
+              prodSettleTotal,
+              prodSettleCount,
+              "/productions",
+              null));
     }
 
     // 5. Overdue tasks requiring attention (MEDIUM)
@@ -345,16 +380,22 @@ public class CommandDashboardReadService {
     if (overdueTasks > 0) {
       items.add(
           new AttentionItem(
+              "overdue-tasks",
               "MEDIUM",
               "OVERDUE_TASKS",
+              "WORK",
               overdueTasks + " task" + (overdueTasks == 1 ? "" : "s") + " overdue",
+              "Active operational tasks have passed their scheduled deadline without completion.",
               overdueTasks
                   + " operational task"
                   + (overdueTasks == 1 ? "" : "s")
                   + " past deadline require review.",
-              overdueTasks,
+              "TASK",
               null,
-              "/work"));
+              null,
+              overdueTasks,
+              "/work",
+              "view=OVERDUE"));
     }
 
     // 6. Attendance exceptions today (INFO)
@@ -372,48 +413,91 @@ public class CommandDashboardReadService {
     if (unrecorded > 0) {
       items.add(
           new AttentionItem(
+              "attendance-incomplete",
               "INFO",
               "ATTENDANCE_INCOMPLETE",
+              "ATTENDANCE",
               "Attendance check required",
+              "Active crew members do not yet have a check-in or leave status recorded for today.",
               unrecorded
                   + " active employee"
                   + (unrecorded == 1 ? "" : "s")
                   + " not recorded today.",
-              unrecorded,
+              "ATTENDANCE",
               null,
-              "/attendance"));
+              null,
+              unrecorded,
+              "/attendance",
+              null));
     }
+
+    // Deterministic sorting: CRITICAL > HIGH > MEDIUM > INFO
+    items.sort(Comparator.comparingInt(i -> SEVERITY_PRECEDENCE.getOrDefault(i.severity(), 99)));
 
     return items;
   }
 
   private Operations queryOperations(LocalDate date) {
-    // Upcoming productions (starting today onwards, up to 5)
+    // Upcoming productions with financial profile and task counts (up to 6)
     List<DashboardProduction> productions =
         jdbc.query(
             """
-            SELECT id, title, client_name, venue_name, event_date, start_time, end_time, status, priority, progress_percent
-            FROM productions
-            WHERE event_date >= ? AND status NOT IN ('DELIVERED', 'CANCELLED')
-            ORDER BY event_date ASC, CASE priority WHEN 'URGENT' THEN 0 WHEN 'HIGH' THEN 1 ELSE 2 END
-            LIMIT 5
+            SELECT
+              p.id, p.title, p.client_name, p.venue_name, p.event_date, p.start_time, p.end_time,
+              p.status, p.priority, p.progress_percent,
+              coalesce(f.contracted_amount, 0) AS contracted_amount,
+              coalesce(rec.amount, 0) AS received_amount,
+              coalesce(t.task_count, 0) AS task_count,
+              coalesce(t.open_task_count, 0) AS open_task_count
+            FROM productions p
+            LEFT JOIN finance_production_profiles f ON f.production_id = p.id
+            LEFT JOIN (
+              SELECT a.production_id, sum(a.amount) AS amount
+              FROM finance_production_receipt_allocations a
+              JOIN finance_transactions tx ON tx.id = a.transaction_id AND tx.status = 'POSTED'
+              GROUP BY a.production_id
+            ) rec ON rec.production_id = p.id
+            LEFT JOIN (
+              SELECT
+                production_id,
+                count(*) AS task_count,
+                count(*) FILTER (WHERE status NOT IN ('DONE', 'CANCELLED')) AS open_task_count
+              FROM tasks
+              WHERE production_id IS NOT NULL
+              GROUP BY production_id
+            ) t ON t.production_id = p.id
+            WHERE p.event_date >= ? AND p.status NOT IN ('DELIVERED', 'CANCELLED')
+            ORDER BY p.event_date ASC, CASE p.priority WHEN 'URGENT' THEN 0 WHEN 'HIGH' THEN 1 ELSE 2 END
+            LIMIT 6
             """,
             this::mapProduction,
             date);
 
-    // Pending work items / tasks
+    // Pending work items / tasks partitioned by overdue, due today, and pending
     List<DashboardTask> tasks =
         jdbc.query(
             """
-            SELECT t.id, t.title, t.priority, t.status, t.due_at, e.display_name AS employee_name, p.title AS production_title
+            SELECT
+              t.id, t.title, t.priority, t.status, t.due_at,
+              t.assigned_employee_id, e.display_name AS employee_name,
+              t.production_id, p.title AS production_title
             FROM tasks t
             LEFT JOIN employees e ON e.id = t.assigned_employee_id
             LEFT JOIN productions p ON p.id = t.production_id
             WHERE t.status NOT IN ('DONE', 'CANCELLED')
-            ORDER BY CASE WHEN t.due_at < now() THEN 0 ELSE 1 END, t.due_at ASC NULLS LAST, t.created_at DESC
-            LIMIT 5
+            ORDER BY
+              CASE
+                WHEN t.due_at IS NOT NULL AND t.due_at < now() THEN 0
+                WHEN date(t.due_at AT TIME ZONE 'Asia/Kolkata') = ? THEN 1
+                ELSE 2
+              END,
+              CASE t.priority WHEN 'URGENT' THEN 0 WHEN 'HIGH' THEN 1 ELSE 2 END,
+              t.due_at ASC NULLS LAST,
+              t.created_at DESC
+            LIMIT 8
             """,
-            this::mapTask);
+            (rs, rowNum) -> mapTask(rs, rowNum, date),
+            date);
 
     // Attendance exceptions for today
     List<DashboardAttendanceException> exceptions =
@@ -463,6 +547,8 @@ public class CommandDashboardReadService {
   private DashboardProduction mapProduction(ResultSet rs, int rowNum) throws SQLException {
     Time st = rs.getTime("start_time");
     Time et = rs.getTime("end_time");
+    BigDecimal contracted = rs.getBigDecimal("contracted_amount");
+    BigDecimal received = rs.getBigDecimal("received_amount");
     return new DashboardProduction(
         rs.getObject("id", UUID.class),
         rs.getString("title"),
@@ -473,19 +559,38 @@ public class CommandDashboardReadService {
         et != null ? et.toLocalTime() : null,
         rs.getString("status"),
         rs.getString("priority"),
-        rs.getInt("progress_percent"));
+        rs.getInt("progress_percent"),
+        contracted != null ? contracted : BigDecimal.ZERO,
+        received != null ? received : BigDecimal.ZERO,
+        rs.getInt("task_count"),
+        rs.getInt("open_task_count"));
   }
 
-  private DashboardTask mapTask(ResultSet rs, int rowNum) throws SQLException {
+  private DashboardTask mapTask(ResultSet rs, int rowNum, LocalDate date) throws SQLException {
     Timestamp ts = rs.getTimestamp("due_at");
+    Instant dueAt = ts != null ? ts.toInstant() : null;
+    boolean isOverdue = dueAt != null && dueAt.isBefore(Instant.now());
+    String bucket;
+    if (isOverdue) {
+      bucket = "OVERDUE";
+    } else if (dueAt != null && dueAt.atZone(zone).toLocalDate().equals(date)) {
+      bucket = "DUE_TODAY";
+    } else {
+      bucket = "PENDING";
+    }
+
     return new DashboardTask(
         rs.getObject("id", UUID.class),
         rs.getString("title"),
         rs.getString("priority"),
         rs.getString("status"),
-        ts != null ? ts.toInstant() : null,
+        dueAt,
         rs.getString("employee_name"),
-        rs.getString("production_title"));
+        rs.getObject("assigned_employee_id", UUID.class),
+        rs.getString("production_title"),
+        rs.getObject("production_id", UUID.class),
+        isOverdue,
+        bucket);
   }
 
   private DashboardAttendanceException mapAttendanceException(ResultSet rs, int rowNum)

@@ -34,20 +34,45 @@ public class CommandDashboardDto {
       BigDecimal totalReceivable,
       String reconciliationStatus) {}
 
+  /**
+   * Phase 2 Structured Attention Model:
+   * - id: deterministic identifier
+   * - severity: CRITICAL > HIGH > MEDIUM > INFO
+   * - category: RECONCILIATION | FINANCE | PAYROLL | PRODUCTION | WORK | ATTENDANCE
+   * - title: What is wrong? (short alert headline)
+   * - reason: Why is it surfaced? (rationale explanation)
+   * - description: Operational context / amount summary
+   * - entityType: Domain entity type (INVOICE, EMPLOYEE, PRODUCTION, TASK, RECONCILIATION, ATTENDANCE)
+   * - entityId: Target domain entity UUID if single entity, or null if aggregate
+   * - amount: Associated monetary value in INR, or null if N/A
+   * - count: Affected item count
+   * - route: Canonical navigation target URL
+   * - queryParams: Optional deep link query parameters
+   */
   public record AttentionItem(
+      String id,
       String severity,
       String type,
+      String category,
       String title,
+      String reason,
       String description,
-      Integer count,
+      String entityType,
       UUID entityId,
-      String route) {}
+      BigDecimal amount,
+      Integer count,
+      String route,
+      String queryParams) {}
 
   public record Operations(
       List<DashboardProduction> upcomingProductions,
       List<DashboardTask> pendingWork,
       List<DashboardAttendanceException> attendanceExceptions) {}
 
+  /**
+   * Phase 2 Enriched Production context:
+   * includes contracted financial commitment, received amount, and task progress.
+   */
   public record DashboardProduction(
       UUID id,
       String title,
@@ -58,8 +83,16 @@ public class CommandDashboardDto {
       LocalTime endTime,
       String status,
       String priority,
-      int progressPercent) {}
+      int progressPercent,
+      BigDecimal contractedAmount,
+      BigDecimal receivedAmount,
+      int taskCount,
+      int openTaskCount) {}
 
+  /**
+   * Phase 2 Enriched Task context:
+   * includes explicit overdue status, task bucket, and links to production and assignee.
+   */
   public record DashboardTask(
       UUID id,
       String title,
@@ -67,7 +100,11 @@ public class CommandDashboardDto {
       String status,
       Instant dueAt,
       String assignedEmployeeName,
-      String productionTitle) {}
+      UUID assignedEmployeeId,
+      String productionTitle,
+      UUID productionId,
+      boolean isOverdue,
+      String bucket) {}
 
   public record DashboardAttendanceException(
       UUID employeeId,

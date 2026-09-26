@@ -26,13 +26,19 @@ export type CommandMoney = {
 };
 
 export type CommandAttentionItem = {
+  id: string;
   severity: "CRITICAL" | "HIGH" | "MEDIUM" | "INFO" | string;
   type: string;
+  category: "RECONCILIATION" | "FINANCE" | "PAYROLL" | "PRODUCTION" | "WORK" | "ATTENDANCE" | string;
   title: string;
+  reason: string;
   description: string;
-  count?: number;
+  entityType: string;
   entityId?: string;
+  amount?: MoneyValue;
+  count?: number;
   route: string;
+  queryParams?: string;
 };
 
 export type DashboardProduction = {
@@ -46,6 +52,10 @@ export type DashboardProduction = {
   status: string;
   priority: string;
   progressPercent: number;
+  contractedAmount: MoneyValue;
+  receivedAmount: MoneyValue;
+  taskCount: number;
+  openTaskCount: number;
 };
 
 export type DashboardTask = {
@@ -55,7 +65,11 @@ export type DashboardTask = {
   status: string;
   dueAt?: string;
   assignedEmployeeName?: string;
+  assignedEmployeeId?: string;
   productionTitle?: string;
+  productionId?: string;
+  isOverdue: boolean;
+  bucket: "OVERDUE" | "DUE_TODAY" | "PENDING" | string;
 };
 
 export type DashboardAttendanceException = {

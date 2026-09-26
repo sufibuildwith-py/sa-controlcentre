@@ -151,29 +151,42 @@ class CommandDashboardReadServiceTest {
     AttentionItem recon = result.attention().get(0);
     assertThat(recon.severity()).isEqualTo("CRITICAL");
     assertThat(recon.type()).isEqualTo("RECONCILIATION_BROKEN");
+    assertThat(recon.category()).isEqualTo("RECONCILIATION");
+    assertThat(recon.reason()).containsIgnoringCase("discrepancy detected");
+    assertThat(recon.route()).isEqualTo("/finance?tab=RECONCILIATION");
 
     // 2. High overdue invoices
     AttentionItem inv = result.attention().get(1);
     assertThat(inv.severity()).isEqualTo("HIGH");
     assertThat(inv.type()).isEqualTo("OVERDUE_INVOICES");
+    assertThat(inv.category()).isEqualTo("FINANCE");
+    assertThat(inv.amount()).isEqualTo(new BigDecimal("482000.00"));
     assertThat(inv.count()).isEqualTo(3);
+    assertThat(inv.queryParams()).isEqualTo("tab=INVOICES");
 
     // 3. High unpaid salary
     AttentionItem sal = result.attention().get(2);
     assertThat(sal.severity()).isEqualTo("HIGH");
     assertThat(sal.type()).isEqualTo("UNPAID_SALARY");
+    assertThat(sal.category()).isEqualTo("PAYROLL");
+    assertThat(sal.amount()).isEqualTo(new BigDecimal("35000.00"));
     assertThat(sal.count()).isEqualTo(2);
+    assertThat(sal.route()).isEqualTo("/payroll");
 
     // 4. Medium production settlement
     AttentionItem prod = result.attention().get(3);
     assertThat(prod.severity()).isEqualTo("MEDIUM");
     assertThat(prod.type()).isEqualTo("PRODUCTION_SETTLEMENT_PENDING");
+    assertThat(prod.category()).isEqualTo("PRODUCTION");
+    assertThat(prod.amount()).isEqualTo(new BigDecimal("120000.00"));
 
     // 5. Medium overdue tasks
     AttentionItem tasks = result.attention().get(4);
     assertThat(tasks.severity()).isEqualTo("MEDIUM");
     assertThat(tasks.type()).isEqualTo("OVERDUE_TASKS");
+    assertThat(tasks.category()).isEqualTo("WORK");
     assertThat(tasks.count()).isEqualTo(5);
+    assertThat(tasks.queryParams()).isEqualTo("view=OVERDUE");
   }
 
   @Test
@@ -263,5 +276,84 @@ class CommandDashboardReadServiceTest {
     assertThat(nullReconResult.money().invoiceReceivable()).isEqualTo(BigDecimal.ZERO);
     assertThat(nullReconResult.money().totalReceivable()).isEqualTo(new BigDecimal("50000.00"));
     assertThat(nullReconResult.money().reconciliationStatus()).isEqualTo("UNKNOWN");
+  }
+
+  @Test
+  void dashboardEnrichesOperationsContext() {
+    LocalDate date = LocalDate.of(2026, 9, 26);
+    when(financeReads.overview()).thenReturn(Map.of("overallResult", BigDecimal.ZERO));
+    when(financeReads.accounts()).thenReturn(List.of());
+    when(financeReads.reconciliation())
+        .thenReturn(
+            Map.of(
+                "status", "RECONCILED",
+                "employeePayables", BigDecimal.ZERO,
+                "invoiceReceivables", BigDecimal.ZERO));
+    when(jdbc.queryForObject(contains("finance_counterparty_charges"), eq(BigDecimal.class)))
+        .thenReturn(BigDecimal.ZERO);
+    when(jdbc.queryForMap(contains("finance_transactions"), eq(date)))
+        .thenReturn(Map.of("received", BigDecimal.ZERO, "disbursed", BigDecimal.ZERO, "tx_count", 0L));
+    when(jdbc.queryForMap(contains("finance_invoices"), eq(date)))
+        .thenReturn(Map.of("count", 0L, "total", BigDecimal.ZERO));
+    when(jdbc.queryForMap(contains("finance_employee_obligations")))
+        .thenReturn(Map.of("count", 0L, "total", BigDecimal.ZERO));
+    when(jdbc.queryForMap(contains("finance_production_profiles"), eq(date)))
+        .thenReturn(Map.of("count", 0L, "total", BigDecimal.ZERO));
+    when(jdbc.queryForObject(contains("tasks WHERE due_at < now()"), eq(Integer.class)))
+        .thenReturn(0);
+
+    UUID prodId = UUID.randomUUID();
+    DashboardProduction mockProd =
+        new DashboardProduction(
+            prodId,
+            "Summit 2026",
+            "Acme Corp",
+            "Convention Hall",
+            date,
+            null,
+            null,
+            "PRODUCTION",
+            "HIGH",
+            65,
+            new BigDecimal("500000.00"),
+            new BigDecimal("350000.00"),
+            8,
+            3);
+
+    when(jdbc.query(contains("FROM productions p"), any(org.springframework.jdbc.core.RowMapper.class), eq(date)))
+        .thenReturn(List.of(mockProd));
+
+    UUID taskId = UUID.randomUUID();
+    DashboardTask mockTask =
+        new DashboardTask(
+            taskId,
+            "Stage Setup",
+            "URGENT",
+            "IN_PROGRESS",
+            java.time.Instant.now().minusSeconds(3600),
+            "Roshan",
+            UUID.randomUUID(),
+            "Summit 2026",
+            prodId,
+            true,
+            "OVERDUE");
+
+    when(jdbc.query(contains("FROM tasks t"), any(org.springframework.jdbc.core.RowMapper.class), eq(date)))
+        .thenReturn(List.of(mockTask));
+
+    CommandDashboard result = service.getDashboard(date);
+
+    assertThat(result.operations().upcomingProductions()).hasSize(1);
+    DashboardProduction p = result.operations().upcomingProductions().get(0);
+    assertThat(p.contractedAmount()).isEqualTo(new BigDecimal("500000.00"));
+    assertThat(p.receivedAmount()).isEqualTo(new BigDecimal("350000.00"));
+    assertThat(p.taskCount()).isEqualTo(8);
+    assertThat(p.openTaskCount()).isEqualTo(3);
+
+    assertThat(result.operations().pendingWork()).hasSize(1);
+    DashboardTask t = result.operations().pendingWork().get(0);
+    assertThat(t.isOverdue()).isTrue();
+    assertThat(t.bucket()).isEqualTo("OVERDUE");
+    assertThat(t.productionTitle()).isEqualTo("Summit 2026");
   }
 }

@@ -47,18 +47,29 @@ const mockDashboardData: CommandDashboardView = {
   },
   attention: [
     {
+      id: "overdue-invoices",
       severity: "HIGH",
       type: "OVERDUE_INVOICES",
+      category: "FINANCE",
       title: "3 invoices overdue",
+      reason: "Formal invoices with prior invoice date carry outstanding unpaid balance.",
       description: "₹4,82,000 outstanding across 3 overdue invoices",
+      entityType: "INVOICE",
+      amount: 482000,
       count: 3,
       route: "/finance?tab=INVOICES",
+      queryParams: "tab=INVOICES",
     },
     {
+      id: "unpaid-salary",
       severity: "HIGH",
       type: "UNPAID_SALARY",
+      category: "PAYROLL",
       title: "Employee payment obligations pending",
+      reason: "Approved work earnings or monthly salary accruals have not yet been disbursed.",
       description: "₹35,000 payable across 2 crew members",
+      entityType: "EMPLOYEE",
+      amount: 35000,
       count: 2,
       route: "/payroll",
     },
@@ -71,11 +82,15 @@ const mockDashboardData: CommandDashboardView = {
         clientName: "Northstar Foods",
         venueName: "Grand Ballroom",
         eventDate: "2026-09-26",
-        startTime: "10:00",
-        endTime: "18:00",
+        startTime: "10:00:00",
+        endTime: "18:00:00",
         status: "PRODUCTION",
         priority: "HIGH",
         progressPercent: 70,
+        contractedAmount: 500000,
+        receivedAmount: 350000,
+        taskCount: 6,
+        openTaskCount: 2,
       },
     ],
     pendingWork: [
@@ -86,6 +101,8 @@ const mockDashboardData: CommandDashboardView = {
         status: "IN_PROGRESS",
         assignedEmployeeName: "Roshan",
         productionTitle: "Northstar Brand Summit",
+        isOverdue: false,
+        bucket: "DUE_TODAY",
       },
     ],
     attendanceExceptions: [
@@ -175,9 +192,14 @@ describe("CommandPage", () => {
     expect(screen.getByText("Crew Payable")).toBeInTheDocument();
     expect(screen.getByText("₹45,000")).toBeInTheDocument();
 
-    // Check Attention Queue
+    // Check Attention Queue with Phase 2 categories and reasons
     expect(screen.getByText("Attention Queue (2)")).toBeInTheDocument();
     expect(screen.getByText("3 invoices overdue")).toBeInTheDocument();
+    expect(screen.getByText("FINANCE")).toBeInTheDocument();
+    expect(screen.getByText("PAYROLL")).toBeInTheDocument();
+    expect(
+      screen.getByText("Formal invoices with prior invoice date carry outstanding unpaid balance."),
+    ).toBeInTheDocument();
     expect(screen.getByText("Employee payment obligations pending")).toBeInTheDocument();
 
     // Check Operations (default productions tab)
@@ -206,9 +228,9 @@ describe("CommandPage", () => {
     vi.mocked(commandApi.dashboard).mockResolvedValue(clearData);
     renderPage();
 
-    expect(await screen.findByText("You’re clear")).toBeInTheDocument();
+    expect(await screen.findByText("Everything is clear")).toBeInTheDocument();
     expect(
-      screen.getByText("No overdue invoices, salary arrears, or reconciliation alerts."),
+      screen.getByText("No operational or financial exceptions need attention right now."),
     ).toBeInTheDocument();
   });
 
@@ -216,7 +238,7 @@ describe("CommandPage", () => {
     vi.mocked(commandApi.dashboard).mockRejectedValue(new Error("Network error"));
     renderPage();
 
-    expect(await screen.findByText("Command telemetry unavailable")).toBeInTheDocument();
+    expect(await screen.findByText("Command data unavailable")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Retry/i })).toBeInTheDocument();
   });
 
@@ -227,14 +249,33 @@ describe("CommandPage", () => {
     await screen.findByText("Northstar Brand Summit");
 
     // Click Tasks tab
-    const tasksTab = screen.getByRole("button", { name: /Tasks \(1\)/i });
+    const tasksTab = screen.getByRole("tab", { name: /Tasks \(1\)/i });
     await userEvent.click(tasksTab);
     expect(await screen.findByText("Sound check & mic setup")).toBeInTheDocument();
 
     // Click Exceptions tab
-    const exceptionsTab = screen.getByRole("button", { name: /Exceptions \(1\)/i });
+    const exceptionsTab = screen.getByRole("tab", { name: /Exceptions \(1\)/i });
     await userEvent.click(exceptionsTab);
     expect(await screen.findByText("Sanjay")).toBeInTheDocument();
-    expect(screen.getByText("Late by 25 mins")).toBeInTheDocument();
+    expect(screen.getByText(/Late by 25 mins/)).toBeInTheDocument();
+  });
+
+  it("expands production card to reveal financial breakdown and task progress", async () => {
+    vi.mocked(commandApi.dashboard).mockResolvedValue(mockDashboardData);
+    renderPage();
+
+    const prodTitle = await screen.findByText("Northstar Brand Summit");
+    // Click on production card to expand
+    await userEvent.click(prodTitle);
+
+    // Verify expanded financial info is now displayed
+    expect(await screen.findByText("Contracted")).toBeInTheDocument();
+    expect(screen.getByText("₹5,00,000")).toBeInTheDocument(); // contracted amount
+    expect(screen.getByText("Received")).toBeInTheDocument();
+    expect(screen.getByText("₹3,50,000")).toBeInTheDocument(); // received amount
+    expect(screen.getByText("Unsettled")).toBeInTheDocument();
+    expect(screen.getAllByText("₹1,50,000")).toHaveLength(2); // Business Position + Unsettled balance
+    expect(screen.getByText(/2 open of 6 operational tasks/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Open Detail/i })).toBeInTheDocument();
   });
 });
