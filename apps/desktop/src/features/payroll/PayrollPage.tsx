@@ -61,6 +61,7 @@ export function PayrollPage() {
   const [payment, setPayment] = useState({
     requestId: "",
     amount: "",
+    payerAccount: "AZ-2" as "AZ-2" | "AK-2",
     paidAt: nowLocal(),
     paymentMethod: "BANK_TRANSFER" as PayrollPaymentMethod,
     reference: "",
@@ -141,6 +142,7 @@ export function PayrollPage() {
             amountMinor: Math.round(Number(payment.amount) * 100),
             paidAt: new Date(payment.paidAt).toISOString(),
             paymentMethod: payment.paymentMethod,
+            payerAccount: payment.payerAccount,
             reference: payment.reference || null,
             note: payment.note || null,
           }),
@@ -163,7 +165,8 @@ export function PayrollPage() {
     setPayItem(item);
     setPayment({
       requestId: crypto.randomUUID(),
-      amount: "",
+      amount: item ? (item.remaining / 100).toFixed(2) : "",
+      payerAccount: "AZ-2",
       paidAt: nowLocal(),
       paymentMethod: "BANK_TRANSFER",
       reference: "",
@@ -614,6 +617,22 @@ export function PayrollPage() {
               ))}
             </select>
           </FormField>
+          <FormField label="Payer Account (Owner Position)">
+            <select
+              aria-label="Payer owner account"
+              required
+              value={payment.payerAccount}
+              onChange={(e) =>
+                setPayment({
+                  ...payment,
+                  payerAccount: e.target.value as "AZ-2" | "AK-2",
+                })
+              }
+            >
+              <option value="AZ-2">AZ-2 (Azeem)</option>
+              <option value="AK-2">AK-2 (Akash)</option>
+            </select>
+          </FormField>
           <FormField label="Reference">
             <input
               aria-label="Payment reference"
@@ -643,12 +662,16 @@ export function PayrollPage() {
             disabled={
               !payItem ||
               !payment.paidAt ||
+              !payment.payerAccount ||
               Number(payment.amount) <= 0 ||
               Math.round(Number(payment.amount) * 100) >
                 (payItem?.remaining ?? 0) ||
               recordPayment.isPending
             }
-            onClick={() => recordPayment.mutate()}
+            onClick={() => {
+              if (recordPayment.isPending) return;
+              recordPayment.mutate();
+            }}
           >
             Record payment
           </SAButton>

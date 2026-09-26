@@ -825,6 +825,18 @@ export const financeApi = {
     description: string;
   }) =>
     api<{ id: string }>("/finance/earnings", { method: "POST", ...json(data) }),
+  recordEmployeePayment: (data: {
+    idempotencyKey: string;
+    employeeId: string;
+    amount: Money;
+    date: string;
+    description: string;
+    payerAccount: string;
+  }) =>
+    api<{ id: string }>("/finance/employee-payments", {
+      method: "POST",
+      ...json(data),
+    }),
   post: (path: string, body: unknown) =>
     api<{ id: string }>(`/finance/${path}`, { method: "POST", ...json(body) }),
   reverse: (id: string, body: unknown) =>

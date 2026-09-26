@@ -4,9 +4,13 @@ import com.saproduction.command.audit.AuditService;
 import com.saproduction.command.auth.UserRepository;
 import com.saproduction.command.communication.DomainEventService;
 import com.saproduction.command.employee.*;
+import com.saproduction.command.finance.FinanceCommands;
+import com.saproduction.command.finance.FinancePostingService;
 import com.saproduction.command.shared.ApiException;
 import jakarta.persistence.EntityManager;
 import jakarta.validation.constraints.*;
+import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.*;
 import java.util.*;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -26,8 +30,19 @@ public class PayrollService {
       @Positive long amountMinor,
       @NotNull @PastOrPresent Instant paidAt,
       @NotNull PayrollPayment.Method paymentMethod,
+      String payerAccount,
       @Size(max = 160) String reference,
-      @Size(max = 500) String note) {}
+      @Size(max = 500) String note) {
+    public PaymentInput(
+        UUID requestId,
+        long amountMinor,
+        Instant paidAt,
+        PayrollPayment.Method paymentMethod,
+        String reference,
+        String note) {
+      this(requestId, amountMinor, paidAt, paymentMethod, null, reference, note);
+    }
+  }
 
   public record AdjustmentView(
       UUID id,
@@ -118,6 +133,7 @@ public class PayrollService {
   private final AuditService audit;
   private final DomainEventService events;
   private final EntityManager entityManager;
+  private final FinancePostingService financePosting;
 
   public PayrollService(
       PayrollPeriodRepository periods,
@@ -129,7 +145,8 @@ public class PayrollService {
       UserRepository users,
       AuditService audit,
       DomainEventService events,
-      EntityManager entityManager) {
+      EntityManager entityManager,
+      FinancePostingService financePosting) {
     this.periods = periods;
     this.items = items;
     this.adjustments = adjustments;
@@ -140,6 +157,7 @@ public class PayrollService {
     this.audit = audit;
     this.events = events;
     this.entityManager = entityManager;
+    this.financePosting = financePosting;
   }
 
   @Transactional(readOnly = true)
@@ -320,6 +338,42 @@ public class PayrollService {
           });
     }
     periods.save(p);
+
+    if (financePosting != null) {
+      LocalDate effectiveDate = YearMonth.of(p.year, p.month).atEndOfMonth();
+      for (PayrollItem item : all) {
+        if (item.netSalaryMinor > 0) {
+          UUID salaryKey =
+              UUID.nameUUIDFromBytes(
+                  ("payroll-item-salary-" + item.id).getBytes(StandardCharsets.UTF_8));
+          BigDecimal gross =
+              BigDecimal.valueOf(
+                      Math.addExact(
+                          Math.addExact(item.baseSalaryMinor, item.overtimeMinor), item.bonusMinor))
+                  .movePointLeft(2);
+          BigDecimal deductions =
+              BigDecimal.valueOf(
+                      Math.addExact(item.attendanceDeductionMinor, item.advanceDeductionMinor))
+                  .movePointLeft(2);
+          BigDecimal adjustment = BigDecimal.valueOf(item.manualAdjustmentMinor).movePointLeft(2);
+          String desc =
+              String.format(
+                  "Monthly salary accrual for %s (%02d/%d)",
+                  item.employeeNameSnapshot, p.month, p.year);
+          financePosting.salary(
+              new FinanceCommands.Salary(
+                  salaryKey,
+                  item.employeeId,
+                  item.id,
+                  gross,
+                  deductions,
+                  adjustment,
+                  effectiveDate,
+                  desc));
+        }
+      }
+    }
+
     var result = view(p);
     audit.record(
         "PAYROLL",
@@ -345,6 +399,16 @@ public class PayrollService {
           "This payment request ID was already used with different payment details.");
     }
     require(p, PayrollPeriod.Status.APPROVED);
+
+    String payer = null;
+    if (in.payerAccount() != null && !in.payerAccount().isBlank()) {
+      payer = in.payerAccount().trim().toUpperCase(Locale.ROOT);
+      if (!Set.of("AZ-2", "AK-2").contains(payer)) {
+        throw ApiException.badRequest(
+            "INVALID_PAYER_ACCOUNT", "Payer account must be AZ-2 or AK-2.");
+      }
+    }
+
     PayrollItem item =
         items
             .findOneById(itemId)
@@ -371,12 +435,33 @@ public class PayrollService {
     item.paymentStatus = status(item.netSalaryMinor, newPaid);
     item.paidAt = item.paymentStatus == PayrollItem.PaymentStatus.PAID ? payment.paidAt : null;
     items.save(item);
+
+    if (financePosting != null && payer != null) {
+      BigDecimal paymentAmount = BigDecimal.valueOf(payment.amountMinor).movePointLeft(2);
+      LocalDate paymentDate = in.paidAt().atZone(ZoneId.of("Asia/Kolkata")).toLocalDate();
+      String paymentDesc =
+          "Payroll disbursement for "
+              + item.employeeNameSnapshot
+              + " ("
+              + p.month
+              + "/"
+              + p.year
+              + ")";
+      if (clean(in.reference()) != null) {
+        paymentDesc += " Ref: " + clean(in.reference());
+      }
+      financePosting.employeePayment(
+          new FinanceCommands.EmployeePayment(
+              in.requestId(), item.employeeId, paymentAmount, paymentDate, paymentDesc, payer));
+    }
+
     Map<String, Object> evidence = new LinkedHashMap<>();
     evidence.put("employeeId", item.employeeId);
     evidence.put("employee", item.employeeNameSnapshot);
     evidence.put("payrollPeriod", p.month + "/" + p.year);
     evidence.put("amountMinor", payment.amountMinor);
     evidence.put("method", payment.paymentMethod);
+    evidence.put("payerAccount", payer != null ? payer : "UNSPECIFIED");
     evidence.put("reference", payment.reference);
     evidence.put("timestamp", payment.paidAt);
     audit.record("PAYROLL", "PAYROLL_PAYMENT_RECORDED", periodId.toString(), null, evidence);
