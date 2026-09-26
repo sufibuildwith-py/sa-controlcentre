@@ -1,0 +1,713 @@
+/* SA Command — Command Dashboard V1 Styles */
+
+.command-dashboard-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding-bottom: 40px;
+}
+
+/* Header & Date Controls */
+.command-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 14px 20px;
+  background: var(--surface-soft);
+  border: 1px solid var(--border-soft);
+  border-radius: 20px;
+}
+
+.command-header-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.command-system-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 560;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-2);
+  padding: 4px 10px;
+  border-radius: 9999px;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+}
+
+.command-header-date-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.command-date-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 560;
+  color: var(--text-1);
+}
+
+.command-date-input {
+  background: transparent;
+  border: none;
+  color: var(--text-1);
+  font-size: 12px;
+  font-weight: 550;
+  cursor: pointer;
+  outline: none;
+  font-family: inherit;
+}
+
+.command-btn-icon-subtle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  color: var(--text-2);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.command-btn-icon-subtle:hover {
+  background: var(--surface-raised);
+  color: var(--text-1);
+  border-color: var(--border);
+}
+
+/* Today Summary Row (Command Strip) */
+.command-today-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+.command-today-metric-card {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 18px;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.command-today-metric-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-strong);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+}
+
+.command-today-metric-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.command-today-metric-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.command-today-metric-value {
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  color: var(--text-1);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.command-today-metric-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+
+/* Main Grid: Business Position + Attention */
+.command-primary-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 16px;
+}
+
+/* Card Spotlight Primitive */
+.command-spotlight-card {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 24px 26px;
+  overflow: hidden;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.03);
+}
+
+.command-spotlight-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  transition: opacity 0.25s ease;
+}
+
+.command-spotlight-content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  height: 100%;
+}
+
+/* Business Position Content */
+.command-money-hero-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.command-money-title-group h2 {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+  margin: 0 0 6px;
+}
+
+.command-money-hero-amount {
+  font-size: 38px;
+  font-weight: 650;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+  color: var(--text-1);
+  font-variant-numeric: tabular-nums;
+}
+
+.command-money-hero-amount.positive {
+  color: #10b981;
+}
+
+.command-money-hero-amount.negative {
+  color: #ef4444;
+}
+
+.command-money-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 560;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-soft);
+}
+
+.command-money-badge.status-reconciled {
+  color: #059669;
+  border-color: rgba(16, 185, 129, 0.25);
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.command-money-badge.status-warning {
+  color: #d97706;
+  border-color: rgba(245, 158, 11, 0.25);
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.command-money-badge.status-broken {
+  color: #dc2626;
+  border-color: rgba(239, 68, 68, 0.25);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.command-owner-positions-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.command-position-tile {
+  background: var(--surface-soft);
+  border: 1px solid var(--border-soft);
+  border-radius: 16px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.command-position-tile:hover {
+  border-color: var(--border);
+  background: var(--surface-raised);
+}
+
+.command-position-tile .tile-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-3);
+}
+
+.command-position-tile .tile-value {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: var(--text-1);
+  font-variant-numeric: tabular-nums;
+}
+
+.command-position-tile .tile-hint {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.command-receivables-breakdown {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.command-sub-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.command-sub-metric span {
+  font-size: 10.5px;
+  font-weight: 560;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-3);
+}
+
+.command-sub-metric strong {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-1);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Attention Center */
+.command-attention-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.command-attention-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.command-attention-header h3 {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+  margin: 0;
+}
+
+.command-attention-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.command-attention-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 18px;
+  border-radius: 16px;
+  background: var(--surface-soft);
+  border: 1px solid var(--border-soft);
+  cursor: pointer;
+  transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+  text-decoration: none;
+  color: inherit;
+}
+
+.command-attention-card:hover {
+  background: var(--surface-raised);
+  border-color: var(--border-strong);
+  transform: translateX(2px);
+}
+
+.command-attention-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.command-severity-indicator {
+  margin-top: 3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  flex-shrink: 0;
+}
+
+.command-severity-indicator.severity-critical {
+  background: #ef4444;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+}
+
+.command-severity-indicator.severity-high {
+  background: #f59e0b;
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.4);
+}
+
+.command-severity-indicator.severity-medium {
+  background: #3b82f6;
+}
+
+.command-severity-indicator.severity-info {
+  background: #8b5cf6;
+}
+
+.command-attention-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.command-attention-text strong {
+  font-size: 13.5px;
+  font-weight: 580;
+  color: var(--text-1);
+}
+
+.command-attention-text p {
+  font-size: 12px;
+  color: var(--text-2);
+  margin: 0;
+}
+
+.command-attention-action {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 560;
+  color: var(--text-3);
+  flex-shrink: 0;
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.command-attention-card:hover .command-attention-action {
+  color: var(--text-1);
+  transform: translateX(3px);
+}
+
+.command-attention-clear {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 38px 20px;
+  text-align: center;
+  border-radius: 18px;
+  background: var(--surface-soft);
+  border: 1px dashed var(--border-soft);
+  gap: 8px;
+}
+
+.command-attention-clear strong {
+  font-size: 14px;
+  font-weight: 560;
+  color: var(--text-1);
+}
+
+.command-attention-clear p {
+  font-size: 12px;
+  color: var(--text-3);
+  margin: 0;
+}
+
+/* Secondary Section: Operations & Financial Activity */
+.command-secondary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.command-panel-card {
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 22px;
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.command-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.command-panel-header h3 {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+  margin: 0;
+}
+
+.command-operations-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--surface-soft);
+  padding: 3px;
+  border-radius: 12px;
+  border: 1px solid var(--border-soft);
+}
+
+.command-tab-btn {
+  padding: 4px 12px;
+  font-size: 11.5px;
+  font-weight: 540;
+  color: var(--text-2);
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.14s ease;
+}
+
+.command-tab-btn.active {
+  background: var(--surface);
+  color: var(--text-1);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  font-weight: 580;
+}
+
+.command-operations-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.command-op-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: var(--surface-soft);
+  border: 1px solid var(--border-soft);
+  gap: 12px;
+  cursor: pointer;
+  transition: all 0.14s ease;
+}
+
+.command-op-item:hover {
+  background: var(--surface-raised);
+  border-color: var(--border);
+}
+
+.command-op-info {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.command-op-info strong {
+  font-size: 13px;
+  font-weight: 560;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.command-op-info span {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+/* Activity Stream */
+.command-timeline-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.command-timeline-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: var(--surface-soft);
+  border: 1px solid var(--border-soft);
+  gap: 12px;
+  transition: border-color 0.14s ease;
+}
+
+.command-timeline-row:hover {
+  border-color: var(--border);
+}
+
+.command-timeline-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.command-timeline-badge {
+  font-size: 10.5px;
+  font-weight: 580;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  color: var(--text-2);
+}
+
+.command-timeline-desc {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.command-timeline-desc strong {
+  font-size: 12.5px;
+  font-weight: 550;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.command-timeline-desc span {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.command-timeline-amount {
+  font-size: 13.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.command-timeline-amount.positive {
+  color: #10b981;
+}
+
+.command-timeline-amount.neutral {
+  color: var(--text-2);
+}
+
+/* Quick Actions Dock */
+.command-quick-actions-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 12px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 20px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.02);
+}
+
+.command-quick-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  border-radius: 12px;
+  font-size: 12.5px;
+  font-weight: 540;
+  color: var(--text-1);
+  background: var(--surface-soft);
+  border: 1px solid var(--border-soft);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.command-quick-action-btn:hover {
+  background: var(--surface-raised);
+  border-color: var(--border);
+  transform: translateY(-1px);
+}
+
+/* Tooltip & Pointer Highlight styles */
+.command-tooltip-content {
+  background: var(--surface-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 11.5px;
+  color: var(--text-1);
+  max-width: 260px;
+  line-height: 1.4;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  z-index: 1000;
+}
+
+/* Responsive queries */
+@media (max-width: 1200px) {
+  .command-today-strip {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .command-primary-grid {
+    grid-template-columns: 1fr;
+  }
+  .command-secondary-grid {
+    grid-template-columns: 1fr;
+  }
+}
