@@ -45,13 +45,13 @@ class CommandDashboardReadServiceTest {
                 Map.of("code", "AZ-2", "position", new BigDecimal("-1697522.00")),
                 Map.of("code", "AK-2", "position", new BigDecimal("104320.00"))));
 
-    // Mock reconciliation
+    // Mock reconciliation with real FinanceReadService camelCase contract
     when(financeReads.reconciliation())
         .thenReturn(
             Map.of(
                 "status", "RECONCILED",
-                "employee_payables", new BigDecimal("45000.00"),
-                "invoice_receivables", new BigDecimal("180000.00")));
+                "employeePayables", new BigDecimal("45000.00"),
+                "invoiceReceivables", new BigDecimal("180000.00")));
 
     // Mock direct charge receivables
     when(jdbc.queryForObject(contains("finance_counterparty_charges"), eq(BigDecimal.class)))
@@ -103,7 +103,7 @@ class CommandDashboardReadServiceTest {
     assertThat(result.money().customerReceivable()).isEqualTo(new BigDecimal("75000.00"));
     assertThat(result.money().invoiceReceivable()).isEqualTo(new BigDecimal("180000.00"));
     assertThat(result.money().totalReceivable())
-        .isEqualTo(new BigDecimal("255000.00")); // dual-track sum
+        .isEqualTo(new BigDecimal("255000.00")); // dual-track sum (75000 + 180000)
     assertThat(result.money().employeePayable()).isEqualTo(new BigDecimal("45000.00"));
     assertThat(result.money().reconciliationStatus()).isEqualTo("RECONCILED");
 
@@ -124,8 +124,8 @@ class CommandDashboardReadServiceTest {
         .thenReturn(
             Map.of(
                 "status", "BROKEN",
-                "employee_payables", BigDecimal.ZERO,
-                "invoice_receivables", BigDecimal.ZERO));
+                "employeePayables", BigDecimal.ZERO,
+                "invoiceReceivables", BigDecimal.ZERO));
     when(jdbc.queryForObject(contains("finance_counterparty_charges"), eq(BigDecimal.class)))
         .thenReturn(BigDecimal.ZERO);
 
@@ -186,8 +186,8 @@ class CommandDashboardReadServiceTest {
         .thenReturn(
             Map.of(
                 "status", "RECONCILED",
-                "employee_payables", BigDecimal.ZERO,
-                "invoice_receivables", BigDecimal.ZERO));
+                "employeePayables", BigDecimal.ZERO,
+                "invoiceReceivables", BigDecimal.ZERO));
     when(jdbc.queryForObject(contains("finance_counterparty_charges"), eq(BigDecimal.class)))
         .thenReturn(BigDecimal.ZERO);
 
@@ -217,5 +217,51 @@ class CommandDashboardReadServiceTest {
     assertThat(result.operations().pendingWork()).isEmpty();
     assertThat(result.operations().attendanceExceptions()).isEmpty();
     assertThat(result.recentFinancialActivity()).isEmpty();
+  }
+
+  @Test
+  void reconciliationDefensivelyHandlesMissingOrNullKeysWithoutNpe() {
+    LocalDate date = LocalDate.of(2026, 9, 26);
+
+    when(financeReads.overview()).thenReturn(Map.of("overallResult", new BigDecimal("10000.00")));
+    when(financeReads.accounts()).thenReturn(List.of());
+
+    // Case 1: Reconciliation map with explicit null values for optional payables/receivables
+    Map<String, Object> reconWithNulls = new HashMap<>();
+    reconWithNulls.put("status", "RECONCILED");
+    reconWithNulls.put("employeePayables", null);
+    reconWithNulls.put("invoiceReceivables", null);
+    when(financeReads.reconciliation()).thenReturn(reconWithNulls);
+
+    when(jdbc.queryForObject(contains("finance_counterparty_charges"), eq(BigDecimal.class)))
+        .thenReturn(new BigDecimal("50000.00"));
+    when(jdbc.queryForMap(contains("finance_transactions"), eq(date)))
+        .thenReturn(
+            Map.of("received", BigDecimal.ZERO, "disbursed", BigDecimal.ZERO, "tx_count", 0L));
+    when(jdbc.queryForMap(contains("finance_invoices"), eq(date)))
+        .thenReturn(Map.of("count", 0L, "total", BigDecimal.ZERO));
+    when(jdbc.queryForMap(contains("finance_employee_obligations")))
+        .thenReturn(Map.of("count", 0L, "total", BigDecimal.ZERO));
+    when(jdbc.queryForMap(contains("finance_production_profiles"), eq(date)))
+        .thenReturn(Map.of("count", 0L, "total", BigDecimal.ZERO));
+    when(jdbc.queryForObject(contains("tasks WHERE due_at < now()"), eq(Integer.class)))
+        .thenReturn(0);
+
+    CommandDashboard result = service.getDashboard(date);
+
+    assertThat(result.money().employeePayable()).isEqualTo(BigDecimal.ZERO);
+    assertThat(result.money().invoiceReceivable()).isEqualTo(BigDecimal.ZERO);
+    // totalReceivable is customerReceivable (50000) + fallback 0
+    assertThat(result.money().totalReceivable()).isEqualTo(new BigDecimal("50000.00"));
+    assertThat(result.money().reconciliationStatus()).isEqualTo("RECONCILED");
+
+    // Case 2: Reconciliation map completely null
+    when(financeReads.reconciliation()).thenReturn(null);
+    CommandDashboard nullReconResult = service.getDashboard(date);
+
+    assertThat(nullReconResult.money().employeePayable()).isEqualTo(BigDecimal.ZERO);
+    assertThat(nullReconResult.money().invoiceReceivable()).isEqualTo(BigDecimal.ZERO);
+    assertThat(nullReconResult.money().totalReceivable()).isEqualTo(new BigDecimal("50000.00"));
+    assertThat(nullReconResult.money().reconciliationStatus()).isEqualTo("UNKNOWN");
   }
 }

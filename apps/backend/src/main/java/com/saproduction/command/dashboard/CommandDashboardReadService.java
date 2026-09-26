@@ -144,9 +144,16 @@ public class CommandDashboardReadService {
 
     // Canonical reconciliation read model
     Map<String, Object> recon = financeReads.reconciliation();
-    String reconciliationStatus = (String) recon.get("status");
-    BigDecimal employeePayable = (BigDecimal) recon.get("employee_payables");
-    BigDecimal invoiceReceivable = (BigDecimal) recon.get("invoice_receivables");
+    String reconciliationStatus =
+        recon != null && recon.get("status") instanceof String s ? s : "UNKNOWN";
+    BigDecimal employeePayable =
+        recon != null && recon.get("employeePayables") instanceof BigDecimal bd
+            ? bd
+            : BigDecimal.ZERO;
+    BigDecimal invoiceReceivable =
+        recon != null && recon.get("invoiceReceivables") instanceof BigDecimal bd
+            ? bd
+            : BigDecimal.ZERO;
 
     // Direct party charge track outstanding (dual-track model)
     BigDecimal customerReceivable =
