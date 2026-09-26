@@ -63,6 +63,103 @@ export type FinanceParty = {
   gstin?: string;
   charged: Money;
   received: Money;
+  invoiced?: Money;
+  invoicePaid?: Money;
+};
+
+export type Party360Charge = {
+  id: string;
+  date: string;
+  amount: Money;
+  description: string;
+  productionId?: string;
+  productionTitle?: string;
+  paid: Money;
+  outstanding: Money;
+};
+
+export type Party360Invoice = {
+  id: string;
+  invoiceNumber: string;
+  financialYear: string;
+  date: string;
+  taxMode: string;
+  baseAmount: Money;
+  cgstAmount: Money;
+  sgstAmount: Money;
+  igstAmount: Money;
+  total: Money;
+  tds: Money;
+  productionId?: string;
+  productionTitle?: string;
+  billId?: string;
+  billStatus?: string;
+  paid: Money;
+  outstanding: Money;
+};
+
+export type Party360Bill = {
+  id: string;
+  billNumber: string;
+  billDate: string;
+  status: string;
+  grossTotal: Money;
+  eventName?: string;
+  venue?: string;
+  productionId?: string;
+  productionTitle?: string;
+  canonicalInvoiceId?: string;
+};
+
+export type Party360Production = {
+  id: string;
+  title: string;
+  clientName: string;
+  eventDate: string;
+  venueName: string;
+  status: string;
+};
+
+export type Party360TimelineItem = {
+  id: string;
+  transactionNo: number;
+  type: string;
+  date: string;
+  description: string;
+  amount: Money;
+  status: string;
+  track: "FORMAL_INVOICE" | "DIRECT_CHARGE" | "OTHER";
+  ownerAccount?: string;
+  productionId?: string;
+  productionTitle?: string;
+  invoiceId?: string;
+  reversalOf?: string;
+};
+
+export type Party360View = {
+  party: {
+    id: string;
+    displayName: string;
+    legalName?: string;
+    role: string;
+    gstin?: string;
+    notes?: string;
+    active: boolean;
+    createdAt?: string;
+  };
+  chargeTotal: Money;
+  chargeReceived: Money;
+  chargeOutstanding: Money;
+  invoiceTotal: Money;
+  invoicePaid: Money;
+  invoiceOutstanding: Money;
+  totalOutstanding: Money;
+  totalReceived: Money;
+  charges: Party360Charge[];
+  invoices: Party360Invoice[];
+  bills: Party360Bill[];
+  productions: Party360Production[];
+  timeline: Party360TimelineItem[];
 };
 
 export type WorkbookPartySummary = {
@@ -769,6 +866,36 @@ export const financeApi = {
     }>(`/finance/employees/${id}`),
   counterparties: (page = 0, search = "") =>
     list<FinanceParty>("counterparties", page, search),
+  counterparty: (id: string) =>
+    api<{ counterparty: FinanceParty; transactions: FinanceTransaction[] }>(
+      `/finance/counterparties/${id}`,
+    ),
+  party360: (id: string) =>
+    api<Party360View>(`/finance/counterparties/${id}/360`),
+  recordPartyReceipt: (data: {
+    idempotencyKey: string;
+    counterpartyId: string;
+    amount: Money;
+    date: string;
+    description: string;
+    receiverAccount: string;
+  }) =>
+    api<{ id: string }>("/finance/party-receipts", {
+      method: "POST",
+      ...json(data),
+    }),
+  recordInvoicePayment: (data: {
+    idempotencyKey: string;
+    invoiceId: string;
+    amount: Money;
+    date: string;
+    description: string;
+    receiverAccount: string;
+  }) =>
+    api<{ id: string }>("/finance/invoice-payments", {
+      method: "POST",
+      ...json(data),
+    }),
   invoices: (page = 0) => list<FinanceInvoice>("invoices", page),
   purchases: (page = 0) => list<FinancePurchase>("equipment-purchases", page),
   transaction: (id: string) =>
