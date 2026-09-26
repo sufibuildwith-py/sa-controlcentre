@@ -143,6 +143,10 @@ class PostgresApplicationTest {
     assertThat(dashboard.path("productions").isArray()).isTrue();
     assertThat(dashboard.path("workload").isArray()).isTrue();
     assertThat(dashboard.path("communicationsAvailable").asBoolean()).isFalse();
+    var cmdDashboard = call(client, "GET", "/command/dashboard?date=" + today, null);
+    assertThat(cmdDashboard.path("money").path("reconciliationStatus").asText())
+        .isIn("RECONCILED", "BROKEN");
+    assertThat(cmdDashboard.path("today").path("productions").asInt()).isGreaterThanOrEqualTo(0);
   }
 
   private JsonNode call(HttpClient client, String method, String path, String body)

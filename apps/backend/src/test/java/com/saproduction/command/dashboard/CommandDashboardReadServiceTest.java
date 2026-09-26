@@ -390,4 +390,23 @@ class CommandDashboardReadServiceTest {
     assertThat(result.attention())
         .noneMatch(a -> "PRODUCTION_SETTLEMENT_PENDING".equals(a.type()));
   }
+
+  @Test
+  void transactionBoundaryContractsEnforceReadOnlyServiceWithIsolatedReconciliation()
+      throws NoSuchMethodException {
+    var dashboardMethod =
+        CommandDashboardReadService.class.getMethod("getDashboard", LocalDate.class);
+    var dashboardTx =
+        dashboardMethod.getAnnotation(org.springframework.transaction.annotation.Transactional.class);
+    assertThat(dashboardTx).isNotNull();
+    assertThat(dashboardTx.readOnly()).isTrue();
+
+    var reconciliationMethod = FinanceReadService.class.getMethod("reconciliation");
+    var reconciliationTx =
+        reconciliationMethod.getAnnotation(
+            org.springframework.transaction.annotation.Transactional.class);
+    assertThat(reconciliationTx).isNotNull();
+    assertThat(reconciliationTx.propagation())
+        .isEqualTo(org.springframework.transaction.annotation.Propagation.REQUIRES_NEW);
+  }
 }
