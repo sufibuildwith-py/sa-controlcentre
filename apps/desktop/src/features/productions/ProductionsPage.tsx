@@ -25,7 +25,7 @@ import {
   SkeletonCard,
   StatusBadge,
 } from "../../components/ui/sa";
-import { api, json } from "../../lib/api";
+import { ApiError, api, json } from "../../lib/api";
 import { headquartersApi } from "../headquarters/headquarters.api";
 import type { Employee, Priority, Production } from "../../types/domain";
 
@@ -89,11 +89,16 @@ export function ProductionsPage() {
 
   const save = useMutation({
     mutationFn: () => {
+      let eventDate = form.eventDate.trim();
+      if (/^\d{2}-\d{2}-\d{4}$/.test(eventDate)) {
+        const [d, m, y] = eventDate.split("-");
+        eventDate = `${y}-${m}-${d}`;
+      }
       const payload = {
         title: form.title.trim(),
         clientName: form.clientName.trim(),
-        description: form.description.trim() || undefined,
-        eventDate: form.eventDate,
+        description: form.description?.trim() ? form.description.trim() : undefined,
+        eventDate,
         startTime: form.startTime.trim() || undefined,
         endTime: form.endTime.trim() || undefined,
         venueName: form.venueName.trim(),
@@ -135,6 +140,16 @@ export function ProductionsPage() {
         : !["DELIVERED", "CANCELLED"].includes(p.status),
   );
 
+  const handleOpenChange = (v: boolean) => {
+    setOpen(v);
+    if (!v) {
+      save.reset();
+    }
+  };
+
+  const fieldErrors =
+    save.error instanceof ApiError ? save.error.fields : undefined;
+
   return (
     <>
       <div className="page-title">
@@ -142,7 +157,13 @@ export function ProductionsPage() {
           <h1>Productions</h1>
           <p>Plan shoots, crews and delivery from one operational surface.</p>
         </div>
-        <SAButton variant="primary" onClick={() => setOpen(true)}>
+        <SAButton
+          variant="primary"
+          onClick={() => {
+            save.reset();
+            setOpen(true);
+          }}
+        >
           <Plus size={16} />
           Production
         </SAButton>
@@ -251,12 +272,13 @@ export function ProductionsPage() {
       )}
       <ProductionForm
         open={open}
-        onOpenChange={setOpen}
+        onOpenChange={handleOpenChange}
         form={form}
         setForm={setForm}
         onSave={() => save.mutate()}
         pending={save.isPending}
         error={save.error?.message}
+        fieldErrors={fieldErrors}
       />
     </>
   );
@@ -270,6 +292,7 @@ function ProductionForm({
   onSave,
   pending,
   error,
+  fieldErrors,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -278,6 +301,7 @@ function ProductionForm({
   onSave: () => void;
   pending: boolean;
   error?: string;
+  fieldErrors?: Record<string, string>;
 }) {
   const employeesQuery = useQuery({
     queryKey: ["employees"],
@@ -393,7 +417,7 @@ function ProductionForm({
       <div style={{ display: "flex", flexDirection: "column", gap: "16px", maxHeight: "70vh", overflowY: "auto", paddingRight: "4px" }}>
         {/* SECTION 1: PRODUCTION CORE */}
         <div className="form-grid">
-          <FormField label="Title">
+          <FormField label="Title" error={fieldErrors?.title}>
             <input
               aria-label="Production title"
               placeholder="e.g. Sharma Wedding"
@@ -401,7 +425,7 @@ function ProductionForm({
               onChange={(e) => field("title", e.target.value)}
             />
           </FormField>
-          <FormField label="Client">
+          <FormField label="Client" error={fieldErrors?.clientName}>
             <input
               aria-label="Client name"
               placeholder="e.g. Sharma Family"
@@ -409,7 +433,7 @@ function ProductionForm({
               onChange={(e) => field("clientName", e.target.value)}
             />
           </FormField>
-          <FormField label="Date">
+          <FormField label="Date" error={fieldErrors?.eventDate}>
             <input
               aria-label="Event date"
               type="date"
@@ -417,7 +441,7 @@ function ProductionForm({
               onChange={(e) => field("eventDate", e.target.value)}
             />
           </FormField>
-          <FormField label="Priority">
+          <FormField label="Priority" error={fieldErrors?.priority}>
             <select
               aria-label="Production priority"
               value={form.priority}
@@ -428,7 +452,7 @@ function ProductionForm({
               ))}
             </select>
           </FormField>
-          <FormField label="Venue">
+          <FormField label="Venue" error={fieldErrors?.venueName}>
             <input
               aria-label="Venue name"
               placeholder="e.g. Royal Orchid"
@@ -436,7 +460,7 @@ function ProductionForm({
               onChange={(e) => field("venueName", e.target.value)}
             />
           </FormField>
-          <FormField label="Address">
+          <FormField label="Address" error={fieldErrors?.venueAddress}>
             <input
               aria-label="Venue address"
               placeholder="e.g. MG Road, Bengaluru"
@@ -655,7 +679,7 @@ function ProductionForm({
 
         {/* SECTION 6: NOTES */}
         <div className="production-single-intake-section">
-          <FormField label="Operational Notes">
+          <FormField label="Operational Notes" error={fieldErrors?.description}>
             <textarea
               aria-label="Production notes"
               rows={2}
@@ -673,7 +697,11 @@ function ProductionForm({
         <SAButton
           variant="primary"
           disabled={
-            pending || !form.title.trim() || !form.clientName.trim() || !form.venueName.trim()
+            pending ||
+            !form.title.trim() ||
+            !form.clientName.trim() ||
+            !form.venueName.trim() ||
+            !form.eventDate.trim()
           }
           onClick={onSave}
         >

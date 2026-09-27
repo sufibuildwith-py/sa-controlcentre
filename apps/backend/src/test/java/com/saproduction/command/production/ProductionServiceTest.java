@@ -21,6 +21,8 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.*;
+import jakarta.validation.Validation;
+import jakarta.validation.Validator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -268,5 +270,188 @@ class ProductionServiceTest {
 
     service.removeEquipment(productionId, equipmentId);
     verify(headquarters).removeReservationLine(lineId);
+  }
+
+  @Test
+  void create_withEmptyOrNullOperationalNotes_succeedsAndStoresNullDescription() {
+    // 1. Empty string description
+    var inputEmptyNotes =
+        new ProductionService.CreateInput(
+            "Sharma Wedding",
+            "Sharma Family",
+            "",
+            LocalDate.of(2026, 9, 26),
+            null,
+            null,
+            "Royal Orchid",
+            null,
+            Production.Priority.NORMAL,
+            0,
+            null,
+            null,
+            null);
+
+    var viewEmpty = service.create(inputEmptyNotes);
+    assertThat(viewEmpty).isNotNull();
+    assertThat(viewEmpty.description()).isNull();
+
+    // 2. Null description
+    var inputNullNotes =
+        new ProductionService.CreateInput(
+            "Sharma Wedding",
+            "Sharma Family",
+            null,
+            LocalDate.of(2026, 9, 26),
+            null,
+            null,
+            "Royal Orchid",
+            null,
+            Production.Priority.NORMAL,
+            0,
+            null,
+            null,
+            null);
+
+    var viewNull = service.create(inputNullNotes);
+    assertThat(viewNull).isNotNull();
+    assertThat(viewNull.description()).isNull();
+
+    // 3. Populated description
+    var inputWithNotes =
+        new ProductionService.CreateInput(
+            "Sharma Wedding",
+            "Sharma Family",
+            "VIP guest arrival instructions",
+            LocalDate.of(2026, 9, 26),
+            null,
+            null,
+            "Royal Orchid",
+            null,
+            Production.Priority.NORMAL,
+            0,
+            null,
+            null,
+            null);
+
+    var viewWithNotes = service.create(inputWithNotes);
+    assertThat(viewWithNotes).isNotNull();
+    assertThat(viewWithNotes.description()).isEqualTo("VIP guest arrival instructions");
+  }
+
+  @Test
+  void beanValidation_verifiesRequiredFields_and_ensuresOperationalNotesIsOptional() {
+    Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
+
+    // Valid: Operational notes is empty string
+    var emptyNotesInput =
+        new ProductionService.CreateInput(
+            "Sharma Wedding",
+            "Sharma Family",
+            "",
+            LocalDate.of(2026, 9, 26),
+            null,
+            null,
+            "Royal Orchid",
+            null,
+            Production.Priority.NORMAL,
+            0,
+            null,
+            null,
+            null);
+    assertThat(validator.validate(emptyNotesInput)).isEmpty();
+
+    // Valid: Operational notes is null
+    var nullNotesInput =
+        new ProductionService.CreateInput(
+            "Sharma Wedding",
+            "Sharma Family",
+            null,
+            LocalDate.of(2026, 9, 26),
+            null,
+            null,
+            "Royal Orchid",
+            null,
+            Production.Priority.NORMAL,
+            0,
+            null,
+            null,
+            null);
+    assertThat(validator.validate(nullNotesInput)).isEmpty();
+
+    // Invalid: Missing title
+    var missingTitle =
+        new ProductionService.CreateInput(
+            "",
+            "Sharma Family",
+            "",
+            LocalDate.of(2026, 9, 26),
+            null,
+            null,
+            "Royal Orchid",
+            null,
+            Production.Priority.NORMAL,
+            0,
+            null,
+            null,
+            null);
+    var titleViolations = validator.validate(missingTitle);
+    assertThat(titleViolations).anyMatch(v -> v.getPropertyPath().toString().equals("title"));
+
+    // Invalid: Missing client
+    var missingClient =
+        new ProductionService.CreateInput(
+            "Sharma Wedding",
+            "",
+            "",
+            LocalDate.of(2026, 9, 26),
+            null,
+            null,
+            "Royal Orchid",
+            null,
+            Production.Priority.NORMAL,
+            0,
+            null,
+            null,
+            null);
+    var clientViolations = validator.validate(missingClient);
+    assertThat(clientViolations).anyMatch(v -> v.getPropertyPath().toString().equals("clientName"));
+
+    // Invalid: Missing venue
+    var missingVenue =
+        new ProductionService.CreateInput(
+            "Sharma Wedding",
+            "Sharma Family",
+            "",
+            LocalDate.of(2026, 9, 26),
+            null,
+            null,
+            "",
+            null,
+            Production.Priority.NORMAL,
+            0,
+            null,
+            null,
+            null);
+    var venueViolations = validator.validate(missingVenue);
+    assertThat(venueViolations).anyMatch(v -> v.getPropertyPath().toString().equals("venueName"));
+
+    // Invalid: Missing event date
+    var missingDate =
+        new ProductionService.CreateInput(
+            "Sharma Wedding",
+            "Sharma Family",
+            "",
+            null,
+            null,
+            null,
+            "Royal Orchid",
+            null,
+            Production.Priority.NORMAL,
+            0,
+            null,
+            null,
+            null);
+    var dateViolations = validator.validate(missingDate);
+    assertThat(dateViolations).anyMatch(v -> v.getPropertyPath().toString().equals("eventDate"));
   }
 }

@@ -1,5 +1,6 @@
 package com.saproduction.command.production;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.saproduction.command.audit.AuditService;
 import com.saproduction.command.calendar.*;
 import com.saproduction.command.communication.DomainEventService;
@@ -50,7 +51,7 @@ public class ProductionService {
       @NotBlank @Size(max = 180) String title,
       @NotBlank @Size(max = 180) String clientName,
       @Size(max = 4000) String description,
-      @NotNull LocalDate eventDate,
+      @NotNull @JsonFormat(pattern = "[yyyy-MM-dd][dd-MM-yyyy]") LocalDate eventDate,
       LocalTime startTime,
       LocalTime endTime,
       @NotBlank @Size(max = 180) String venueName,
@@ -62,7 +63,7 @@ public class ProductionService {
       @NotBlank @Size(max = 180) String title,
       @NotBlank @Size(max = 180) String clientName,
       @Size(max = 4000) String description,
-      @NotNull LocalDate eventDate,
+      @NotNull @JsonFormat(pattern = "[yyyy-MM-dd][dd-MM-yyyy]") LocalDate eventDate,
       LocalTime startTime,
       LocalTime endTime,
       @NotBlank @Size(max = 180) String venueName,

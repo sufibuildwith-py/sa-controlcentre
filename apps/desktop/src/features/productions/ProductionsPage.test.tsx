@@ -5,13 +5,17 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { ProductionsPage } from "./ProductionsPage";
 
-vi.mock("../../lib/api", () => ({
-  api: vi.fn(),
-  json: (body: unknown) => ({
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  }),
-}));
+vi.mock("../../lib/api", async () => {
+  const actual = await vi.importActual<typeof import("../../lib/api")>("../../lib/api");
+  return {
+    ...actual,
+    api: vi.fn(),
+    json: (body: unknown) => ({
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  };
+});
 
 vi.mock("../headquarters/headquarters.api", () => ({
   headquartersApi: {
@@ -19,7 +23,7 @@ vi.mock("../headquarters/headquarters.api", () => ({
   },
 }));
 
-import { api } from "../../lib/api";
+import { ApiError, api } from "../../lib/api";
 import { headquartersApi } from "../headquarters/headquarters.api";
 
 const mockNavigate = vi.fn();
@@ -221,4 +225,135 @@ describe("ProductionsPage — Single Intake Flow", () => {
       expect(mockNavigate).toHaveBeenCalledWith("/productions/prod-new-123");
     });
   }, 15000);
+
+  it("submits intake payload when operational notes is completely empty", async () => {
+    vi.mocked(api).mockImplementation((path: string, options?: any) => {
+      if (path === "/productions" && options?.method === "POST") {
+        return Promise.resolve({ id: "prod-empty-notes" });
+      }
+      if (path.startsWith("/productions")) return Promise.resolve(mockProductions);
+      if (path === "/employees") return Promise.resolve(mockEmployees);
+      return Promise.resolve(null);
+    });
+    vi.mocked(headquartersApi.equipment).mockResolvedValue(mockEquipment as any);
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("Summer Music Festival")).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: /production/i }));
+
+    // Fill only required core fields, leave notes empty
+    fireEvent.change(screen.getByLabelText("Production title"), {
+      target: { value: "Acoustic Night" },
+    });
+    fireEvent.change(screen.getByLabelText("Client name"), {
+      target: { value: "Cafe De Bangalore" },
+    });
+    fireEvent.change(screen.getByLabelText("Venue name"), {
+      target: { value: "Indiranagar Lounge" },
+    });
+    // Ensure notes textarea is empty
+    expect(screen.getByLabelText("Production notes")).toHaveValue("");
+
+    const submitBtn = screen.getByRole("button", { name: "Create Production" });
+    expect(submitBtn).toBeEnabled();
+    await userEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(api).toHaveBeenCalledWith(
+        "/productions",
+        expect.objectContaining({
+          method: "POST",
+        }),
+      );
+    });
+
+    const postCall = vi
+      .mocked(api)
+      .mock.calls.find((call) => call[0] === "/productions" && call[1]?.method === "POST");
+    expect(postCall).toBeDefined();
+    const payload = JSON.parse(postCall![1]!.body as string);
+    expect(payload.title).toBe("Acoustic Night");
+    expect(payload.clientName).toBe("Cafe De Bangalore");
+    expect(payload.venueName).toBe("Indiranagar Lounge");
+    expect(payload.description).toBeUndefined();
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith("/productions/prod-empty-notes");
+    });
+  });
+
+  it("disables submit button when required field (title, client, venue, or eventDate) is missing", async () => {
+    vi.mocked(api).mockImplementation((path: string) => {
+      if (path.startsWith("/productions")) return Promise.resolve(mockProductions);
+      return Promise.resolve(null);
+    });
+    vi.mocked(headquartersApi.equipment).mockResolvedValue(mockEquipment as any);
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("Summer Music Festival")).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: /production/i }));
+
+    const submitBtn = screen.getByRole("button", { name: "Create Production" });
+    expect(submitBtn).toBeDisabled();
+
+    // Fill title only
+    fireEvent.change(screen.getByLabelText("Production title"), { target: { value: "Event X" } });
+    expect(submitBtn).toBeDisabled();
+
+    // Fill client only
+    fireEvent.change(screen.getByLabelText("Client name"), { target: { value: "Client Y" } });
+    expect(submitBtn).toBeDisabled();
+
+    // Fill venue
+    fireEvent.change(screen.getByLabelText("Venue name"), { target: { value: "Venue Z" } });
+    // Now title, client, venue, and default eventDate are present -> Enabled
+    expect(submitBtn).toBeEnabled();
+
+    // Clear eventDate
+    fireEvent.change(screen.getByLabelText("Event date"), { target: { value: "" } });
+    expect(submitBtn).toBeDisabled();
+  });
+
+  it("displays field validation errors when backend returns ApiError with field violations", async () => {
+    vi.mocked(api).mockImplementation((path: string, options?: any) => {
+      if (path === "/productions" && options?.method === "POST") {
+        return Promise.reject(
+          new ApiError("VALIDATION_FAILED", "Please review the highlighted fields.", {
+            eventDate: "Event date is required",
+          }),
+        );
+      }
+      if (path.startsWith("/productions")) return Promise.resolve(mockProductions);
+      return Promise.resolve(null);
+    });
+    vi.mocked(headquartersApi.equipment).mockResolvedValue(mockEquipment as any);
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("Summer Music Festival")).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: /production/i }));
+
+    fireEvent.change(screen.getByLabelText("Production title"), { target: { value: "Event X" } });
+    fireEvent.change(screen.getByLabelText("Client name"), { target: { value: "Client Y" } });
+    fireEvent.change(screen.getByLabelText("Venue name"), { target: { value: "Venue Z" } });
+
+    const submitBtn = screen.getByRole("button", { name: "Create Production" });
+    await userEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText("Please review the highlighted fields.")).toBeInTheDocument();
+      expect(screen.getByText("Event date is required")).toBeInTheDocument();
+    });
+  });
 });
