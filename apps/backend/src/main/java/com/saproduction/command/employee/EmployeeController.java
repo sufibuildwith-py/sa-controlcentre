@@ -21,6 +21,11 @@ public class EmployeeController {
     return ApiEnvelope.of(service.list(search, status));
   }
 
+  @GetMapping("/summary")
+  public ApiEnvelope<EmployeeDtos.PeopleSummary> summary() {
+    return ApiEnvelope.of(service.getSummary());
+  }
+
   @PostMapping
   public ApiEnvelope<EmployeeDtos.View> create(@Valid @RequestBody EmployeeDtos.Input input) {
     return ApiEnvelope.of(service.create(input));

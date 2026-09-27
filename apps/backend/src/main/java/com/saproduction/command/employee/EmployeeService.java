@@ -7,6 +7,10 @@ import jakarta.persistence.criteria.Predicate;
 import java.util.*;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Sort;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,17 +19,53 @@ public class EmployeeService {
   private final EmployeeRepository employees;
   private final AuditService audit;
   private final DomainEventService events;
+  private final JdbcTemplate jdbc;
 
+  @Autowired
   public EmployeeService(
-      EmployeeRepository employees, AuditService audit, DomainEventService events) {
+      EmployeeRepository employees,
+      AuditService audit,
+      DomainEventService events,
+      @Autowired(required = false) JdbcTemplate jdbc) {
     this.employees = employees;
     this.audit = audit;
     this.events = events;
+    this.jdbc = jdbc;
+  }
+
+  public EmployeeService(
+      EmployeeRepository employees, AuditService audit, DomainEventService events) {
+    this(employees, audit, events, null);
+  }
+
+  @Transactional(readOnly = true)
+  public EmployeeDtos.PeopleSummary getSummary() {
+    if (jdbc == null) {
+      return new EmployeeDtos.PeopleSummary(0, 0, 0, 0, 0);
+    }
+    LocalDate today = LocalDate.now(ZoneId.of("Asia/Kolkata"));
+    return jdbc.queryForObject(
+        """
+        SELECT
+          (SELECT count(*) FROM employees WHERE status = 'ACTIVE') AS active_count,
+          (SELECT count(*) FROM employees WHERE status = 'ON_LEAVE') AS on_leave_count,
+          (SELECT count(*) FROM attendance_records WHERE attendance_date = ? AND status IN ('PRESENT','LATE','HALF_DAY')) AS attendance_today,
+          (SELECT count(*) FROM tasks WHERE status NOT IN ('DONE','CANCELLED')) AS open_tasks,
+          (SELECT count(*) FROM tasks WHERE due_at < now() AND status NOT IN ('DONE','CANCELLED')) AS overdue_tasks
+        """,
+        (rs, rowNum) ->
+            new EmployeeDtos.PeopleSummary(
+                rs.getLong("active_count"),
+                rs.getLong("on_leave_count"),
+                rs.getLong("attendance_today"),
+                rs.getLong("open_tasks"),
+                rs.getLong("overdue_tasks")),
+        today);
   }
 
   @Transactional(readOnly = true)
   public List<EmployeeDtos.View> list(String search, Employee.Status status) {
-    return employees
+    List<Employee> raw = employees
         .findAll(
             (root, query, cb) -> {
               List<Predicate> filters = new ArrayList<>();
@@ -40,9 +80,63 @@ public class EmployeeService {
               }
               return cb.and(filters.toArray(Predicate[]::new));
             },
-            Sort.by(Sort.Direction.ASC, "displayName"))
-        .stream()
-        .map(EmployeeDtos::view)
+            Sort.by(Sort.Direction.ASC, "displayName"));
+
+    if (jdbc == null || raw.isEmpty()) {
+      return raw.stream().map(EmployeeDtos::view).toList();
+    }
+
+    LocalDate today = LocalDate.now(ZoneId.of("Asia/Kolkata"));
+    Map<UUID, String> attendanceToday = new HashMap<>();
+    jdbc.query(
+        "SELECT employee_id, status FROM attendance_records WHERE attendance_date = ?",
+        rs -> {
+          attendanceToday.put((UUID) rs.getObject("employee_id"), rs.getString("status"));
+        },
+        today);
+
+    Map<UUID, Long> taskCounts = new HashMap<>();
+    jdbc.query(
+        "SELECT assigned_employee_id, count(*) FROM tasks WHERE status NOT IN ('DONE','CANCELLED') GROUP BY assigned_employee_id",
+        rs -> {
+          taskCounts.put((UUID) rs.getObject(1), rs.getLong(2));
+        });
+
+    Map<UUID, Long> prodCounts = new HashMap<>();
+    jdbc.query(
+        "SELECT pm.employee_id, count(*) FROM production_members pm JOIN productions p ON p.id = pm.production_id WHERE p.status NOT IN ('DELIVERED','CANCELLED') GROUP BY pm.employee_id",
+        rs -> {
+          prodCounts.put((UUID) rs.getObject(1), rs.getLong(2));
+        });
+
+    return raw.stream()
+        .map(
+            e -> {
+              EmployeeDtos.View v = EmployeeDtos.view(e);
+              return new EmployeeDtos.View(
+                  v.id(),
+                  v.employeeCode(),
+                  v.firstName(),
+                  v.lastName(),
+                  v.displayName(),
+                  v.phone(),
+                  v.whatsappPhone(),
+                  v.email(),
+                  v.roleTitle(),
+                  v.department(),
+                  v.employmentType(),
+                  v.joiningDate(),
+                  v.baseSalaryMinor(),
+                  v.salaryCurrency(),
+                  v.status(),
+                  v.profilePhotoUrl(),
+                  v.notes(),
+                  v.createdAt(),
+                  v.updatedAt(),
+                  attendanceToday.get(v.id()),
+                  taskCounts.getOrDefault(v.id(), 0L),
+                  prodCounts.getOrDefault(v.id(), 0L));
+            })
         .toList();
   }
 

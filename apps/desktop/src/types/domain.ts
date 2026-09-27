@@ -27,8 +27,80 @@ export interface Employee {
   notes?: string | null;
   createdAt: string;
   updatedAt: string;
+  todayAttendance?: AttendanceStatus | null;
+  activeTasksCount?: number;
+  activeProductionsCount?: number;
 }
-export type EmployeeInput = Omit<Employee, "id" | "createdAt" | "updatedAt">;
+export interface PeopleSummary {
+  activeEmployees: number;
+  onLeaveEmployees: number;
+  attendanceToday: number;
+  openTasks: number;
+  overdueTasks: number;
+}
+export interface Employee360View {
+  employee: Employee;
+  today: {
+    date: string;
+    attendance: AttendanceRecord | null;
+    activeOrPendingLeave: {
+      id: string;
+      startDate: string;
+      endDate: string;
+      leaveType: string;
+      reason: string;
+      status: LeaveStatus;
+    } | null;
+    activeTasksCount: number;
+    overdueTasksCount: number;
+    activeProductionsCount: number;
+  };
+  money: {
+    earned: number;
+    paid: number;
+    outstanding: number;
+    baseSalaryMinor: number;
+    salaryCurrency: string;
+    currentPayrollStatus: string | null;
+    latestPayrollPeriod: string | null;
+  };
+  operations: {
+    activeProductionsCount: number;
+    completedProductionsCount: number;
+    tasksAssigned: number;
+    tasksCompleted: number;
+    overdueTasks: number;
+    activeProductions: Array<{
+      id: string;
+      title: string;
+      role: string;
+      eventDate: string;
+      status: string;
+    }>;
+  };
+  performance: {
+    attendanceRecords: number;
+    attended: number;
+    lateCount: number;
+    attendanceRate: number | null;
+    onTimeCompletionRate: number | null;
+  };
+  communication: {
+    totalMessages: number;
+    lastContactAt: string | null;
+    canMessage: boolean;
+  };
+  navigator: {
+    enabled: boolean;
+    isPaired: boolean;
+    deviceStatus: string;
+    lastSyncAt: string | null;
+  };
+}
+export type EmployeeInput = Omit<
+  Employee,
+  "id" | "createdAt" | "updatedAt" | "todayAttendance" | "activeTasksCount" | "activeProductionsCount"
+>;
 export interface AttendanceRecord {
   id: string;
   employeeId: string;

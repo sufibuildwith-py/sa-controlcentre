@@ -447,3 +447,208 @@
     padding: 0 7px;
   }
 }
+
+/* People Summary Strip */
+.people-summary-strip {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.summary-pill {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 12px);
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: border-color 0.15s ease;
+}
+.summary-pill:hover {
+  border-color: var(--border-hover, var(--border));
+}
+.summary-pill--alert {
+  border-color: rgba(239, 68, 68, 0.25);
+  background: rgba(239, 68, 68, 0.03);
+}
+.summary-pill--alert strong {
+  color: #ef4444;
+}
+.summary-label {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-3);
+}
+.summary-value {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-1);
+}
+
+/* Operational Badges for Employee Cards */
+.employee-card__badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.attendance-chip {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+}
+.attendance-chip--present {
+  background: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
+  border-color: rgba(34, 197, 94, 0.2);
+}
+.attendance-chip--late {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+  border-color: rgba(245, 158, 11, 0.2);
+}
+.attendance-chip--half_day {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  border-color: rgba(59, 130, 246, 0.2);
+}
+.attendance-chip--leave {
+  background: rgba(168, 85, 247, 0.1);
+  color: #a855f7;
+  border-color: rgba(168, 85, 247, 0.2);
+}
+.attendance-chip--absent {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+/* Employee 360 Command Layer */
+.e360-overview {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.e360-action-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg, 16px);
+}
+.e360-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 16px;
+}
+.e360-col-4 {
+  grid-column: span 4;
+}
+.e360-col-6 {
+  grid-column: span 6;
+}
+.e360-col-8 {
+  grid-column: span 8;
+}
+.e360-col-12 {
+  grid-column: span 12;
+}
+
+.e360-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.e360-card-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.e360-card-header span {
+  font-size: 11px;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.e360-metrics-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+.e360-metric-box {
+  background: var(--surface-soft, rgba(255, 255, 255, 0.02));
+  border: 1px solid var(--border-soft, var(--border));
+  border-radius: var(--radius-md, 12px);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.e360-metric-box span {
+  font-size: 10.5px;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.e360-metric-box strong {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.e360-production-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+.e360-production-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--surface-soft, rgba(255, 255, 255, 0.02));
+  border: 1px solid var(--border-soft, var(--border));
+  border-radius: var(--radius-sm, 8px);
+  font-size: 12.5px;
+}
+
+/* Spotlight Card Motion Primitive */
+.spotlight-card {
+  position: relative;
+  overflow: hidden;
+}
+.spotlight-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  z-index: 1;
+  transition: opacity 0.2s ease;
+}
+
+@media (max-width: 1024px) {
+  .people-summary-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .e360-col-4,
+  .e360-col-6,
+  .e360-col-8 {
+    grid-column: span 12;
+  }
+}
