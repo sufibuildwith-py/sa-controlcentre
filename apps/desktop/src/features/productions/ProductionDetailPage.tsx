@@ -84,7 +84,7 @@ export function ProductionDetailPage() {
   });
   const [receiptForm, setReceiptForm] = useState({
     amount: "",
-    receiverAccount: "AZ-2",
+    receiverAccount: "",
     date: "",
     description: "",
     counterpartyId: "",
@@ -92,7 +92,7 @@ export function ProductionDetailPage() {
   });
   const [expenseForm, setExpenseForm] = useState({
     amount: "",
-    payerAccount: "AZ-2",
+    payerAccount: "",
     categoryCode: "TRANSPORT",
     date: "",
     description: "",
@@ -612,7 +612,7 @@ export function ProductionDetailPage() {
                         setReceiptRequestKey(generateKey());
                         setReceiptForm({
                           amount: "",
-                          receiverAccount: "AZ-2",
+                          receiverAccount: "",
                           date: new Date().toISOString().slice(0, 10),
                           description: `Client receipt for ${p.title}`,
                           counterpartyId: "",
@@ -629,7 +629,7 @@ export function ProductionDetailPage() {
                         setExpenseRequestKey(generateKey());
                         setExpenseForm({
                           amount: "",
-                          payerAccount: "AZ-2",
+                          payerAccount: "",
                           categoryCode: "TRANSPORT",
                           date: new Date().toISOString().slice(0, 10),
                           description: `Expense for ${p.title}`,
@@ -1123,6 +1123,9 @@ export function ProductionDetailPage() {
                 })
               }
             >
+              <option value="" disabled>
+                Select owner account...
+              </option>
               <option value="AZ-2">Azeem (AZ-2)</option>
               <option value="AK-2">Akash (AK-2)</option>
             </select>
@@ -1191,6 +1194,7 @@ export function ProductionDetailPage() {
               recordReceiptMutation.isPending ||
               !receiptForm.amount ||
               Number(receiptForm.amount) <= 0 ||
+              !receiptForm.receiverAccount ||
               !receiptForm.date ||
               !receiptForm.description.trim()
             }
@@ -1244,6 +1248,9 @@ export function ProductionDetailPage() {
                 setExpenseForm({ ...expenseForm, payerAccount: e.target.value })
               }
             >
+              <option value="" disabled>
+                Select owner account...
+              </option>
               <option value="AZ-2">Azeem (AZ-2)</option>
               <option value="AK-2">Akash (AK-2)</option>
             </select>
@@ -1339,6 +1346,7 @@ export function ProductionDetailPage() {
               logExpenseMutation.isPending ||
               !expenseForm.amount ||
               Number(expenseForm.amount) <= 0 ||
+              !expenseForm.payerAccount ||
               !expenseForm.date ||
               !expenseForm.description.trim()
             }

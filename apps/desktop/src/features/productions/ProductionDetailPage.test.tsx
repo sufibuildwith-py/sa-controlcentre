@@ -226,9 +226,13 @@ describe("ProductionDetailPage — Phase 1 Production Finance", () => {
     await userEvent.type(amountInput, "25000");
 
     const receiverSelect = screen.getByLabelText("Receiver owner account");
-    await userEvent.selectOptions(receiverSelect, "AZ-2");
+    expect(receiverSelect).toHaveValue("");
 
     const submitBtn = screen.getByRole("button", { name: "Record Receipt" });
+    expect(submitBtn).toBeDisabled();
+
+    await userEvent.selectOptions(receiverSelect, "AZ-2");
+    expect(submitBtn).not.toBeDisabled();
     await userEvent.click(submitBtn);
 
     await waitFor(() => {
@@ -285,7 +289,7 @@ describe("ProductionDetailPage — Phase 1 Production Finance", () => {
     await userEvent.type(amountInput, "4500");
 
     const payerSelect = screen.getByLabelText("Expense payer account");
-    await userEvent.selectOptions(payerSelect, "AK-2");
+    expect(payerSelect).toHaveValue("");
 
     const categorySelect = screen.getByLabelText("Expense category");
     await userEvent.selectOptions(categorySelect, "TRANSPORT");
@@ -295,6 +299,10 @@ describe("ProductionDetailPage — Phase 1 Production Finance", () => {
     await userEvent.type(descInput, "Equipment transport van");
 
     const submitBtn = screen.getByRole("button", { name: "Log Expense" });
+    expect(submitBtn).toBeDisabled();
+
+    await userEvent.selectOptions(payerSelect, "AK-2");
+    expect(submitBtn).not.toBeDisabled();
     await userEvent.click(submitBtn);
 
     await waitFor(() => {
@@ -484,6 +492,9 @@ describe("ProductionDetailPage — Phase 1 Production Finance", () => {
     const amountInput = screen.getByLabelText("Receipt amount");
     await userEvent.clear(amountInput);
     await userEvent.type(amountInput, "25000");
+
+    const receiverSelect = screen.getByLabelText("Receiver owner account");
+    await userEvent.selectOptions(receiverSelect, "AZ-2");
 
     const submitBtn = screen.getByRole("button", { name: "Record Receipt" });
 

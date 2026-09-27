@@ -152,4 +152,43 @@ class Employee360ServiceTest {
     assertThat(tx).isNotNull();
     assertThat(tx.readOnly()).isTrue();
   }
+
+  @Test
+  void get360_reflectsAuthoritativeOutboundCommunications() {
+    Employee mockEmp = new Employee();
+    mockEmp.id = employeeId;
+    mockEmp.firstName = "Amaan";
+    mockEmp.displayName = "Amaan Khan";
+    mockEmp.roleTitle = "Lead Sound Engineer";
+    mockEmp.department = "Audio";
+    mockEmp.employmentType = "FULL_TIME";
+    mockEmp.joiningDate = LocalDate.of(2024, 1, 1);
+    mockEmp.baseSalaryMinor = 4_500_000L;
+    mockEmp.salaryCurrency = "INR";
+    mockEmp.status = Employee.Status.ACTIVE;
+
+    when(employeeService.getEntity(employeeId)).thenReturn(mockEmp);
+    when(financeReads.employee(employeeId)).thenReturn(Map.of());
+    when(attendanceRepo.findByEmployeeIdAndDate(eq(employeeId), any())).thenReturn(Optional.empty());
+
+    Instant expectedQueuedAt = Instant.parse("2026-09-27T10:15:30Z");
+    when(jdbc.query(
+            contains("FROM outbound_messages"),
+            any(ResultSetExtractor.class),
+            eq(employeeId)))
+        .thenAnswer(invocation -> {
+          ResultSetExtractor<?> extractor = invocation.getArgument(1);
+          var rs = mock(java.sql.ResultSet.class);
+          when(rs.next()).thenReturn(true);
+          when(rs.getLong("msg_count")).thenReturn(7L);
+          when(rs.getTimestamp("last_msg")).thenReturn(java.sql.Timestamp.from(expectedQueuedAt));
+          return extractor.extractData(rs);
+        });
+
+    Employee360View view = service.get360(employeeId);
+
+    assertThat(view.communication().totalMessages()).isEqualTo(7L);
+    assertThat(view.communication().lastContactAt()).isEqualTo(expectedQueuedAt);
+    assertThat(view.communication().canMessage()).isTrue();
+  }
 }

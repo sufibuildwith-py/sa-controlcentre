@@ -262,9 +262,9 @@ public class Employee360Service {
     try {
       return jdbc.query(
           """
-          SELECT count(*) AS msg_count, max(created_at) AS last_msg
-          FROM comms_outbound_messages
-          WHERE recipient_ref = ?
+          SELECT count(*) AS msg_count, max(queued_at) AS last_msg
+          FROM outbound_messages
+          WHERE employee_id = ?
           """,
           rs -> {
             if (rs.next()) {
@@ -275,7 +275,7 @@ public class Employee360Service {
             }
             return new CommunicationSummary(0, null, true);
           },
-          id.toString());
+          id);
     } catch (Exception ex) {
       return new CommunicationSummary(0, null, true);
     }
