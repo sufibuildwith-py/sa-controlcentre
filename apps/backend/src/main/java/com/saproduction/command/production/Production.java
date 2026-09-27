@@ -40,10 +40,10 @@ public class Production {
   @Column(name = "event_date", nullable = false)
   public LocalDate eventDate;
 
-  @Column(name = "start_time", nullable = false)
+  @Column(name = "start_time")
   public LocalTime startTime;
 
-  @Column(name = "end_time", nullable = false)
+  @Column(name = "end_time")
   public LocalTime endTime;
 
   @Column(name = "venue_name", nullable = false)

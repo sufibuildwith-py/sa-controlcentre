@@ -292,5 +292,67 @@ public class HeadquartersService {
   private static java.sql.Timestamp ts(Instant value){return java.sql.Timestamp.from(value);}
   private static String actor(){var a=SecurityContextHolder.getContext().getAuthentication();return a==null||a.getName()==null?"system":a.getName();}
   private static ApiException availabilityChanged(BigDecimal requested,BigDecimal available){return ApiException.conflict("AVAILABILITY_CHANGED","Availability changed. "+available.stripTrailingZeros().toPlainString()+" units are available now.",Map.of("requested",requested.toPlainString(),"available",available.max(BigDecimal.ZERO).toPlainString()));}
+  @Transactional(readOnly = true)
+  public List<Map<String, Object>> equipmentForProduction(UUID productionId) {
+    return jdbc.queryForList(
+        """
+        SELECT rl.id "id",
+               rl.equipment_id "equipmentId",
+               e.name "equipmentName",
+               e.internal_code "internalCode",
+               rl.quantity "quantity",
+               u.symbol "unitSymbol",
+               r.status "status"
+        FROM hq_reservation_lines rl
+        JOIN hq_reservations r ON r.id = rl.reservation_id
+        JOIN hq_equipment e ON e.id = rl.equipment_id
+        LEFT JOIN hq_units u ON u.id = e.unit_id
+        WHERE r.production_id = ? AND r.status <> 'CANCELLED'
+        ORDER BY e.name
+        """,
+        productionId);
+  }
+
+  @Transactional
+  public void cancelReservationForProduction(UUID productionId) {
+    jdbc.update(
+        "UPDATE hq_reservations SET status='CANCELLED', updated_at=now() WHERE production_id=? AND status IN ('CONFIRMED','DRAFT')",
+        productionId);
+  }
+
+  @Transactional
+  public void removeReservationLine(UUID lineId) {
+    try {
+      UUID reservationId =
+          jdbc.queryForObject(
+              "SELECT reservation_id FROM hq_reservation_lines WHERE id = ?", UUID.class, lineId);
+      if (reservationId == null) return;
+      Long hasDispatch =
+          jdbc.queryForObject(
+              "SELECT count(*) FROM hq_dispatch_lines WHERE reservation_line_id = ?",
+              Long.class,
+              lineId);
+      if (hasDispatch != null && hasDispatch > 0) {
+        jdbc.update(
+            "UPDATE hq_reservations SET status = 'CANCELLED', updated_at = now() WHERE id = ?",
+            reservationId);
+      } else {
+        jdbc.update("DELETE FROM hq_reservation_lines WHERE id = ?", lineId);
+        Integer remaining =
+            jdbc.queryForObject(
+                "SELECT count(*) FROM hq_reservation_lines WHERE reservation_id = ?",
+                Integer.class,
+                reservationId);
+        if (remaining == null || remaining == 0) {
+          jdbc.update(
+              "UPDATE hq_reservations SET status = 'CANCELLED', updated_at = now() WHERE id = ?",
+              reservationId);
+        }
+      }
+    } catch (Exception ex) {
+      // Ignored if already removed
+    }
+  }
+
   private static Map<String,Object> equipmentRow(ResultSet rs) throws java.sql.SQLException {BigDecimal usable=rs.getBigDecimal("usable");BigDecimal reserved=rs.getBigDecimal("reserved");var m=new LinkedHashMap<String,Object>();m.put("id",rs.getObject("id",UUID.class));m.put("name",rs.getString("name"));m.put("internalCode",rs.getString("internal_code"));m.put("category",rs.getString("category"));m.put("trackingMode",rs.getString("tracking_mode"));m.put("symbol",rs.getString("symbol"));m.put("ownership",rs.getString("ownership_default"));m.put("active",rs.getBoolean("active"));m.put("controlled",rs.getBigDecimal("controlled"));m.put("reserved",reserved);m.put("available",usable.subtract(reserved).max(BigDecimal.ZERO));m.put("updatedAt",rs.getObject("updated_at"));return m;}
 }

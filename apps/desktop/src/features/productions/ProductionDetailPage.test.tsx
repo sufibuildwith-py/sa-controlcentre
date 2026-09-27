@@ -35,7 +35,14 @@ vi.mock("../../lib/api", () => ({
   },
 }));
 
+vi.mock("../headquarters/headquarters.api", () => ({
+  headquartersApi: {
+    equipment: vi.fn(),
+  },
+}));
+
 import { financeApi } from "../finance/finance.api";
+import { headquartersApi } from "../headquarters/headquarters.api";
 import { api } from "../../lib/api";
 
 afterEach(() => {
@@ -520,5 +527,270 @@ describe("ProductionDetailPage — Phase 1 Production Finance", () => {
       .idempotencyKey;
     // CRITICAL IDEMPOTENCY INVARIANT: The retry must send the exact same idempotencyKey!
     expect(secondCallKey).toBe(firstCallKey);
+  });
+});
+
+describe("ProductionDetailPage — Production V2 Command Sheet", () => {
+  const mockV2Production = {
+    ...mockProduction,
+    description: "Annual gala audio and lighting production",
+    equipment: [
+      {
+        id: "pe1",
+        equipmentId: "eq1",
+        equipmentName: "Digital Mixing Console",
+        internalCode: "DMC-32",
+        quantity: 1,
+        unitSymbol: "unit",
+        status: "CONFIRMED",
+      },
+    ],
+  };
+
+  const mockV2Tasks = [
+    {
+      id: "task-1",
+      title: "Stage speaker cabling",
+      priority: "HIGH",
+      status: "TODO",
+      progressPercent: 0,
+      overdue: false,
+      assigneeName: "John Doe",
+    },
+  ];
+
+  const mockCatalog = {
+    items: [
+      { id: "eq1", name: "Digital Mixing Console", internalCode: "DMC-32" },
+      { id: "eq2", name: "Subwoofer 18-inch", internalCode: "SUB-18" },
+    ],
+    total: 2,
+    page: 0,
+    size: 50,
+  };
+
+  it("renders all Command Sheet sections on the Overview tab", async () => {
+    vi.mocked(api).mockImplementation((path: string) => {
+      if (path === "/productions/p1") return Promise.resolve(mockV2Production);
+      if (path === "/employees") return Promise.resolve(mockEmployees);
+      if (path.startsWith("/tasks")) return Promise.resolve(mockV2Tasks);
+      if (path.startsWith("/audit")) return Promise.resolve([]);
+      return Promise.resolve(null);
+    });
+
+    vi.mocked(financeApi.production).mockResolvedValue(mockFinanceData);
+    vi.mocked(financeApi.config).mockResolvedValue(mockFinanceConfig);
+    vi.mocked(financeApi.counterparties).mockResolvedValue({ items: [], page: 0, size: 50, total: 0 });
+
+    renderPage("p1");
+
+    await waitFor(() => {
+      expect(screen.getByText("Northstar Annual Gala")).toBeInTheDocument();
+    });
+
+    // Check Command Sheet sections
+    expect(screen.getByRole("heading", { name: "Operational Brief" })).toBeInTheDocument();
+    expect(screen.getAllByText("Annual gala audio and lighting production").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByRole("heading", { name: /schedule/i })).toBeInTheDocument();
+    expect(screen.getByText("18:00 – 23:00")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /operational checklist/i })).toBeInTheDocument();
+    expect(screen.getByText("Stage speaker cabling")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /crew/i })).toBeInTheDocument();
+    expect(screen.getAllByText("John Doe").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByRole("heading", { name: /assigned equipment/i })).toBeInTheDocument();
+    expect(screen.getByText("Digital Mixing Console")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Production Notes" })).toBeInTheDocument();
+  });
+
+  it("toggles task completion status directly from the operational checklist", async () => {
+    vi.mocked(api).mockImplementation((path: string, options?: any) => {
+      if (path === "/productions/p1") return Promise.resolve(mockV2Production);
+      if (path === "/employees") return Promise.resolve(mockEmployees);
+      if (path.startsWith("/tasks") && !options?.method) return Promise.resolve(mockV2Tasks);
+      if (path === "/tasks/task-1/updates" && options?.method === "POST") {
+        return Promise.resolve({ id: "task-1", status: "DONE", progressPercent: 100 });
+      }
+      return Promise.resolve(null);
+    });
+
+    vi.mocked(financeApi.production).mockResolvedValue(mockFinanceData);
+    vi.mocked(financeApi.config).mockResolvedValue(mockFinanceConfig);
+    vi.mocked(financeApi.counterparties).mockResolvedValue({ items: [], page: 0, size: 50, total: 0 });
+
+    renderPage("p1");
+
+    await waitFor(() => {
+      expect(screen.getByText("Stage speaker cabling")).toBeInTheDocument();
+    });
+
+    const checkbox = screen.getByLabelText("Toggle task Stage speaker cabling");
+    expect(checkbox).not.toBeChecked();
+
+    await userEvent.click(checkbox);
+
+    await waitFor(() => {
+      expect(api).toHaveBeenCalledWith(
+        "/tasks/task-1/updates",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({
+            progressPercent: 100,
+            status: "DONE",
+            note: "Completed from checklist",
+          }),
+        }),
+      );
+    });
+  });
+
+  it("adds a new task directly from the Command Sheet checklist", async () => {
+    vi.mocked(api).mockImplementation((path: string, options?: any) => {
+      if (path === "/productions/p1") return Promise.resolve(mockV2Production);
+      if (path === "/employees") return Promise.resolve(mockEmployees);
+      if (path.startsWith("/tasks") && !options?.method) return Promise.resolve(mockV2Tasks);
+      if (path === "/tasks" && options?.method === "POST") {
+        return Promise.resolve({ id: "task-2", title: "Truss safety checks", priority: "URGENT", status: "TODO" });
+      }
+      return Promise.resolve(null);
+    });
+
+    vi.mocked(financeApi.production).mockResolvedValue(mockFinanceData);
+    vi.mocked(financeApi.config).mockResolvedValue(mockFinanceConfig);
+    vi.mocked(financeApi.counterparties).mockResolvedValue({ items: [], page: 0, size: 50, total: 0 });
+
+    renderPage("p1");
+
+    await waitFor(() => {
+      expect(screen.getByText("Stage speaker cabling")).toBeInTheDocument();
+    });
+
+    const addTaskBtns = screen.getAllByRole("button", { name: /add task/i });
+    await userEvent.click(addTaskBtns[0]);
+
+    expect(screen.getByRole("heading", { name: "Add Operational Task" })).toBeInTheDocument();
+
+    const titleInput = screen.getByLabelText("New task title");
+    await userEvent.type(titleInput, "Truss safety checks");
+
+    const prioritySelect = screen.getByLabelText("New task priority");
+    await userEvent.selectOptions(prioritySelect, "URGENT");
+
+    const createBtn = screen.getByRole("button", { name: "Add Task" });
+    await userEvent.click(createBtn);
+
+    await waitFor(() => {
+      expect(api).toHaveBeenCalledWith(
+        "/tasks",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({
+            productionId: "p1",
+            title: "Truss safety checks",
+            priority: "URGENT",
+            status: "TODO",
+            progressPercent: 0,
+          }),
+        }),
+      );
+    });
+  });
+
+  it("adds equipment directly from the Command Sheet", async () => {
+    vi.mocked(api).mockImplementation((path: string, options?: any) => {
+      if (path === "/productions/p1") return Promise.resolve(mockV2Production);
+      if (path === "/employees") return Promise.resolve(mockEmployees);
+      if (path.startsWith("/tasks")) return Promise.resolve(mockV2Tasks);
+      if (path === "/productions/p1/equipment" && options?.method === "POST") {
+        return Promise.resolve({ ...mockV2Production });
+      }
+      return Promise.resolve(null);
+    });
+
+    vi.mocked(headquartersApi.equipment).mockResolvedValue(mockCatalog as any);
+    vi.mocked(financeApi.production).mockResolvedValue(mockFinanceData);
+    vi.mocked(financeApi.config).mockResolvedValue(mockFinanceConfig);
+    vi.mocked(financeApi.counterparties).mockResolvedValue({ items: [], page: 0, size: 50, total: 0 });
+
+    renderPage("p1");
+
+    await waitFor(() => {
+      expect(screen.getByText("Digital Mixing Console")).toBeInTheDocument();
+    });
+
+    const addEqBtn = screen.getByRole("button", { name: "Add equipment" });
+    await userEvent.click(addEqBtn);
+
+    expect(screen.getByRole("heading", { name: "Assign Equipment" })).toBeInTheDocument();
+
+    const eqSelect = screen.getByLabelText("Assign equipment select");
+    await userEvent.selectOptions(eqSelect, "eq2");
+
+    const qtyInput = screen.getByLabelText("Assign equipment quantity");
+    await userEvent.clear(qtyInput);
+    await userEvent.type(qtyInput, "2");
+
+    const submitBtn = screen.getByRole("button", { name: "Assign Equipment" });
+    await userEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(api).toHaveBeenCalledWith(
+        "/productions/p1/equipment",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({
+            equipmentId: "eq2",
+            quantity: 2,
+          }),
+        }),
+      );
+    });
+  });
+
+  it("updates schedule directly from the Command Sheet", async () => {
+    vi.mocked(api).mockImplementation((path: string, options?: any) => {
+      if (path === "/productions/p1" && options?.method === "PATCH") {
+        return Promise.resolve({ ...mockV2Production, startTime: "17:00:00", endTime: "23:30:00" });
+      }
+      if (path === "/productions/p1") return Promise.resolve(mockV2Production);
+      if (path === "/employees") return Promise.resolve(mockEmployees);
+      if (path.startsWith("/tasks")) return Promise.resolve(mockV2Tasks);
+      return Promise.resolve(null);
+    });
+
+    vi.mocked(financeApi.production).mockResolvedValue(mockFinanceData);
+    vi.mocked(financeApi.config).mockResolvedValue(mockFinanceConfig);
+    vi.mocked(financeApi.counterparties).mockResolvedValue({ items: [], page: 0, size: 50, total: 0 });
+
+    renderPage("p1");
+
+    await waitFor(() => {
+      expect(screen.getByText("18:00 – 23:00")).toBeInTheDocument();
+    });
+
+    const editScheduleBtn = screen.getByRole("button", { name: "Edit schedule" });
+    await userEvent.click(editScheduleBtn);
+
+    expect(screen.getByRole("heading", { name: "Edit Production Schedule" })).toBeInTheDocument();
+
+    const startInput = screen.getByLabelText("Schedule start time input");
+    await userEvent.clear(startInput);
+    await userEvent.type(startInput, "17:00");
+
+    const endInput = screen.getByLabelText("Schedule end time input");
+    await userEvent.clear(endInput);
+    await userEvent.type(endInput, "23:30");
+
+    const saveBtn = screen.getByRole("button", { name: "Save Schedule" });
+    await userEvent.click(saveBtn);
+
+    await waitFor(() => {
+      expect(api).toHaveBeenCalledWith(
+        "/productions/p1",
+        expect.objectContaining({
+          method: "PATCH",
+          body: expect.stringContaining('"startTime":"17:00"'),
+        }),
+      );
+    });
   });
 });

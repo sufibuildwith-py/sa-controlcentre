@@ -158,14 +158,23 @@ export interface ProductionMember {
   conflictOverridden: boolean;
   overrideReason?: string | null;
 }
+export interface ProductionEquipment {
+  id: string;
+  equipmentId: string;
+  equipmentName: string;
+  internalCode?: string | null;
+  quantity: number;
+  unitSymbol?: string | null;
+  status: string;
+}
 export interface Production {
   id: string;
   title: string;
   clientName: string;
   description?: string | null;
   eventDate: string;
-  startTime: string;
-  endTime: string;
+  startTime?: string | null;
+  endTime?: string | null;
   venueName: string;
   venueAddress?: string | null;
   status: ProductionStatus;
@@ -174,6 +183,7 @@ export interface Production {
   completedAt?: string | null;
   members: ProductionMember[];
   unfinishedTaskCount: number;
+  equipment?: ProductionEquipment[];
   createdAt: string;
   updatedAt: string;
 }
