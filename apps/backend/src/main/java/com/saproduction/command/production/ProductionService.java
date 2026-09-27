@@ -450,21 +450,33 @@ public class ProductionService {
   @Transactional
   public View addEquipment(UUID id, EquipmentInput in) {
     Production p = entity(id);
+    validateTime(p.startTime, p.endTime);
 
-    // Idempotent duplicate check: if equipment is already reserved for this production, return current view
-    List<UUID> existingLineIds =
+    // Idempotent duplicate check: if equipment is already reserved for this production:
+    // - exact duplicate (same quantity): return current view (idempotent retry safety)
+    // - intentional quantity change: reject with clear conflict guidance (cannot silently no-op)
+    List<BigDecimal> existingQuantities =
         jdbc.queryForList(
             """
-            SELECT rl.id
+            SELECT rl.quantity
             FROM hq_reservation_lines rl
             JOIN hq_reservations r ON r.id = rl.reservation_id
             WHERE r.production_id = ? AND rl.equipment_id = ? AND r.status <> 'CANCELLED'
             """,
-            UUID.class,
+            BigDecimal.class,
             id,
             in.equipmentId());
-    if (!existingLineIds.isEmpty()) {
-      return view(p);
+    if (!existingQuantities.isEmpty()) {
+      BigDecimal totalExisting =
+          existingQuantities.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+      if (in.quantity() != null && totalExisting.compareTo(in.quantity()) == 0) {
+        return view(p);
+      }
+      throw ApiException.conflict(
+          "EQUIPMENT_ALREADY_ASSIGNED",
+          "Equipment is already assigned to this production ("
+              + totalExisting.stripTrailingZeros().toPlainString()
+              + " reserved). Remove the existing assignment first to adjust quantity.");
     }
 
     Instant startsAt =
@@ -475,9 +487,6 @@ public class ProductionService {
         p.endTime != null
             ? p.eventDate.atTime(p.endTime).atZone(zone).toInstant()
             : p.eventDate.atTime(23, 59, 59).atZone(zone).toInstant();
-    if (!endsAt.isAfter(startsAt)) {
-      endsAt = startsAt.plus(java.time.Duration.ofHours(12));
-    }
 
     var line =
         new HeadquartersController.ReservationLine(
