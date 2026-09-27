@@ -61,7 +61,7 @@ export function PayrollPage() {
   const [payment, setPayment] = useState({
     requestId: "",
     amount: "",
-    payerAccount: "AZ-2" as "AZ-2" | "AK-2",
+    payerAccount: "" as "" | "AZ-2" | "AK-2",
     paidAt: nowLocal(),
     paymentMethod: "BANK_TRANSFER" as PayrollPaymentMethod,
     reference: "",
@@ -166,7 +166,7 @@ export function PayrollPage() {
     setPayment({
       requestId: crypto.randomUUID(),
       amount: item ? (item.remaining / 100).toFixed(2) : "",
-      payerAccount: "AZ-2",
+      payerAccount: "" as "" | "AZ-2" | "AK-2",
       paidAt: nowLocal(),
       paymentMethod: "BANK_TRANSFER",
       reference: "",
@@ -625,10 +625,11 @@ export function PayrollPage() {
               onChange={(e) =>
                 setPayment({
                   ...payment,
-                  payerAccount: e.target.value as "AZ-2" | "AK-2",
+                  payerAccount: e.target.value as "" | "AZ-2" | "AK-2",
                 })
               }
             >
+              <option value="">Select owner account...</option>
               <option value="AZ-2">AZ-2 (Azeem)</option>
               <option value="AK-2">AK-2 (Akash)</option>
             </select>

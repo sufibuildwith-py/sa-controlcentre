@@ -1,11 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
+  ArrowUpRight,
+  CheckCircle2,
+  Clock,
+  DollarSign,
   Edit3,
+  ExternalLink,
   MessageCircle,
   Phone,
+  Users,
   WalletCards,
 } from "lucide-react";
+import { useReducedMotion, type HTMLMotionProps } from "motion/react";
 import { useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useUiStore } from "../../app/store/ui";
@@ -28,12 +35,56 @@ import type {
   AttendanceMonth,
   CommunicationCentre,
   Employee,
+  Employee360View,
   EmployeeOperations,
 } from "../../types/domain";
 import { initials } from "./PeoplePage";
 import { navigatorEnabled } from "../navigator/navigator.types";
 import { EmployeeNavigatorPanel } from "../navigator/EmployeeNavigatorPanel";
 import { financeApi, financeAmount } from "../finance/finance.api";
+
+function SpotlightCard({
+  children,
+  className = "",
+  style,
+  onClick,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  style?: React.CSSProperties;
+  onClick?: () => void;
+}) {
+  const reducedMotion = useReducedMotion();
+  const [coords, setCoords] = useState<{ x: number; y: number } | null>(null);
+
+  return (
+    <SABentoCard
+      className={`spotlight-card ${className}`}
+      style={style}
+      onClick={onClick}
+      onMouseMove={(e) => {
+        if (reducedMotion) return;
+        const rect = e.currentTarget.getBoundingClientRect();
+        setCoords({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+      }}
+      onMouseLeave={() => setCoords(null)}
+    >
+      {!reducedMotion && (
+        <div
+          className="spotlight-layer"
+          style={{
+            opacity: coords ? 1 : 0,
+            background: coords
+              ? `radial-gradient(circle 240px at ${coords.x}px ${coords.y}px, rgba(255, 255, 255, 0.08), transparent 80%)`
+              : "transparent",
+          }}
+        />
+      )}
+      {children}
+    </SABentoCard>
+  );
+}
+
 export function EmployeeDetailPage() {
   const { id } = useParams(),
     location = useLocation(),
@@ -60,6 +111,11 @@ export function EmployeeDetailPage() {
     queryFn: () => api<Employee>(`/employees/${id}`),
     enabled: !!id,
   });
+  const e360 = useQuery({
+    queryKey: ["employee", id, "360"],
+    queryFn: () => api<Employee360View>(`/employees/${id}/360`),
+    enabled: !!id && tab === "overview",
+  });
   const attendance = useQuery({
     queryKey: ["employee", id, "attendance"],
     queryFn: () => api<AttendanceMonth>(`/employees/${id}/attendance`),
@@ -85,6 +141,7 @@ export function EmployeeDetailPage() {
       api<Employee>(`/employees/${id}/deactivate`, { method: "POST" }),
     onSuccess: (data) => {
       client.setQueryData(["employee", id], data);
+      client.invalidateQueries({ queryKey: ["employee", id, "360"] });
       client.invalidateQueries({ queryKey: ["employees"] });
       setConfirm(false);
     },
@@ -106,7 +163,7 @@ export function EmployeeDetailPage() {
     amount: "",
     date: new Date().toISOString().slice(0, 10),
     description: "",
-    payerAccount: "AZ-2" as "AZ-2" | "AK-2",
+    payerAccount: "" as "" | "AZ-2" | "AK-2",
   });
 
   const productions = useQuery({
@@ -130,6 +187,7 @@ export function EmployeeDetailPage() {
     onSuccess: () => {
       client.invalidateQueries({ queryKey: ["finance", "employee", id] });
       client.invalidateQueries({ queryKey: ["employee", id] });
+      client.invalidateQueries({ queryKey: ["employee", id, "360"] });
       client.invalidateQueries({ queryKey: ["finance"] });
       setEarningOpen(false);
       setEarningError("");
@@ -158,6 +216,7 @@ export function EmployeeDetailPage() {
     onSuccess: () => {
       client.invalidateQueries({ queryKey: ["finance", "employee", id] });
       client.invalidateQueries({ queryKey: ["employee", id] });
+      client.invalidateQueries({ queryKey: ["employee", id, "360"] });
       client.invalidateQueries({ queryKey: ["finance"] });
       setPayoutOpen(false);
       setPayoutError("");
@@ -184,6 +243,37 @@ export function EmployeeDetailPage() {
       />
     );
   const e = employee.data;
+
+  const openPayoutModal = (defaultAmt?: number) => {
+    setPayoutRequestKey(generateKey());
+    setPayoutForm({
+      amount:
+        defaultAmt !== undefined && defaultAmt > 0
+          ? defaultAmt.toFixed(2)
+          : finance.data && finance.data.outstanding > 0
+            ? finance.data.outstanding.toFixed(2)
+            : e360.data && e360.data.money.outstanding > 0
+              ? e360.data.money.outstanding.toFixed(2)
+              : "",
+      date: new Date().toISOString().slice(0, 10),
+      description: `Disbursement to ${e.displayName}`,
+      payerAccount: "",
+    });
+    setPayoutError("");
+    setPayoutOpen(true);
+  };
+
+  const openEarningModal = () => {
+    setEarningRequestKey(generateKey());
+    setEarningForm({
+      amount: "",
+      date: new Date().toISOString().slice(0, 10),
+      description: `Shift labor for ${e.displayName}`,
+      productionId: "",
+    });
+    setEarningError("");
+    setEarningOpen(true);
+  };
   return (
     <>
       <button className="back-link" onClick={() => navigate("/people")}>
@@ -241,55 +331,346 @@ export function EmployeeDetailPage() {
         ]}
       >
         <SATabContent value="overview">
-          <SABentoGrid className="detail-grid">
-            <SABentoCard className="detail-main">
-              <h3>Employee information</h3>
-              <dl>
-                <Info label="Employee code" value={e.employeeCode} />
-                <Info label="Department" value={e.department} />
-                <Info label="Joining date" value={dateLabel(e.joiningDate)} />
-                <Info
-                  label="Employment"
-                  value={e.employmentType.replace("_", " ")}
-                />
-                <Info label="Phone" value={e.phone} />
-                <Info
-                  label="WhatsApp"
-                  value={e.whatsappPhone ?? "Not provided"}
-                />
-                <Info label="Email" value={e.email ?? "Not provided"} />
-                <Info label="Status" value={e.status.replace("_", " ")} />
-              </dl>
-            </SABentoCard>
-            <SABentoCard className="salary-card">
-              <WalletCards size={18} />
-              <span>Salary basis</span>
-              <strong>{money(e.baseSalaryMinor, e.salaryCurrency)}</strong>
-              <small>Monthly · integer minor units</small>
-            </SABentoCard>
-            <SABentoCard className="contact-card">
-              <Phone size={18} />
-              <span>Primary contact</span>
-              <strong>{e.phone}</strong>
-            </SABentoCard>
-            <SABentoCard className="notes-card">
-              <h3>Owner notes</h3>
-              <p>{e.notes || "No internal notes for this employee."}</p>
-            </SABentoCard>
-            <div className="danger-zone">
-              <div>
-                <strong>Deactivate employee</strong>
-                <span>Keeps historical operational and financial records.</span>
+          {e360.isPending ? (
+            <SkeletonCard />
+          ) : e360.isError || !e360.data ? (
+            <SABentoGrid className="detail-grid">
+              <SABentoCard className="detail-main">
+                <h3>Employee information</h3>
+                <dl>
+                  <Info label="Employee code" value={e.employeeCode} />
+                  <Info label="Department" value={e.department} />
+                  <Info label="Joining date" value={dateLabel(e.joiningDate)} />
+                  <Info
+                    label="Employment"
+                    value={e.employmentType.replace("_", " ")}
+                  />
+                  <Info label="Phone" value={e.phone} />
+                  <Info
+                    label="WhatsApp"
+                    value={e.whatsappPhone ?? "Not provided"}
+                  />
+                  <Info label="Email" value={e.email ?? "Not provided"} />
+                  <Info label="Status" value={e.status.replace("_", " ")} />
+                </dl>
+              </SABentoCard>
+              <SABentoCard className="salary-card">
+                <WalletCards size={18} />
+                <span>Salary basis</span>
+                <strong>{money(e.baseSalaryMinor, e.salaryCurrency)}</strong>
+                <small>Monthly · integer minor units</small>
+              </SABentoCard>
+              <SABentoCard className="contact-card">
+                <Phone size={18} />
+                <span>Primary contact</span>
+                <strong>{e.phone}</strong>
+              </SABentoCard>
+              <SABentoCard className="notes-card">
+                <h3>Owner notes</h3>
+                <p>{e.notes || "No internal notes for this employee."}</p>
+              </SABentoCard>
+              <div className="danger-zone">
+                <div>
+                  <strong>Deactivate employee</strong>
+                  <span>Keeps historical operational and financial records.</span>
+                </div>
+                <SAButton
+                  variant="danger"
+                  disabled={e.status === "INACTIVE"}
+                  onClick={() => setConfirm(true)}
+                >
+                  Deactivate
+                </SAButton>
               </div>
-              <SAButton
-                variant="danger"
-                disabled={e.status === "INACTIVE"}
-                onClick={() => setConfirm(true)}
-              >
-                Deactivate
-              </SAButton>
+            </SABentoGrid>
+          ) : (
+            <div className="e360-overview" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {/* Quick Action Strip */}
+              <div className="e360-action-strip">
+                <SAButton
+                  variant="primary"
+                  onClick={openEarningModal}
+                >
+                  <DollarSign size={15} />
+                  Record Shift Earning
+                </SAButton>
+                <SAButton
+                  variant="secondary"
+                  disabled={e360.data.money.outstanding <= 0}
+                  onClick={() => openPayoutModal(e360.data?.money.outstanding)}
+                >
+                  <WalletCards size={15} />
+                  Record Disbursement
+                </SAButton>
+                <SAButton
+                  onClick={() => navigate(`/communications?compose=1&employeeId=${e.id}`)}
+                >
+                  <MessageCircle size={15} />
+                  Send Message
+                </SAButton>
+                <div style={{ marginLeft: "auto", display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <SAButton variant="ghost" onClick={() => setTab("attendance")}>
+                    Attendance
+                    <ArrowUpRight size={13} />
+                  </SAButton>
+                  <SAButton variant="ghost" onClick={() => setTab("work")}>
+                    Work Tasks
+                    <ArrowUpRight size={13} />
+                  </SAButton>
+                  <SAButton variant="ghost" onClick={() => setTab("finance")}>
+                    Finance Ledger
+                    <ArrowUpRight size={13} />
+                  </SAButton>
+                </div>
+              </div>
+
+              {/* 360 Grid */}
+              <div className="e360-grid">
+                {/* Pillar 1: Today Status */}
+                <SpotlightCard className="e360-col-4">
+                  <div className="e360-card-header">
+                    <h3>Today's Status</h3>
+                    <SAButton variant="ghost" size="sm" onClick={() => setTab("attendance")}>
+                      Details
+                      <ArrowUpRight size={12} />
+                    </SAButton>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                    <StatusBadge
+                      tone={
+                        e360.data.today.attendance?.status === "PRESENT"
+                          ? "success"
+                          : e360.data.today.attendance?.status === "LATE" || e360.data.today.attendance?.status === "HALF_DAY" || e360.data.today.attendance?.status === "LEAVE"
+                            ? "warning"
+                            : e360.data.today.attendance?.status === "ABSENT"
+                              ? "danger"
+                              : "neutral"
+                      }
+                    >
+                      {e360.data.today.attendance?.status?.replace("_", " ") ?? "NOT MARKED"}
+                    </StatusBadge>
+                    {e360.data.today.attendance && e360.data.today.attendance.minutesLate > 0 && (
+                      <StatusBadge tone="warning">
+                        {e360.data.today.attendance.minutesLate}m late
+                      </StatusBadge>
+                    )}
+                  </div>
+                  <div className="e360-metrics-row">
+                    <div className="e360-metric-box">
+                      <span>Check In</span>
+                      <strong>{e360.data.today.attendance?.checkInTime?.slice(0, 5) ?? "—"}</strong>
+                    </div>
+                    <div className="e360-metric-box">
+                      <span>Check Out</span>
+                      <strong>{e360.data.today.attendance?.checkOutTime?.slice(0, 5) ?? "—"}</strong>
+                    </div>
+                  </div>
+                  {e360.data.today.activeOrPendingLeave && (
+                    <div
+                      style={{
+                        marginTop: 12,
+                        padding: "8px 12px",
+                        background: "var(--warning-soft, rgba(234, 179, 8, 0.1))",
+                        border: "1px solid var(--warning-border, rgba(234, 179, 8, 0.2))",
+                        borderRadius: 8,
+                        fontSize: 12,
+                      }}
+                    >
+                      <strong>Active Leave: </strong>
+                      {e360.data.today.activeOrPendingLeave.leaveType} ({e360.data.today.activeOrPendingLeave.startDate} to {e360.data.today.activeOrPendingLeave.endDate})
+                    </div>
+                  )}
+                </SpotlightCard>
+
+                {/* Pillar 2: Canonical Money */}
+                <SpotlightCard className="e360-col-8">
+                  <div className="e360-card-header">
+                    <div>
+                      <h3>Canonical Compensation & Ledger</h3>
+                      <span>Zero-risk integer minor units</span>
+                    </div>
+                    <SAButton variant="ghost" size="sm" onClick={() => setTab("finance")}>
+                      Ledger
+                      <ArrowUpRight size={12} />
+                    </SAButton>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12, marginBottom: 14 }}>
+                    <div className="e360-metric-box">
+                      <span>Base Salary</span>
+                      <strong>{money(e360.data.money.baseSalaryMinor, e360.data.money.salaryCurrency)}</strong>
+                    </div>
+                    <div className="e360-metric-box">
+                      <span>Total Earned</span>
+                      <strong>{financeAmount(e360.data.money.earned)}</strong>
+                    </div>
+                    <div className="e360-metric-box">
+                      <span>Total Paid</span>
+                      <strong>{financeAmount(e360.data.money.paid)}</strong>
+                    </div>
+                    <div className="e360-metric-box" style={{ background: e360.data.money.outstanding > 0 ? "var(--warning-soft, rgba(234, 179, 8, 0.08))" : undefined }}>
+                      <span>Net Outstanding</span>
+                      <strong style={{ color: e360.data.money.outstanding > 0 ? "var(--warning, #f59e0b)" : undefined }}>
+                        {financeAmount(e360.data.money.outstanding)}
+                      </strong>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 10, borderTop: "1px solid var(--border-soft, var(--border))", fontSize: 12, flexWrap: "wrap", gap: 8 }}>
+                    <div>
+                      {e360.data.money.latestPayrollPeriod ? (
+                        <span>
+                          Latest Payroll: <strong>{e360.data.money.latestPayrollPeriod}</strong> ·{" "}
+                          <StatusBadge tone={e360.data.money.currentPayrollStatus === "PAID" ? "success" : "warning"}>
+                            {e360.data.money.currentPayrollStatus ?? "DRAFT"}
+                          </StatusBadge>
+                        </span>
+                      ) : (
+                        <span className="muted">No finalized payroll runs on record.</span>
+                      )}
+                    </div>
+                    {e360.data.money.outstanding > 0 ? (
+                      <SAButton size="sm" variant="secondary" onClick={() => openPayoutModal(e360.data?.money.outstanding)}>
+                        Disburse {financeAmount(e360.data.money.outstanding)}
+                      </SAButton>
+                    ) : (
+                      <span style={{ color: "var(--success, #10b981)", display: "flex", alignItems: "center", gap: 4 }}>
+                        <CheckCircle2 size={13} />
+                        Ledger balanced
+                      </span>
+                    )}
+                  </div>
+                </SpotlightCard>
+
+                {/* Pillar 3: Operations & Tasks */}
+                <SpotlightCard className="e360-col-6">
+                  <div className="e360-card-header">
+                    <h3>Operations & Tasks</h3>
+                    <SAButton variant="ghost" size="sm" onClick={() => setTab("work")}>
+                      Tasks
+                      <ArrowUpRight size={12} />
+                    </SAButton>
+                  </div>
+                  <div className="e360-metrics-row">
+                    <div className="e360-metric-box">
+                      <span>Assigned Tasks</span>
+                      <strong>{e360.data.operations.tasksAssigned}</strong>
+                    </div>
+                    <div className="e360-metric-box" style={{ background: e360.data.operations.overdueTasks > 0 ? "var(--danger-soft, rgba(239, 68, 68, 0.08))" : undefined }}>
+                      <span>Overdue Tasks</span>
+                      <strong style={{ color: e360.data.operations.overdueTasks > 0 ? "var(--danger, #ef4444)" : undefined }}>
+                        {e360.data.operations.overdueTasks}
+                      </strong>
+                    </div>
+                  </div>
+                  <div style={{ marginTop: 12 }}>
+                    <span style={{ fontSize: 11, textTransform: "uppercase", color: "var(--text-3)", letterSpacing: "0.04em" }}>
+                      Active Productions ({e360.data.operations.activeProductions.length})
+                    </span>
+                    {e360.data.operations.activeProductions.length > 0 ? (
+                      <div className="e360-production-list">
+                        {e360.data.operations.activeProductions.map((p) => (
+                          <div key={p.id} className="e360-production-row">
+                            <div>
+                              <strong>{p.title}</strong>
+                              {p.role && <span className="muted" style={{ marginLeft: 6 }}>· {p.role}</span>}
+                            </div>
+                            <StatusBadge tone="neutral">{p.status}</StatusBadge>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+                        No active production assignments.
+                      </p>
+                    )}
+                  </div>
+                </SpotlightCard>
+
+                {/* Pillar 4: Performance & Comms */}
+                <SpotlightCard className="e360-col-6">
+                  <div className="e360-card-header">
+                    <h3>Performance & Device Sync</h3>
+                    <SAButton variant="ghost" size="sm" onClick={() => setTab("performance")}>
+                      Review
+                      <ArrowUpRight size={12} />
+                    </SAButton>
+                  </div>
+                  <div className="e360-metrics-row">
+                    <div className="e360-metric-box">
+                      <span>Attendance Rate</span>
+                      <strong>
+                        {e360.data.performance.attendanceRate != null
+                          ? `${e360.data.performance.attendanceRate}%`
+                          : "—"}
+                      </strong>
+                    </div>
+                    <div className="e360-metric-box">
+                      <span>Total Messages</span>
+                      <strong>{e360.data.communication.totalMessages}</strong>
+                    </div>
+                  </div>
+                  <div style={{ marginTop: 14, fontSize: 12, display: "flex", flexDirection: "column", gap: 6 }}>
+                    <div>
+                      <span className="muted">On-time completion: </span>
+                      <strong>{e360.data.performance.onTimeCompletionRate != null ? `${e360.data.performance.onTimeCompletionRate}%` : "—"}</strong>
+                    </div>
+                    <div>
+                      <span className="muted">Attended shifts: </span>
+                      <strong>{e360.data.performance.attended} / {e360.data.performance.attendanceRecords} days</strong>
+                    </div>
+                    <div>
+                      <span className="muted">Last contact: </span>
+                      <span>{e360.data.communication.lastContactAt ? dateLabel(e360.data.communication.lastContactAt.slice(0, 10)) : "Never"}</span>
+                    </div>
+                    {navigatorEnabled && (
+                      <div style={{ marginTop: 4, paddingTop: 8, borderTop: "1px solid var(--border-soft, var(--border))" }}>
+                        <span className="muted">Navigator device: </span>
+                        <strong>{e360.data.navigator.deviceStatus}</strong>
+                        <span className="muted" style={{ marginLeft: 8 }}>({e360.data.navigator.isPaired ? "Paired" : "Unpaired"})</span>
+                      </div>
+                    )}
+                  </div>
+                </SpotlightCard>
+
+                {/* Identity & Details Card */}
+                <SABentoCard className="e360-col-8">
+                  <h3>Employee Information</h3>
+                  <dl className="detail-info-list" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "10px 16px", marginTop: 12 }}>
+                    <Info label="Employee code" value={e.employeeCode} />
+                    <Info label="Department" value={e.department} />
+                    <Info label="Joining date" value={dateLabel(e.joiningDate)} />
+                    <Info label="Employment" value={e.employmentType.replace("_", " ")} />
+                    <Info label="Phone" value={e.phone} />
+                    <Info label="WhatsApp" value={e.whatsappPhone ?? "Not provided"} />
+                    <Info label="Email" value={e.email ?? "Not provided"} />
+                    <Info label="Status" value={e.status.replace("_", " ")} />
+                  </dl>
+                </SABentoCard>
+
+                {/* Owner Notes Card */}
+                <SABentoCard className="e360-col-4">
+                  <h3>Owner Notes</h3>
+                  <p style={{ marginTop: 10, fontSize: 13, lineHeight: 1.5 }}>
+                    {e.notes || "No internal notes recorded for this employee."}
+                  </p>
+                </SABentoCard>
+
+                {/* Deactivate Zone */}
+                <div className="danger-zone e360-col-12" style={{ marginTop: 8 }}>
+                  <div>
+                    <strong>Deactivate employee</strong>
+                    <span>Keeps historical operational and financial records.</span>
+                  </div>
+                  <SAButton
+                    variant="danger"
+                    disabled={e.status === "INACTIVE"}
+                    onClick={() => setConfirm(true)}
+                  >
+                    Deactivate
+                  </SAButton>
+                </div>
+              </div>
             </div>
-          </SABentoGrid>
+          )}
         </SATabContent>
         <SATabContent value="finance">
           {finance.isPending ? (
@@ -338,7 +719,7 @@ export function EmployeeDetailPage() {
                           : "",
                       date: new Date().toISOString().slice(0, 10),
                       description: `Disbursement to ${e.displayName}`,
-                      payerAccount: "AZ-2",
+                      payerAccount: "",
                     });
                     setPayoutError("");
                     setPayoutOpen(true);
@@ -724,10 +1105,11 @@ export function EmployeeDetailPage() {
               onChange={(e) =>
                 setPayoutForm({
                   ...payoutForm,
-                  payerAccount: e.target.value as "AZ-2" | "AK-2",
+                  payerAccount: e.target.value as "" | "AZ-2" | "AK-2",
                 })
               }
             >
+              <option value="">Select owner account...</option>
               <option value="AZ-2">AZ-2 (Azeem)</option>
               <option value="AK-2">AK-2 (Akash)</option>
             </select>

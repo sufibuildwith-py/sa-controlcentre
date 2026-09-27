@@ -27,8 +27,80 @@ export interface Employee {
   notes?: string | null;
   createdAt: string;
   updatedAt: string;
+  todayAttendance?: AttendanceStatus | null;
+  activeTasksCount?: number;
+  activeProductionsCount?: number;
 }
-export type EmployeeInput = Omit<Employee, "id" | "createdAt" | "updatedAt">;
+export interface PeopleSummary {
+  activeEmployees: number;
+  onLeaveEmployees: number;
+  attendanceToday: number;
+  openTasks: number;
+  overdueTasks: number;
+}
+export interface Employee360View {
+  employee: Employee;
+  today: {
+    date: string;
+    attendance: AttendanceRecord | null;
+    activeOrPendingLeave: {
+      id: string;
+      startDate: string;
+      endDate: string;
+      leaveType: string;
+      reason: string;
+      status: LeaveStatus;
+    } | null;
+    activeTasksCount: number;
+    overdueTasksCount: number;
+    activeProductionsCount: number;
+  };
+  money: {
+    earned: number;
+    paid: number;
+    outstanding: number;
+    baseSalaryMinor: number;
+    salaryCurrency: string;
+    currentPayrollStatus: string | null;
+    latestPayrollPeriod: string | null;
+  };
+  operations: {
+    activeProductionsCount: number;
+    completedProductionsCount: number;
+    tasksAssigned: number;
+    tasksCompleted: number;
+    overdueTasks: number;
+    activeProductions: Array<{
+      id: string;
+      title: string;
+      role: string;
+      eventDate: string;
+      status: string;
+    }>;
+  };
+  performance: {
+    attendanceRecords: number;
+    attended: number;
+    lateCount: number;
+    attendanceRate: number | null;
+    onTimeCompletionRate: number | null;
+  };
+  communication: {
+    totalMessages: number;
+    lastContactAt: string | null;
+    canMessage: boolean;
+  };
+  navigator: {
+    enabled: boolean;
+    isPaired: boolean;
+    deviceStatus: string;
+    lastSyncAt: string | null;
+  };
+}
+export type EmployeeInput = Omit<
+  Employee,
+  "id" | "createdAt" | "updatedAt" | "todayAttendance" | "activeTasksCount" | "activeProductionsCount"
+>;
 export interface AttendanceRecord {
   id: string;
   employeeId: string;
@@ -86,14 +158,23 @@ export interface ProductionMember {
   conflictOverridden: boolean;
   overrideReason?: string | null;
 }
+export interface ProductionEquipment {
+  id: string;
+  equipmentId: string;
+  equipmentName: string;
+  internalCode?: string | null;
+  quantity: number;
+  unitSymbol?: string | null;
+  status: string;
+}
 export interface Production {
   id: string;
   title: string;
   clientName: string;
   description?: string | null;
   eventDate: string;
-  startTime: string;
-  endTime: string;
+  startTime?: string | null;
+  endTime?: string | null;
   venueName: string;
   venueAddress?: string | null;
   status: ProductionStatus;
@@ -102,6 +183,7 @@ export interface Production {
   completedAt?: string | null;
   members: ProductionMember[];
   unfinishedTaskCount: number;
+  equipment?: ProductionEquipment[];
   createdAt: string;
   updatedAt: string;
 }

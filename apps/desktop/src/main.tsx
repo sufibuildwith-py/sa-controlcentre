@@ -14,6 +14,7 @@ import "./styles/settings.css";
 import "./styles/navigator.css";
 import "./styles/headquarters.css";
 import "./styles/finance.css";
+import "./styles/command.css";
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <BrowserRouter>

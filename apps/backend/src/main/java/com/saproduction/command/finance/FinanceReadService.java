@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /** Bounded SQL-backed projections; no browser-side financial calculation. */
@@ -470,7 +471,7 @@ public class FinanceReadService {
             "SELECT effective_from AS \"effectiveFrom\",azeem_percent AS azeem,akash_percent AS akash FROM finance_profit_split_rules ORDER BY effective_from DESC LIMIT 1"));
   }
 
-  @Transactional
+  @Transactional(propagation = Propagation.REQUIRES_NEW)
   public Map<String, Object> reconciliation() {
     BigDecimal expected =
         amount(

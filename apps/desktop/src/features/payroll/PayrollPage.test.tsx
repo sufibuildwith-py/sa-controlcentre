@@ -209,10 +209,9 @@ describe("payroll ledger", () => {
       "item-1",
     );
 
-    // Select payer account
+    // Verify payer account is empty initially and submit is disabled
     const payerSelect = screen.getByLabelText("Payer owner account");
-    expect(payerSelect).toHaveValue("AZ-2");
-    await user.selectOptions(payerSelect, "AK-2");
+    expect(payerSelect).toHaveValue("");
 
     // Fill amount (e.g. 10000 of 25000 remaining)
     const amountInput = screen.getByLabelText("Payment amount");
@@ -222,6 +221,11 @@ describe("payroll ledger", () => {
     const submitBtn = screen
       .getAllByRole("button", { name: "Record payment" })
       .at(-1)!;
+    expect(submitBtn).toBeDisabled();
+
+    // Select explicit owner account AK-2
+    await user.selectOptions(payerSelect, "AK-2");
+    expect(submitBtn).not.toBeDisabled();
 
     // First attempt fails
     await user.click(submitBtn);

@@ -229,6 +229,20 @@ public class CalendarService {
       throw ApiException.notFound("EVENT_ATTENDEE_NOT_FOUND", "Calendar attendee was not found.");
   }
 
+  public Optional<CalendarEvent> findEventForProduction(UUID id) {
+    return events.findByProductionId(id);
+  }
+
+  public List<UUID> attendeeEmployeeIds(UUID eventId) {
+    return jdbc.queryForList(
+        "select employee_id from event_attendees where event_id=?", UUID.class, eventId);
+  }
+
+  @Transactional
+  public void deleteProductionEvent(UUID productionId) {
+    events.findByProductionId(productionId).ifPresent(events::delete);
+  }
+
   public CalendarEvent eventForProduction(UUID id) {
     return events
         .findByProductionId(id)

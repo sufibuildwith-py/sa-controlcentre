@@ -23,6 +23,7 @@ class HeadquartersPostgresTest {
   @Container static PostgreSQLContainer<?> postgres=new PostgreSQLContainer<>("postgres:17-alpine");
   @DynamicPropertySource static void db(DynamicPropertyRegistry p){p.add("spring.datasource.url",postgres::getJdbcUrl);p.add("spring.datasource.username",postgres::getUsername);p.add("spring.datasource.password",postgres::getPassword);p.add("app.demo-seed",()->false);}
   @Autowired HeadquartersService service;
+  @Autowired com.saproduction.command.production.ProductionService productionService;
   @Autowired JdbcTemplate jdbc;
   UUID equipment,location,production;
 
@@ -56,5 +57,323 @@ class HeadquartersPostgresTest {
     var transfer=(UUID)service.createTransfer(new TransferInput(production,production,venueA,venueB,"Direct venue transfer",List.of(new OperationLine(equipment,null,new BigDecimal("5"))))).get("id");service.confirmTransfer(transfer,UUID.randomUUID());
     var returns=(UUID)service.createReturn(new ReturnInput(production,venueA,location,"Partial reconciliation",List.of(new ReturnLine(equipment,null,new BigDecimal("15"),new BigDecimal("10"),BigDecimal.ZERO,BigDecimal.ZERO,new BigDecimal("2"),new BigDecimal("1"))))).get("id");var returnKey=UUID.randomUUID();var result=service.confirmReturn(returns,returnKey);service.confirmReturn(returns,returnKey);
     assertThat(result).containsEntry("status","PARTIAL");assertThat(service.attention()).extracting(x->x.get("type")).contains("UNACCOUNTED_RETURN","DAMAGED_AWAITING_DECISION","MISSING_EQUIPMENT");assertThat(jdbc.queryForObject("SELECT count(*) FROM hq_inventory_movements WHERE dispatch_id=?",Long.class,dispatch)).isEqualTo(1);assertThat(service.reconcile()).containsEntry("consistent",true);
+  }
+
+  @Test
+  void addEquipmentEndToEnd_persistsReservationAndRefreshesProductionView() {
+    var view =
+        productionService.addEquipment(
+            production,
+            new com.saproduction.command.production.ProductionService.EquipmentInput(
+                equipment, BigDecimal.valueOf(5), null, null));
+
+    assertThat(view.equipment()).hasSize(1);
+    assertThat(view.equipment().getFirst().equipmentId()).isEqualTo(equipment);
+    assertThat(view.equipment().getFirst().quantity()).isEqualByComparingTo(BigDecimal.valueOf(5));
+    assertThat(view.equipment().getFirst().status()).isEqualTo("CONFIRMED");
+
+    // Visible from headquarters
+    var hqList = service.equipmentForProduction(production);
+    assertThat(hqList).hasSize(1);
+    assertThat(hqList.getFirst()).containsEntry("equipmentId", equipment);
+
+    // Remove equipment
+    var afterRemove = productionService.removeEquipment(production, equipment);
+    assertThat(afterRemove.equipment()).isEmpty();
+    assertThat(service.equipmentForProduction(production)).isEmpty();
+  }
+
+  @Test
+  void addEquipment_withoutScheduledTimes_usesWholeDayWindow() {
+    UUID unscheduledProd = UUID.randomUUID();
+    LocalDate today = LocalDate.now();
+    jdbc.update(
+        "INSERT INTO productions(id,title,client_name,event_date,start_time,end_time,venue_name,status,priority,progress_percent) VALUES(?,?,?,current_date,null,null,'Test venue','PLANNING','NORMAL',0)",
+        unscheduledProd,
+        "Unscheduled Prod",
+        "Test Client");
+
+    var view =
+        productionService.addEquipment(
+            unscheduledProd,
+            new com.saproduction.command.production.ProductionService.EquipmentInput(
+                equipment, BigDecimal.valueOf(3), null, null));
+
+    assertThat(view.equipment()).hasSize(1);
+    assertThat(view.equipment().getFirst().equipmentId()).isEqualTo(equipment);
+
+    // Verify DB timestamps match whole-day bounds (00:00:00 to 23:59:59 in Asia/Kolkata)
+    ZoneId zone = ZoneId.of("Asia/Kolkata");
+    Instant expectedStart = today.atStartOfDay(zone).toInstant();
+    Instant expectedEnd = today.atTime(23, 59, 59).atZone(zone).toInstant();
+
+    var res =
+        jdbc.queryForMap(
+            "SELECT starts_at, ends_at FROM hq_reservations WHERE production_id=?",
+            unscheduledProd);
+    Instant actualStart = ((java.sql.Timestamp) res.get("starts_at")).toInstant();
+    Instant actualEnd = ((java.sql.Timestamp) res.get("ends_at")).toInstant();
+
+    assertThat(actualStart).isEqualTo(expectedStart);
+    assertThat(actualEnd).isEqualTo(expectedEnd);
+  }
+
+  @Test
+  void addEquipment_withValidSchedule_reservesExactProductionWindow() {
+    LocalDate today = LocalDate.now();
+    var created =
+        productionService.create(
+            new com.saproduction.command.production.ProductionService.CreateInput(
+                "Scheduled Prod",
+                "Test Client",
+                null,
+                today,
+                LocalTime.of(16, 30),
+                LocalTime.of(21, 30),
+                "Scheduled Venue",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null));
+    UUID scheduledProd = created.id();
+
+    var view =
+        productionService.addEquipment(
+            scheduledProd,
+            new com.saproduction.command.production.ProductionService.EquipmentInput(
+                equipment, BigDecimal.valueOf(2), null, null));
+
+    assertThat(view.equipment()).hasSize(1);
+
+    ZoneId zone = ZoneId.of("Asia/Kolkata");
+    Instant expectedStart = today.atTime(16, 30).atZone(zone).toInstant();
+    Instant expectedEnd = today.atTime(21, 30).atZone(zone).toInstant();
+
+    var res =
+        jdbc.queryForMap(
+            "SELECT starts_at, ends_at FROM hq_reservations WHERE production_id=?",
+            scheduledProd);
+    Instant actualStart = ((java.sql.Timestamp) res.get("starts_at")).toInstant();
+    Instant actualEnd = ((java.sql.Timestamp) res.get("ends_at")).toInstant();
+
+    assertThat(actualStart).isEqualTo(expectedStart);
+    assertThat(actualEnd).isEqualTo(expectedEnd);
+  }
+
+  @Test
+  void schedule_withSingleBoundary_rejectsWithInvalidProductionTime() {
+    LocalDate today = LocalDate.now();
+    assertThatThrownBy(
+            () ->
+                productionService.create(
+                    new com.saproduction.command.production.ProductionService.CreateInput(
+                        "Single Boundary Prod",
+                        "Test Client",
+                        null,
+                        today,
+                        LocalTime.of(16, 30),
+                        null,
+                        "Incomplete Venue",
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null)))
+        .isInstanceOf(ApiException.class)
+        .satisfies(
+            e -> {
+              ApiException ex = (ApiException) e;
+              assertThat(ex.code).isEqualTo("INVALID_PRODUCTION_TIME");
+              assertThat(ex.getMessage()).contains("Both start time and end time must be specified");
+            });
+  }
+
+  @Test
+  void schedule_withInvertedTimes_rejectsAndDoesNotSilentlyFallback() {
+    LocalDate today = LocalDate.now();
+    assertThatThrownBy(
+            () ->
+                productionService.create(
+                    new com.saproduction.command.production.ProductionService.CreateInput(
+                        "Inverted Prod",
+                        "Test Client",
+                        null,
+                        today,
+                        LocalTime.of(16, 30),
+                        LocalTime.of(15, 30),
+                        "Inverted Venue",
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null)))
+        .isInstanceOf(ApiException.class)
+        .satisfies(
+            e -> {
+              ApiException ex = (ApiException) e;
+              assertThat(ex.code).isEqualTo("INVALID_PRODUCTION_TIME");
+              assertThat(ex.getMessage()).contains("End time must be after start time");
+            });
+  }
+
+  @Test
+  void schedule_withEqualStartAndEndTime_rejectsWithInvalidProductionTime() {
+    LocalDate today = LocalDate.now();
+    assertThatThrownBy(
+            () ->
+                productionService.create(
+                    new com.saproduction.command.production.ProductionService.CreateInput(
+                        "Equal Time Prod",
+                        "Test Client",
+                        null,
+                        today,
+                        LocalTime.of(16, 30),
+                        LocalTime.of(16, 30),
+                        "Equal Time Venue",
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null)))
+        .isInstanceOf(ApiException.class)
+        .satisfies(
+            e -> {
+              ApiException ex = (ApiException) e;
+              assertThat(ex.code).isEqualTo("INVALID_PRODUCTION_TIME");
+              assertThat(ex.getMessage()).contains("End time must be after start time");
+            });
+  }
+
+  @Test
+  void addEquipment_idempotentRetry_doesNotCreateDuplicateReservation() {
+    LocalDate today = LocalDate.now();
+    var created =
+        productionService.create(
+            new com.saproduction.command.production.ProductionService.CreateInput(
+                "Retry Prod",
+                "Test Client",
+                null,
+                today,
+                LocalTime.of(9, 0),
+                LocalTime.of(17, 0),
+                "Retry Venue",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null));
+    UUID retryProd = created.id();
+
+    var input =
+        new com.saproduction.command.production.ProductionService.EquipmentInput(
+            equipment, BigDecimal.valueOf(2), null, null);
+
+    // Call 1
+    var view1 = productionService.addEquipment(retryProd, input);
+    assertThat(view1.equipment()).hasSize(1);
+
+    // Call 2 (retry / double click with identical quantity)
+    var view2 = productionService.addEquipment(retryProd, input);
+    assertThat(view2.equipment()).hasSize(1);
+
+    // Only 1 reservation line in DB
+    var lines = service.equipmentForProduction(retryProd);
+    assertThat(lines).hasSize(1);
+    assertThat((BigDecimal) lines.getFirst().get("quantity")).isEqualByComparingTo("2");
+  }
+
+  @Test
+  void addEquipment_retryWithDifferentQuantity_rejectsWithConflictAndGuidance() {
+    LocalDate today = LocalDate.now();
+    var created =
+        productionService.create(
+            new com.saproduction.command.production.ProductionService.CreateInput(
+                "Qty Prod",
+                "Test Client",
+                null,
+                today,
+                LocalTime.of(9, 0),
+                LocalTime.of(17, 0),
+                "Qty Venue",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null));
+    UUID qtyProd = created.id();
+
+    var initialInput =
+        new com.saproduction.command.production.ProductionService.EquipmentInput(
+            equipment, BigDecimal.valueOf(2), null, null);
+    productionService.addEquipment(qtyProd, initialInput);
+
+    // Attempting to add same equipment with quantity 5 while actively reserved
+    var changedInput =
+        new com.saproduction.command.production.ProductionService.EquipmentInput(
+            equipment, BigDecimal.valueOf(5), null, null);
+
+    assertThatThrownBy(() -> productionService.addEquipment(qtyProd, changedInput))
+        .isInstanceOf(ApiException.class)
+        .satisfies(
+            e -> {
+              ApiException ex = (ApiException) e;
+              assertThat(ex.code).isEqualTo("EQUIPMENT_ALREADY_ASSIGNED");
+              assertThat(ex.getMessage()).contains("Remove the existing assignment first to adjust quantity");
+            });
+  }
+
+  @Test
+  void addEquipment_legitimateQuantityChangeAfterRemoval_succeeds() {
+    LocalDate today = LocalDate.now();
+    var created =
+        productionService.create(
+            new com.saproduction.command.production.ProductionService.CreateInput(
+                "Replace Prod",
+                "Test Client",
+                null,
+                today,
+                LocalTime.of(9, 0),
+                LocalTime.of(17, 0),
+                "Replace Venue",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null));
+    UUID replaceProd = created.id();
+
+    // 1. Initial assignment: 1 unit
+    productionService.addEquipment(
+        replaceProd,
+        new com.saproduction.command.production.ProductionService.EquipmentInput(
+            equipment, BigDecimal.valueOf(1), null, null));
+    var lines1 = service.equipmentForProduction(replaceProd);
+    assertThat(lines1).hasSize(1);
+    assertThat((BigDecimal) lines1.getFirst().get("quantity")).isEqualByComparingTo("1");
+
+    // 2. Remove assignment
+    productionService.removeEquipment(replaceProd, equipment);
+    assertThat(service.equipmentForProduction(replaceProd)).isEmpty();
+
+    // 3. Re-assign with new quantity: 3 units (NOT a permanent no-op)
+    var updatedView =
+        productionService.addEquipment(
+            replaceProd,
+            new com.saproduction.command.production.ProductionService.EquipmentInput(
+                equipment, BigDecimal.valueOf(3), null, null));
+    assertThat(updatedView.equipment()).hasSize(1);
+    assertThat(updatedView.equipment().getFirst().quantity()).isEqualByComparingTo(BigDecimal.valueOf(3));
+
+    var lines2 = service.equipmentForProduction(replaceProd);
+    assertThat(lines2).hasSize(1);
+    assertThat((BigDecimal) lines2.getFirst().get("quantity")).isEqualByComparingTo("3");
   }
 }

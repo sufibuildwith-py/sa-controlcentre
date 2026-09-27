@@ -72,6 +72,25 @@ class EmployeeServiceTest {
             java.util.Map.of("amountMinor", 500_000L, "currency", "INR"));
   }
 
+  @Test
+  void getSummaryReturnsMetricsWhenJdbcAvailable() {
+    EmployeeRepository repository = mock(EmployeeRepository.class);
+    AuditService audit = mock(AuditService.class);
+    org.springframework.jdbc.core.JdbcTemplate jdbc = mock(org.springframework.jdbc.core.JdbcTemplate.class);
+    when(jdbc.queryForObject(anyString(), any(org.springframework.jdbc.core.RowMapper.class), any(LocalDate.class)))
+        .thenReturn(new EmployeeDtos.PeopleSummary(10, 2, 8, 15, 3));
+
+    EmployeeService service =
+        new EmployeeService(repository, audit, mock(DomainEventService.class), jdbc);
+
+    var summary = service.getSummary();
+    assertEquals(10, summary.activeEmployees());
+    assertEquals(2, summary.onLeaveEmployees());
+    assertEquals(8, summary.attendanceToday());
+    assertEquals(15, summary.openTasks());
+    assertEquals(3, summary.overdueTasks());
+  }
+
   private static EmployeeDtos.Input input(long salary) {
     return new EmployeeDtos.Input(
         "SA-100",

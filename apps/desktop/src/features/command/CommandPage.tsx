@@ -1,300 +1,1054 @@
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { motion, useReducedMotion, AnimatePresence, type HTMLMotionProps } from "motion/react";
 import {
+  AlertCircle,
+  ArrowDownLeft,
+  ArrowRight,
   ArrowUpRight,
-  CalendarClock,
-  MessageCircle,
+  Building2,
+  Calendar,
+  CheckCircle2,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  Clapperboard,
+  Clock,
+  CreditCard,
+  DollarSign,
+  ExternalLink,
+  FileText,
+  PieChart,
+  ReceiptText,
+  RefreshCw,
+  ShieldAlert,
   Users,
+  Wallet,
+  Zap,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { WorkspaceHeader } from "../../components/layout/AppShell";
-import {
-  CardHeader,
-  EmptyState,
-  SABentoCard,
-  SABentoGrid,
-  SAProgress,
-  SARadialMetric,
-  SkeletonCard,
-  StatusBadge,
-} from "../../components/ui/sa";
-import { api } from "../../lib/api";
-import type { Dashboard } from "../../types/domain";
-import { financeApi } from "../finance/finance.api";
+import { EmptyState, Tooltip, SAProgress } from "../../components/ui/sa";
+import { commandApi, type CommandAttentionItem, type CommandDashboardView, type DashboardProduction, type DashboardTask } from "./command.api";
+import { CardSpotlight } from "./components/CardSpotlight";
+import { FollowingPointer } from "./components/FollowingPointer";
+import { DirectionAwareHover } from "./components/DirectionAwareHover";
+
 export function CommandPage() {
   const navigate = useNavigate();
-  const dashboard = useQuery({
-    queryKey: ["dashboard"],
-    queryFn: () => api<Dashboard>("/dashboard"),
+  const queryClient = useQueryClient();
+  const reducedMotion = useReducedMotion();
+
+  const [dateStr, setDateStr] = useState<string>("");
+  const [activeOpTab, setActiveOpTab] = useState<"productions" | "tasks" | "attendance">("productions");
+  const [expandedProdId, setExpandedProdId] = useState<string | null>(null);
+  const [taskFilter, setTaskFilter] = useState<"ALL" | "OVERDUE" | "DUE_TODAY" | "PENDING">("ALL");
+
+  const dashboardQuery = useQuery({
+    queryKey: ["command-dashboard", dateStr],
+    queryFn: () => commandApi.dashboard(dateStr || undefined),
+    staleTime: 20000,
   });
-  const finance = useQuery({ queryKey: ["finance", "overview"], queryFn: financeApi.overview, retry: false });
-  const workbookOwners = useQuery({ queryKey: ["finance", "workbook-owners"], queryFn: financeApi.workbookOwners, retry: false, enabled: import.meta.env.VITE_APP_MODE === "demo" });
-  const ownerPosition = (code: "AZ" | "AK") => {
-    if (import.meta.env.VITE_APP_MODE === "demo") {
-      if (workbookOwners.isPending || workbookOwners.isError) return "—";
-      if (workbookOwners.data?.available) return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(workbookOwners.data.owners.find(owner => owner.code === code)?.position ?? 0);
-    }
-    return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(finance.data?.accounts.find(account => account.code === `${code}-2`)?.position ?? 0);
+
+  const handleRefresh = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["command-dashboard"] });
   };
-  const now = new Date();
-  if (dashboard.isPending)
+
+  const shiftDate = (days: number) => {
+    const baseDate = dateStr ? new Date(dateStr) : new Date();
+    baseDate.setDate(baseDate.getDate() + days);
+    setDateStr(baseDate.toISOString().slice(0, 10));
+  };
+
+  const resetToToday = () => {
+    setDateStr("");
+  };
+
+  const toggleExpandProd = (id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setExpandedProdId((prev) => (prev === id ? null : id));
+  };
+
+  const ownerName =
+    import.meta.env.VITE_DESKTOP_RELEASE === "true" ? "Azeem" : "Owner";
+
+  if (dashboardQuery.isPending) {
     return (
-      <>
+      <div className="command-dashboard-shell">
         <WorkspaceHeader
-          title={`${greeting()}, ${import.meta.env.VITE_DESKTOP_RELEASE === "true" ? "Azeem" : "Owner"}.`}
+          title={`${greeting()}, ${ownerName}.`}
           subtitle="Loading the operating picture…"
         />
-        <SkeletonCard />
-      </>
+        <div className="command-skeleton-today">
+          <div className="command-skeleton-card" />
+          <div className="command-skeleton-card" />
+          <div className="command-skeleton-card" />
+          <div className="command-skeleton-card" />
+        </div>
+        <div className="command-skeleton-grid">
+          <div className="command-skeleton-hero" />
+          <div className="command-skeleton-hero" />
+        </div>
+      </div>
     );
-  if (dashboard.isError || !dashboard.data)
+  }
+
+  if (dashboardQuery.isError || !dashboardQuery.data) {
     return (
-      <EmptyState
-        title="Command unavailable"
-        description="Operational aggregates could not be loaded."
-      />
+      <div className="command-dashboard-shell">
+        <WorkspaceHeader
+          title={`${greeting()}, ${ownerName}.`}
+          subtitle="Operating picture unavailable"
+        />
+        <EmptyState
+          title="Command data unavailable"
+          description="Could not load the unified owner dashboard telemetry. Please verify connection and retry."
+          action={
+            <button
+              type="button"
+              className="command-btn-icon-subtle"
+              style={{ width: "auto", padding: "8px 16px" }}
+              onClick={handleRefresh}
+            >
+              <RefreshCw size={14} style={{ marginRight: 6 }} />
+              Retry
+            </button>
+          }
+        />
+      </div>
     );
-  const d = dashboard.data,
-    total = d.team.employees,
-    present = d.team.present + d.team.late,
-    attendancePct = total
-      ? Math.round(((total - d.team.incomplete) / total) * 100)
-      : 0;
-  const load = d.workload.reduce((sum, x) => sum + x.active, 0),
-    overloaded = d.workload.filter(
-      (x) => x.active >= 4 || x.overdue > 0,
-    ).length;
+  }
+
+  const d = dashboardQuery.data;
+  const isTodayView = !dateStr || dateStr === new Date().toISOString().slice(0, 10);
+  const formattedDate = new Date(`${d.date}T00:00:00`).toLocaleDateString("en-IN", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+
+  const anim = (delay: number): HTMLMotionProps<"div"> =>
+    reducedMotion
+      ? {}
+      : {
+          initial: { opacity: 0, y: 8 },
+          animate: { opacity: 1, y: 0 },
+          transition: { duration: 0.22, delay, ease: "easeOut" },
+        };
+
+  // Filter tasks if subfilter selected
+  const filteredTasks = d.operations.pendingWork.filter((t) => {
+    if (taskFilter === "ALL") return true;
+    if (taskFilter === "OVERDUE") return t.isOverdue;
+    if (taskFilter === "DUE_TODAY") return t.bucket === "DUE_TODAY";
+    if (taskFilter === "PENDING") return t.bucket === "PENDING" && !t.isOverdue;
+    return true;
+  });
+
   return (
-    <>
-      <WorkspaceHeader
-        title={`${greeting()}, ${import.meta.env.VITE_DESKTOP_RELEASE === "true" ? "Azeem" : "Owner"}.`}
-        subtitle="Here’s the live operating picture for today."
-      />
-      <SABentoGrid className="command-grid">
-        {finance.data && <SABentoCard interactive className="command-finance-strip" onClick={() => navigate("/finance")}>
-          <span className="eyebrow">Finance · realized position</span>
-          <strong>{new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(finance.data.overallResult)}</strong>
-          <div><span>AZ · {ownerPosition("AZ")}</span><span>AK · {ownerPosition("AK")}</span></div>
-        </SABentoCard>}
-        <SABentoCard className="time-card">
-          <span className="eyebrow">Local time</span>
-          <strong className="hero-time">
-            {now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-          </strong>
-          <p>
-            {now.toLocaleDateString([], {
-              weekday: "long",
-              month: "long",
-              day: "numeric",
-            })}
-          </p>
-          <div className="time-marker">
-            <CalendarClock size={15} />
-            {d.today.length ? `Next: ${d.today[0].title}` : "Schedule is clear"}
-          </div>
-        </SABentoCard>
-        <SABentoCard
-          interactive
-          className="today-card"
-          onClick={() => navigate("/calendar")}
-        >
-          <CardHeader
-            eyebrow="Live schedule"
-            title="Today"
-            action={<ArrowUpRight size={16} />}
-          />
-          <div className="timeline">
-            {d.today.length ? (
-              d.today.slice(0, 3).map((item) => (
-                <div key={item.id}>
-                  <time>
-                    {new Date(item.startsAt).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </time>
-                  <span />
-                  <div>
-                    <strong>{item.title}</strong>
-                    <small>{item.type}</small>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="muted">No scheduled commitments today.</p>
-            )}
-          </div>
-        </SABentoCard>
-        <SABentoCard className="team-card">
-          <CardHeader eyebrow="Live attendance" title="Team status" />
-          <div className="team-content">
-            <SARadialMetric
-              value={attendancePct}
-              label={`${total - d.team.incomplete} of ${total} accounted`}
-            />
-            <div className="team-breakdown">
-              <div>
-                <span>Present</span>
-                <strong>{d.team.present}</strong>
-              </div>
-              <div>
-                <span>Late</span>
-                <strong>{d.team.late}</strong>
-              </div>
-              <div>
-                <span>Absent</span>
-                <strong>{d.team.absent}</strong>
-              </div>
-              <div>
-                <span>Leave</span>
-                <strong>{d.team.leave}</strong>
-              </div>
-            </div>
-          </div>
-        </SABentoCard>
-        <SABentoCard
-          interactive
-          className="attendance-card"
-          onClick={() => navigate("/attendance")}
-        >
-          <CardHeader eyebrow="Attendance" title="Today" />
-          <strong className="compact-metric">{present}</strong>
-          <span className="muted">present or checked in</span>
-          <div className="mini-footer">
-            <Users size={15} />
-            {total} active people
-          </div>
-        </SABentoCard>
-        <SABentoCard
-          interactive
-          className="comms-card"
-          onClick={() => navigate("/communications")}
-        >
-          <CardHeader eyebrow="Live delivery" title="Communications" />
-          <div className="donut-mini">
-            <MessageCircle size={19} />
-            <strong>{d.communications.delivered}</strong>
-            <span>delivered or read</span>
-          </div>
-          <div className="inline-stats">
-            <span>{d.communications.awaitingResponse} awaiting response</span>
-            <span className={d.communications.failed ? "danger-text" : ""}>
-              {d.communications.failed} failed
+    <div className="command-dashboard-shell">
+      {/* 1. Header & Date Control Bar */}
+      <motion.div {...anim(0)}>
+        <WorkspaceHeader
+          title={`${greeting()}, ${ownerName}.`}
+          subtitle="Executive operating console · Authoritative canonical telemetry"
+        />
+        <div className="command-header-bar">
+          <div className="command-header-left">
+            <span className="command-system-status">
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: "50%",
+                  backgroundColor:
+                    d.money.reconciliationStatus === "BROKEN"
+                      ? "#ef4444"
+                      : d.money.reconciliationStatus === "WARNING"
+                        ? "#f59e0b"
+                        : "#10b981",
+                }}
+              />
+              {d.money.reconciliationStatus === "BROKEN"
+                ? "Reconciliation Issue"
+                : d.money.reconciliationStatus === "WARNING"
+                  ? "Reconciliation Warning"
+                  : "Finance Reconciled"}
+            </span>
+            <span style={{ fontSize: "12px", color: "var(--text-3)" }}>
+              Viewing {isTodayView ? "Today" : d.date}
             </span>
           </div>
-        </SABentoCard>
-        <SABentoCard
-          interactive
-          className="productions-card"
+
+          <div className="command-header-date-controls">
+            <button
+              type="button"
+              className="command-btn-icon-subtle"
+              onClick={() => shiftDate(-1)}
+              aria-label="Previous day"
+              title="Previous day"
+            >
+              <ChevronLeft size={16} />
+            </button>
+
+            <button
+              type="button"
+              className="command-btn-icon-subtle"
+              style={{
+                width: "auto",
+                padding: "0 12px",
+                fontWeight: isTodayView ? 600 : 400,
+                color: isTodayView ? "var(--text-1)" : "var(--text-2)",
+              }}
+              onClick={resetToToday}
+            >
+              Today
+            </button>
+
+            <button
+              type="button"
+              className="command-btn-icon-subtle"
+              onClick={() => shiftDate(1)}
+              aria-label="Next day"
+              title="Next day"
+            >
+              <ChevronRight size={16} />
+            </button>
+
+            <div className="command-date-pill">
+              <Calendar size={14} style={{ color: "var(--text-3)" }} />
+              <input
+                type="date"
+                className="command-date-input"
+                value={dateStr || d.date}
+                onChange={(e) => setDateStr(e.target.value)}
+                aria-label="Select custom business date"
+              />
+              <span style={{ color: "var(--text-2)", marginLeft: 2 }}>{formattedDate}</span>
+            </div>
+
+            <button
+              type="button"
+              className="command-btn-icon-subtle"
+              onClick={handleRefresh}
+              aria-label="Refresh dashboard telemetry"
+              title="Refresh telemetry"
+            >
+              <RefreshCw
+                size={14}
+                className={dashboardQuery.isFetching ? "spin" : ""}
+              />
+            </button>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* 2. Today Summary Row (Command Strip) */}
+      <motion.div className="command-today-strip" {...anim(0.05)}>
+        {/* Productions */}
+        <div
+          className="command-today-metric-card"
           onClick={() => navigate("/productions")}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === "Enter" && navigate("/productions")}
         >
-          <CardHeader
-            eyebrow="Live operations"
-            title="Active productions"
-            action={
-              <StatusBadge tone="success">
-                {d.productions.length} active
-              </StatusBadge>
-            }
-          />
-          <div className="production-list">
-            {d.productions.slice(0, 2).map((p) => (
-              <div key={p.id}>
-                <div>
-                  <strong>{p.title}</strong>
-                  <span>
-                    {p.status.replaceAll("_", " ")} ·{" "}
-                    {new Date(`${p.eventDate}T00:00`).toLocaleDateString(
-                      "en-IN",
-                      { day: "2-digit", month: "short" },
-                    )}
-                  </span>
-                </div>
-                <div>
-                  <b>{p.progressPercent}%</b>
-                  <SAProgress value={p.progressPercent} />
-                </div>
-              </div>
-            ))}
+          <div className="command-today-metric-top">
+            <span className="command-today-metric-label">Productions</span>
+            <Clapperboard size={15} style={{ color: "var(--text-3)" }} />
           </div>
-        </SABentoCard>
-        <SABentoCard
-          interactive
-          className="workload-card"
+          <strong className="command-today-metric-value">{d.today.productions}</strong>
+          <div className="command-today-metric-footer">
+            <span>
+              {d.today.productions > 0 ? "Scheduled commitments today" : "No productions today"}
+            </span>
+            <ArrowUpRight size={13} style={{ marginLeft: "auto", color: "var(--text-3)" }} />
+          </div>
+        </div>
+
+        {/* Tasks */}
+        <div
+          className="command-today-metric-card"
           onClick={() => navigate("/work")}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === "Enter" && navigate("/work")}
         >
-          <CardHeader eyebrow="Live tasks" title="Workload" />
-          <div className="workload-ring">
-            <SARadialMetric
-              value={Math.min(
-                100,
-                Math.round((load / Math.max(total * 4, 1)) * 100),
-              )}
-              label={`${load} active tasks`}
-            />
+          <div className="command-today-metric-top">
+            <span className="command-today-metric-label">Tasks Due</span>
+            <Clock size={15} style={{ color: "var(--text-3)" }} />
           </div>
-          <p>
-            <strong>{overloaded}</strong> crew members need review
-          </p>
-        </SABentoCard>
-        <SABentoCard
-          interactive
-          className="payroll-card"
-          onClick={() => navigate("/payroll")}
+          <strong className="command-today-metric-value">{d.today.tasks}</strong>
+          <div className="command-today-metric-footer">
+            <span>{d.today.tasks > 0 ? "Operational tasks due today" : "Schedule is clear"}</span>
+            <ArrowUpRight size={13} style={{ marginLeft: "auto", color: "var(--text-3)" }} />
+          </div>
+        </div>
+
+        {/* Attendance */}
+        <div
+          className="command-today-metric-card"
+          onClick={() => navigate("/attendance")}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === "Enter" && navigate("/attendance")}
         >
-          <CardHeader eyebrow="Financial record" title="Payroll" />
-          <strong className="compact-metric">
-            {d.payroll ? money(d.payroll.totalMinor) : "Not calculated"}
+          <div className="command-today-metric-top">
+            <span className="command-today-metric-label">Attendance</span>
+            <Users size={15} style={{ color: "var(--text-3)" }} />
+          </div>
+          <strong className="command-today-metric-value">{d.today.attendanceExceptions}</strong>
+          <div className="command-today-metric-footer">
+            <span>
+              {d.today.attendanceExceptions > 0
+                ? "Exceptions need review"
+                : "All members accounted for"}
+            </span>
+            <ArrowUpRight size={13} style={{ marginLeft: "auto", color: "var(--text-3)" }} />
+          </div>
+        </div>
+
+        {/* Money Today */}
+        <div
+          className="command-today-metric-card"
+          onClick={() => navigate("/finance")}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === "Enter" && navigate("/finance")}
+        >
+          <div className="command-today-metric-top">
+            <span className="command-today-metric-label">Money Today</span>
+            <CreditCard size={15} style={{ color: "var(--text-3)" }} />
+          </div>
+          <strong className="command-today-metric-value">
+            {formatInr(d.today.moneyMovement.received)}
           </strong>
-          <span className="muted">
-            {d.payroll
-              ? `${money(d.payroll.paidMinor)} paid · ${money(d.payroll.pendingMinor)} remaining`
-              : "Current period"}
-          </span>
-          {d.payroll &&
-            (d.payroll.partiallyPaidCount > 0 || d.payroll.unpaidCount > 0) && (
-              <span className="muted">
-                {d.payroll.partiallyPaidCount} partially paid ·{" "}
-                {d.payroll.unpaidCount} unpaid
-              </span>
-            )}
-          <StatusBadge
-            tone={d.payroll?.status === "LOCKED" ? "success" : "neutral"}
-          >
-            {d.payroll?.status ?? "ACTION NEEDED"}
-          </StatusBadge>
-        </SABentoCard>
-        <SABentoCard className="attention-card">
-          <CardHeader eyebrow="Owner queue" title="Needs attention" />
-          <div className="attention-list">
-            {d.attention.slice(0, 3).map((item) => (
-              <div key={item.code} onClick={() => navigate(item.href)}>
-                <StatusBadge tone={item.tone}>
-                  {item.tone === "danger" ? "Urgent" : "Review"}
-                </StatusBadge>
-                <div>
-                  <strong>{item.title}</strong>
-                  <span>{item.detail}</span>
-                </div>
-                <ArrowUpRight size={15} />
-              </div>
-            ))}
+          <div className="command-today-metric-footer">
+            <span>
+              Out: {formatInr(d.today.moneyMovement.disbursed)} ({d.today.moneyMovement.transactionCount} txs)
+            </span>
+            <ArrowUpRight size={13} style={{ marginLeft: "auto", color: "var(--text-3)" }} />
           </div>
-        </SABentoCard>
-      </SABentoGrid>
-    </>
+        </div>
+      </motion.div>
+
+      {/* 3. Primary Grid: Business Position + Attention Queue */}
+      <motion.div className="command-primary-grid" {...anim(0.1)}>
+        {/* Business Position Hero Card with Spotlight */}
+        <FollowingPointer
+          content={
+            <div>
+              <strong>Canonical Finance Core</strong>
+              <p style={{ margin: "2px 0 0", fontSize: "11px", color: "var(--text-3)" }}>
+                Click to explore ledger journals & account balances.
+              </p>
+            </div>
+          }
+        >
+          <CardSpotlight interactive onClick={() => navigate("/finance")}>
+            <div className="command-money-hero-header">
+              <div className="command-money-title-group">
+                <h2>Business Position</h2>
+                <div
+                  className={`command-money-hero-amount ${
+                    d.money.businessPosition >= 0 ? "positive" : "negative"
+                  }`}
+                >
+                  {formatInr(d.money.businessPosition)}
+                </div>
+              </div>
+
+              <Tooltip content="Reconciliation Control: Compares total journal postings to physical owner balances. Click to open control plane.">
+                <div
+                  className={`command-money-badge status-${d.money.reconciliationStatus.toLowerCase()}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate("/finance?tab=RECONCILIATION");
+                  }}
+                  role="button"
+                  tabIndex={0}
+                >
+                  <span
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: "50%",
+                      backgroundColor: "currentColor",
+                    }}
+                  />
+                  {d.money.reconciliationStatus}
+                </div>
+              </Tooltip>
+            </div>
+
+            {/* Owner Account Positions */}
+            <div className="command-owner-positions-grid">
+              <Tooltip content="Azeem (AZ-2): Current balance of owner capital. Negative position indicates capital drawn or funded beyond current balance, not third-party debt.">
+                <div
+                  className="command-position-tile"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate("/finance?tab=OWNERS");
+                  }}
+                >
+                  <div className="tile-label">
+                    <span>Azeem (AZ-2)</span>
+                    <ArrowUpRight size={13} />
+                  </div>
+                  <strong className="tile-value">{formatInr(d.money.azeemPosition)}</strong>
+                  <span className="tile-hint">Owner capital position</span>
+                </div>
+              </Tooltip>
+
+              <Tooltip content="Akash (AK-2): Current balance of owner capital associated with AK-2 account.">
+                <div
+                  className="command-position-tile"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate("/finance?tab=OWNERS");
+                  }}
+                >
+                  <div className="tile-label">
+                    <span>Akash (AK-2)</span>
+                    <ArrowUpRight size={13} />
+                  </div>
+                  <strong className="tile-value">{formatInr(d.money.akashPosition)}</strong>
+                  <span className="tile-hint">Owner capital position</span>
+                </div>
+              </Tooltip>
+            </div>
+
+            {/* Receivables & Payables Breakdown */}
+            <div className="command-receivables-breakdown">
+              <Tooltip content="Direct counterparty charges outstanding on the direct ledger track.">
+                <div
+                  className="command-sub-metric"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate("/finance?tab=PARTIES");
+                  }}
+                >
+                  <span>Party Charges</span>
+                  <strong>{formatInr(d.money.customerReceivable)}</strong>
+                </div>
+              </Tooltip>
+
+              <Tooltip content="Formal GST / standard invoices pending payment on the invoice track.">
+                <div
+                  className="command-sub-metric"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate("/finance?tab=INVOICES");
+                  }}
+                >
+                  <span>Formal Invoices</span>
+                  <strong>{formatInr(d.money.invoiceReceivable)}</strong>
+                </div>
+              </Tooltip>
+
+              <Tooltip content="Pending salary and manual earning obligations owed to employees.">
+                <div
+                  className="command-sub-metric"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate("/payroll");
+                  }}
+                >
+                  <span>Crew Payable</span>
+                  <strong>{formatInr(d.money.employeePayable)}</strong>
+                </div>
+              </Tooltip>
+            </div>
+          </CardSpotlight>
+        </FollowingPointer>
+
+        {/* Attention Center Panel (Phase 3 Centerpiece — Actionable Queue) */}
+        <div className="command-panel-card command-attention-panel">
+          <div className="command-attention-header">
+            <h3>Attention Queue ({d.attention.length})</h3>
+            <span style={{ fontSize: "11.5px", color: "var(--text-3)" }}>
+              {d.attention.length ? "Deterministic actions" : "Clear"}
+            </span>
+          </div>
+
+          <div className="command-attention-list">
+            {d.attention.length > 0 ? (
+              d.attention.map((item, i) => (
+                <motion.div
+                  key={item.id}
+                  initial={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.18, delay: reducedMotion ? 0 : i * 0.05, ease: "easeOut" }}
+                >
+                  <DirectionAwareHover
+                    onClick={() => navigate(item.route)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => e.key === "Enter" && navigate(item.route)}
+                    aria-label={`${item.severity} alert: ${item.title}`}
+                  >
+                    <div className="command-attention-card">
+                      {/* Top Row: Severity + Category + Amount */}
+                      <div className="command-attention-top">
+                        <div className="command-attention-badge-group">
+                          <span
+                            className={`command-severity-pill severity-${item.severity.toLowerCase()}`}
+                          >
+                            <span
+                              style={{
+                                width: 5,
+                                height: 5,
+                                borderRadius: "50%",
+                                backgroundColor: "currentColor",
+                              }}
+                            />
+                            {item.severity}
+                          </span>
+                          <span className="command-category-pill">{item.category}</span>
+                        </div>
+
+                        {item.amount != null && item.amount > 0 && (
+                          <span className="command-attention-amount-pill">
+                            {formatInr(item.amount)}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Headline and Description */}
+                      <div className="command-attention-body">
+                        <strong>{item.title}</strong>
+                        <p>{item.description}</p>
+                      </div>
+
+                      {/* Rationale / Why this matters */}
+                      {item.reason && (
+                        <div className="command-attention-reason">
+                          <span>Why:</span>
+                          <em>{item.reason}</em>
+                        </div>
+                      )}
+
+                      {/* Phase 3: Named action footer — specific to item type */}
+                      <div className="command-attention-footer">
+                        <span className="command-attention-action-label">
+                          {attentionActionLabel(item)}
+                        </span>
+                        <ExternalLink size={12} />
+                      </div>
+                    </div>
+                  </DirectionAwareHover>
+                </motion.div>
+              ))
+            ) : (
+              <div className="command-attention-clear">
+                <CheckCircle2 size={30} style={{ color: "#10b981", strokeWidth: 1.5 }} />
+                <strong>Everything is clear</strong>
+                <p>No operational or financial exceptions need attention right now.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </motion.div>
+
+      {/* 4. Secondary Grid: Operations & Activity Timeline */}
+      <motion.div className="command-secondary-grid" {...anim(0.15)}>
+        {/* Operations Panel with Animated Tabs */}
+        <div className="command-panel-card">
+          <div className="command-panel-header">
+            <h3>Operations</h3>
+            <div className="command-operations-tabs" role="tablist">
+              {(
+                [
+                  { id: "productions", label: `Productions (${d.operations.upcomingProductions.length})` },
+                  { id: "tasks", label: `Tasks (${d.operations.pendingWork.length})` },
+                  { id: "attendance", label: `Exceptions (${d.operations.attendanceExceptions.length})` },
+                ] as const
+              ).map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeOpTab === tab.id}
+                  className={`command-tab-btn ${activeOpTab === tab.id ? "active" : ""}`}
+                  onClick={() => setActiveOpTab(tab.id)}
+                >
+                  {tab.label}
+                  {activeOpTab === tab.id && !reducedMotion && (
+                    <motion.div
+                      layoutId="command-ops-indicator"
+                      className="command-tab-indicator"
+                      transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                      style={{ inset: 0 }}
+                    />
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="command-operations-list">
+            {/* PRODUCTIONS TAB */}
+            {activeOpTab === "productions" && (
+              <>
+                {d.operations.upcomingProductions.length > 0 ? (
+                  d.operations.upcomingProductions.map((p) => {
+                    const isExpanded = expandedProdId === p.id;
+                    const contracted = p.contractedAmount ?? 0;
+                    const received = p.receivedAmount ?? 0;
+                    const balance = Math.max(0, contracted - received);
+
+                    return (
+                      <div key={p.id} className="command-prod-card">
+                        <div
+                          className="command-prod-main"
+                          onClick={() => toggleExpandProd(p.id)}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => e.key === "Enter" && toggleExpandProd(p.id)}
+                          aria-expanded={isExpanded}
+                        >
+                          <div className="command-prod-info">
+                            <strong>{p.title}</strong>
+                            <span>
+                              {p.clientName} · {p.venueName} ·{" "}
+                              {new Date(`${p.eventDate}T00:00:00`).toLocaleDateString("en-IN", {
+                                day: "2-digit",
+                                month: "short",
+                              })}
+                            </span>
+                          </div>
+
+                          <div className="command-prod-right">
+                            <div style={{ width: 75, textAlign: "right" }}>
+                              <span style={{ fontSize: "11px", fontWeight: 600 }}>
+                                {p.progressPercent}%
+                              </span>
+                              <SAProgress value={p.progressPercent} />
+                            </div>
+                            <span
+                              style={{
+                                color: "var(--text-3)",
+                                display: "inline-flex",
+                                alignItems: "center",
+                              }}
+                            >
+                              {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Expandable Drawer with Financial & Task Detail */}
+                        <AnimatePresence>
+                          {isExpanded && (
+                            <motion.div
+                              initial={reducedMotion ? { opacity: 0 } : { height: 0, opacity: 0 }}
+                              animate={{ height: "auto", opacity: 1 }}
+                              exit={reducedMotion ? { opacity: 0 } : { height: 0, opacity: 0 }}
+                              transition={{ duration: 0.18, ease: "easeOut" }}
+                              className="command-prod-drawer"
+                            >
+                              <div className="command-prod-finance-grid">
+                                <div className="command-prod-finance-tile">
+                                  <span>Contracted</span>
+                                  <strong>{formatInr(contracted)}</strong>
+                                </div>
+                                <div className="command-prod-finance-tile">
+                                  <span>Received</span>
+                                  <strong>{formatInr(received)}</strong>
+                                </div>
+                                <div className="command-prod-finance-tile">
+                                  <span>Unsettled</span>
+                                  <strong style={{ color: balance > 0 ? "#f59e0b" : "var(--text-1)" }}>
+                                    {formatInr(balance)}
+                                  </strong>
+                                </div>
+                              </div>
+
+                              <div className="command-prod-drawer-footer">
+                                <span>
+                                  {p.openTaskCount} open of {p.taskCount} operational tasks
+                                  {p.startTime ? ` · ${p.startTime.slice(0, 5)}–${p.endTime?.slice(0, 5) ?? ""}` : ""}
+                                </span>
+
+                                <button
+                                  type="button"
+                                  className="command-prod-link-btn"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate(`/productions/${p.id}`);
+                                  }}
+                                >
+                                  Open Detail
+                                  <ArrowUpRight size={13} />
+                                </button>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <p style={{ fontSize: "12.5px", color: "var(--text-3)", padding: "16px 0" }}>
+                    No upcoming productions scheduled.
+                  </p>
+                )}
+              </>
+            )}
+
+            {/* TASKS TAB */}
+            {activeOpTab === "tasks" && (
+              <>
+                <div className="command-task-subfilters" role="group" aria-label="Task category filter">
+                  {(
+                    [
+                      { id: "ALL", label: "All" },
+                      { id: "OVERDUE", label: "Overdue" },
+                      { id: "DUE_TODAY", label: "Due Today" },
+                      { id: "PENDING", label: "Pending" },
+                    ] as const
+                  ).map((f) => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      className={`command-task-subfilter-btn ${taskFilter === f.id ? "active" : ""}`}
+                      onClick={() => setTaskFilter(f.id)}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+
+                {filteredTasks.length > 0 ? (
+                  filteredTasks.map((t) => (
+                    <div
+                      key={t.id}
+                      className="command-task-item"
+                      onClick={() => navigate(t.isOverdue ? "/work?view=OVERDUE" : "/work")}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => e.key === "Enter" && navigate("/work")}
+                    >
+                      <div className="command-op-info">
+                        <strong>{t.title}</strong>
+                        <span>
+                          {t.assignedEmployeeName ?? "Unassigned"}
+                          {t.productionTitle ? ` · ${t.productionTitle}` : ""}
+                        </span>
+                      </div>
+
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span className={`command-task-bucket-badge bucket-${t.bucket.toLowerCase()}`}>
+                          {t.bucket === "DUE_TODAY" ? "Today" : t.bucket === "OVERDUE" ? "Overdue" : "Pending"}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: "11px",
+                            fontWeight: 560,
+                            color: t.priority === "URGENT" || t.priority === "HIGH" ? "#ef4444" : "var(--text-3)",
+                          }}
+                        >
+                          {t.priority}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p style={{ fontSize: "12.5px", color: "var(--text-3)", padding: "16px 0" }}>
+                    No tasks matching this filter.
+                  </p>
+                )}
+              </>
+            )}
+
+            {/* ATTENDANCE TAB */}
+            {activeOpTab === "attendance" && (
+              <>
+                {d.operations.attendanceExceptions.length > 0 ? (
+                  d.operations.attendanceExceptions.map((ex) => (
+                    <div
+                      key={ex.employeeId}
+                      className="command-attendance-row"
+                      onClick={() => navigate("/attendance")}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => e.key === "Enter" && navigate("/attendance")}
+                    >
+                      <div className="command-op-info">
+                        <strong>{ex.employeeName}</strong>
+                        <span>
+                          {ex.status === "LATE" && ex.minutesLate
+                            ? `Late by ${ex.minutesLate} mins`
+                            : ex.status === "ABSENT"
+                              ? "Marked absent today"
+                              : "No check-in recorded"}
+                          {ex.notes ? ` · ${ex.notes}` : ""}
+                        </span>
+                      </div>
+
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span
+                          style={{
+                            fontSize: "11px",
+                            fontWeight: 600,
+                            padding: "2px 7px",
+                            borderRadius: 6,
+                            color: ex.status === "ABSENT" ? "#dc2626" : "#d97706",
+                            background:
+                              ex.status === "ABSENT" ? "rgba(239, 68, 68, 0.12)" : "rgba(245, 158, 11, 0.12)",
+                          }}
+                        >
+                          {ex.status === "UNRECORDED" ? "Missing" : ex.status}
+                        </span>
+                        <ArrowUpRight size={13} style={{ color: "var(--text-3)" }} />
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p style={{ fontSize: "12.5px", color: "var(--text-3)", padding: "16px 0" }}>
+                    Full team attendance accounted for today.
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Recent Financial Movement */}
+        <div className="command-panel-card">
+          <div className="command-panel-header">
+            <h3>Recent Financial Activity</h3>
+            <span
+              style={{
+                fontSize: "11.5px",
+                color: "var(--text-3)",
+                cursor: "pointer",
+              }}
+              role="button"
+              tabIndex={0}
+              onClick={() => navigate("/finance?tab=TRANSACTIONS")}
+              onKeyDown={(e) => e.key === "Enter" && navigate("/finance?tab=TRANSACTIONS")}
+            >
+              View ledger →
+            </span>
+          </div>
+
+          <div className="command-timeline-list">
+            {d.recentFinancialActivity.length > 0 ? (
+              d.recentFinancialActivity.map((tx) => {
+                const isPositive =
+                  tx.type.includes("RECEIPT") || tx.type === "INVOICE_PAYMENT";
+                const entity =
+                  tx.counterpartyName || tx.employeeName || tx.productionTitle || "Operating";
+                const txRoute = activityRoute(tx.type);
+                return (
+                  <div
+                    key={tx.id}
+                    className="command-timeline-row"
+                    onClick={() => navigate(txRoute)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => e.key === "Enter" && navigate(txRoute)}
+                    aria-label={`${formatTxType(tx.type)}: ${entity} — ${formatInr(tx.amount)}`}
+                  >
+                    <div className="command-timeline-left">
+                      <span className="command-timeline-badge">{formatTxType(tx.type)}</span>
+                      <div className="command-timeline-desc">
+                        <strong>{entity}</strong>
+                        <span>{tx.description}</span>
+                      </div>
+                    </div>
+                    <div className="command-timeline-right">
+                      <strong
+                        className={`command-timeline-amount ${
+                          isPositive ? "positive" : "neutral"
+                        }`}
+                      >
+                        {isPositive ? "+" : "-"}
+                        {formatInr(tx.amount)}
+                      </strong>
+                      <span className="command-timeline-date">
+                        {tx.date}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <p style={{ fontSize: "12.5px", color: "var(--text-3)", padding: "16px 0" }}>
+                No recent financial transactions posted.
+              </p>
+            )}
+          </div>
+        </div>
+      </motion.div>
+
+      {/* 5. Quick Actions Dock — Phase 3 polished command surface */}
+      <motion.div className="command-quick-actions-bar" {...anim(0.2)}>
+        <div className="command-dock-label">
+          <Zap size={12} style={{ color: "var(--text-3)" }} />
+          <span>Quick Actions</span>
+        </div>
+
+        <div className="command-dock-separator" aria-hidden="true" />
+
+        {(
+          [
+            {
+              id: "new-production",
+              label: "New Production",
+              hint: "Productions",
+              icon: <Clapperboard size={14} />,
+              route: "/productions?create=production",
+            },
+            {
+              id: "record-receipt",
+              label: "Record Receipt",
+              hint: "Finance · Production Receipt",
+              icon: <ArrowDownLeft size={14} />,
+              route: "/finance?tab=PRODUCTIONS",
+            },
+            {
+              id: "log-expense",
+              label: "Log Expense",
+              hint: "Finance overview",
+              icon: <ReceiptText size={14} />,
+              route: "/finance",
+            },
+            {
+              id: "disburse-salary",
+              label: "Disburse Salary",
+              hint: "Payroll",
+              icon: <Wallet size={14} />,
+              route: "/payroll",
+            },
+            {
+              id: "create-bill",
+              label: "Create Bill",
+              hint: "Billing",
+              icon: <FileText size={14} />,
+              route: "/billing",
+            },
+            {
+              id: "finance-console",
+              label: "Finance Console",
+              hint: "Finance overview",
+              icon: <PieChart size={14} />,
+              route: "/finance",
+            },
+          ] as const
+        ).map((action, i) => (
+          <motion.div
+            key={action.id}
+            initial={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.16, delay: reducedMotion ? 0 : 0.22 + i * 0.04, ease: "easeOut" }}
+          >
+            <Tooltip content={action.hint}>
+              <button
+                type="button"
+                className="command-quick-action-btn"
+                onClick={() => navigate(action.route)}
+                aria-label={action.label}
+              >
+                {action.icon}
+                {action.label}
+              </button>
+            </Tooltip>
+          </motion.div>
+        ))}
+      </motion.div>
+    </div>
   );
 }
+
 function greeting() {
   const h = new Date().getHours();
   return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
 }
-const money = (minor: number) =>
-  new Intl.NumberFormat("en-IN", {
+
+function formatInr(val?: number | null) {
+  if (val == null || isNaN(val)) return "₹0";
+  return new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
     maximumFractionDigits: 0,
-  }).format(minor / 100);
-const month = (n: number) =>
-  new Intl.DateTimeFormat("en-IN", { month: "long" }).format(
-    new Date(2026, n - 1, 1),
-  );
+  }).format(val);
+}
+
+function formatTxType(type: string) {
+  switch (type) {
+    case "PRODUCTION_RECEIPT":
+    case "COUNTERPARTY_RECEIPT":
+      return "Receipt";
+    case "INVOICE_PAYMENT":
+      return "Invoice Paid";
+    case "PRODUCTION_EXPENSE":
+    case "GENERAL_EXPENSE":
+      return "Expense";
+    case "EMPLOYEE_PAYMENT":
+      return "Payroll";
+    case "EMPLOYEE_EARNING":
+    case "MONTHLY_SALARY_ACCRUAL":
+      return "Accrual";
+    default:
+      return type.replace(/_/g, " ").toLowerCase();
+  }
+}
+
+/**
+ * Phase 3: Maps financial activity transaction type to the most relevant
+ * Finance tab deep-link. This is a presentation-only helper — it does not
+ * change any financial data. The canonical Finance page remains authoritative.
+ */
+function activityRoute(type: string): string {
+  if (type === "COUNTERPARTY_RECEIPT" || type === "COUNTERPARTY_CHARGE") {
+    return "/finance?tab=PARTIES";
+  }
+  if (type === "INVOICE_PAYMENT") {
+    return "/finance?tab=INVOICES";
+  }
+  if (type === "PRODUCTION_RECEIPT" || type === "PRODUCTION_EXPENSE") {
+    return "/finance?tab=PRODUCTIONS";
+  }
+  if (
+    type === "EMPLOYEE_PAYMENT" ||
+    type === "EMPLOYEE_EARNING" ||
+    type === "MONTHLY_SALARY_ACCRUAL"
+  ) {
+    return "/finance?tab=EMPLOYEES";
+  }
+  if (type === "EQUIPMENT_PURCHASE" || type === "EQUIPMENT_PAYMENT") {
+    return "/finance?tab=EQUIPMENT";
+  }
+  if (type === "OWNER_CREDIT" || type === "OWNER_DEBIT" || type === "TRANSFER") {
+    return "/finance?tab=OWNERS";
+  }
+  return "/finance?tab=TRANSACTIONS";
+}
+
+/**
+ * Phase 3: Returns a specific named action label for each attention item type,
+ * replacing the generic "Investigate →" text. The action describes where the
+ * owner will go and what they can do there. No new routes are invented.
+ */
+function attentionActionLabel(item: CommandAttentionItem): string {
+  switch (item.type) {
+    case "RECONCILIATION_BROKEN":
+      return "Open Reconciliation Control";
+    case "RECONCILIATION_WARNING":
+      return "Review Reconciliation";
+    case "OVERDUE_INVOICES":
+      return "Review Invoices";
+    case "UNPAID_SALARY":
+      return "Process Payroll";
+    case "OVERDUE_TASKS":
+      return "View Overdue Tasks";
+    case "ATTENDANCE_INCOMPLETE":
+      return "Mark Attendance";
+    default:
+      return "Investigate";
+  }
+}

@@ -220,8 +220,7 @@ describe("EmployeeDetailPage — Phase 2 Employee Finance", () => {
     ).toBeInTheDocument();
 
     const payerSelect = screen.getByLabelText("Payout payer account");
-    expect(payerSelect).toHaveValue("AZ-2");
-    await userEvent.selectOptions(payerSelect, "AK-2");
+    expect(payerSelect).toHaveValue("");
 
     const amountInput = screen.getByLabelText("Payout amount");
     await userEvent.clear(amountInput);
@@ -232,6 +231,11 @@ describe("EmployeeDetailPage — Phase 2 Employee Finance", () => {
     await userEvent.type(descInput, "Partial payout installment");
 
     const submitBtn = screen.getByRole("button", { name: "Record Payout" });
+    expect(submitBtn).toBeDisabled();
+
+    // Select explicit owner account AK-2
+    await userEvent.selectOptions(payerSelect, "AK-2");
+    expect(submitBtn).not.toBeDisabled();
     await userEvent.click(submitBtn);
 
     await waitFor(() => {
@@ -275,6 +279,10 @@ describe("EmployeeDetailPage — Phase 2 Employee Finance", () => {
       await screen.findByRole("heading", { name: "Record Employee Payout" }),
     ).toBeInTheDocument();
 
+    const payerSelect = screen.getByLabelText("Payout payer account");
+    expect(payerSelect).toHaveValue("");
+    await userEvent.selectOptions(payerSelect, "AZ-2");
+
     const amountInput = screen.getByLabelText("Payout amount");
     await userEvent.clear(amountInput);
     await userEvent.type(amountInput, "15000");
@@ -303,5 +311,113 @@ describe("EmployeeDetailPage — Phase 2 Employee Finance", () => {
       .calls[1][0].idempotencyKey;
     // CRITICAL: idempotencyKey must be identical across retries
     expect(secondKey).toBe(firstKey);
+  });
+
+  it("renders Employee 360 command grid in overview tab and enables disbursement action with explicit payer selection", async () => {
+    const mockEmployee360 = {
+      employee: mockEmployee,
+      today: {
+        date: "2026-09-27",
+        attendance: {
+          id: "att-1",
+          employeeId: "e1",
+          date: "2026-09-27",
+          status: "PRESENT" as const,
+          checkInTime: "09:30:00",
+          checkOutTime: "18:15:00",
+          minutesLate: 0,
+          updatedAt: "2026-09-27T09:30:00Z",
+        },
+        activeOrPendingLeave: null,
+        activeTasksCount: 4,
+        overdueTasksCount: 1,
+        activeProductionsCount: 1,
+      },
+      money: {
+        earned: 65000,
+        paid: 30000,
+        outstanding: 35000,
+        baseSalaryMinor: 4_500_000,
+        salaryCurrency: "INR",
+        currentPayrollStatus: "PAID",
+        latestPayrollPeriod: "2026-09",
+      },
+      operations: {
+        activeProductionsCount: 1,
+        completedProductionsCount: 12,
+        tasksAssigned: 4,
+        tasksCompleted: 12,
+        overdueTasks: 1,
+        activeProductions: [
+          {
+            id: "prod-1",
+            title: "Royal Wedding Lucknow",
+            role: "Audio Lead",
+            eventDate: "2026-10-01",
+            status: "ACTIVE",
+          },
+        ],
+      },
+      performance: {
+        attendanceRecords: 26,
+        attended: 25,
+        lateCount: 1,
+        attendanceRate: 96,
+        onTimeCompletionRate: 92,
+      },
+      communication: {
+        totalMessages: 18,
+        lastContactAt: "2026-09-25T10:00:00Z",
+        canMessage: true,
+      },
+      navigator: {
+        enabled: true,
+        isPaired: true,
+        deviceStatus: "ONLINE",
+        lastSyncAt: "2026-09-27T08:00:00Z",
+      },
+    };
+
+    vi.mocked(api).mockImplementation((path: string) => {
+      if (path === "/employees/e1") return Promise.resolve(mockEmployee);
+      if (path === "/employees/e1/360") return Promise.resolve(mockEmployee360);
+      if (path === "/productions") return Promise.resolve([{ id: "prod-1", title: "Royal Wedding Lucknow" }]);
+      return Promise.resolve(null);
+    });
+
+    renderPage("e1", "?tab=overview");
+
+    await waitFor(() => {
+      expect(screen.getByText("Amaan Khan")).toBeInTheDocument();
+    });
+
+    // Overview 360 pillars
+    expect(screen.getByText("Today's Status")).toBeInTheDocument();
+    expect(screen.getByText("Canonical Compensation & Ledger")).toBeInTheDocument();
+    expect(screen.getByText("Operations & Tasks")).toBeInTheDocument();
+    expect(screen.getByText("Royal Wedding Lucknow")).toBeInTheDocument();
+    expect(screen.getByText("Performance & Device Sync")).toBeInTheDocument();
+
+    // Verify 360 action strip
+    const disburseBtn = screen.getByRole("button", { name: /Record Disbursement/i });
+    expect(disburseBtn).toBeInTheDocument();
+    expect(disburseBtn).not.toBeDisabled();
+
+    // Clicking disbursement opens hardened payout modal with empty payer
+    await userEvent.click(disburseBtn);
+
+    expect(
+      await screen.findByRole("heading", { name: "Record Employee Payout" }),
+    ).toBeInTheDocument();
+
+    const payerSelect = screen.getByLabelText("Payout payer account");
+    expect(payerSelect).toHaveValue("");
+
+    const submitBtn = screen.getByRole("button", { name: "Record Payout" });
+    expect(submitBtn).toBeDisabled();
+
+    // Explicitly choose AZ-2 to enable
+    await userEvent.selectOptions(payerSelect, "AZ-2");
+    expect(submitBtn).not.toBeDisabled();
   });
 });

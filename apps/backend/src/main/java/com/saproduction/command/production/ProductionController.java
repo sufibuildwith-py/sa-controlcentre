@@ -27,7 +27,7 @@ public class ProductionController {
 
   @PostMapping
   public ApiEnvelope<ProductionService.View> create(
-      @Valid @RequestBody ProductionService.Input input) {
+      @Valid @RequestBody ProductionService.CreateInput input) {
     return ApiEnvelope.of(service.create(input));
   }
 
@@ -67,5 +67,17 @@ public class ProductionController {
       @PathVariable UUID id, @PathVariable UUID employeeId) {
     service.removeMember(id, employeeId);
     return ApiEnvelope.of(Map.of("removed", true));
+  }
+
+  @PostMapping("/{id}/equipment")
+  public ApiEnvelope<ProductionService.View> addEquipment(
+      @PathVariable UUID id, @Valid @RequestBody ProductionService.EquipmentInput input) {
+    return ApiEnvelope.of(service.addEquipment(id, input));
+  }
+
+  @DeleteMapping("/{id}/equipment/{equipmentId}")
+  public ApiEnvelope<ProductionService.View> removeEquipment(
+      @PathVariable UUID id, @PathVariable UUID equipmentId) {
+    return ApiEnvelope.of(service.removeEquipment(id, equipmentId));
   }
 }

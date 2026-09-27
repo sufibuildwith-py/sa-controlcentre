@@ -1,12 +1,18 @@
 package com.saproduction.command.production;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.saproduction.command.audit.AuditService;
 import com.saproduction.command.calendar.*;
 import com.saproduction.command.communication.DomainEventService;
 import com.saproduction.command.employee.EmployeeService;
+import com.saproduction.command.headquarters.HeadquartersController;
+import com.saproduction.command.headquarters.HeadquartersService;
 import com.saproduction.command.shared.ApiException;
+import com.saproduction.command.work.WorkTask;
+import com.saproduction.command.work.WorkTaskService;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.validation.constraints.*;
+import java.math.BigDecimal;
 import java.time.*;
 import java.util.*;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,17 +23,56 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class ProductionService {
+  public record TaskInput(
+      @NotBlank @Size(max = 180) String title,
+      @Size(max = 4000) String description,
+      UUID assignedEmployeeId,
+      WorkTask.Status status,
+      WorkTask.Priority priority,
+      LocalDate startDate,
+      Instant dueAt) {}
+
+  public record EquipmentInput(
+      @NotNull UUID equipmentId,
+      @NotNull @DecimalMin(value = "0", inclusive = false) BigDecimal quantity,
+      UUID productionLocationId,
+      @Size(max = 500) String notes) {}
+
+  public record EquipmentView(
+      UUID id,
+      UUID equipmentId,
+      String equipmentName,
+      String internalCode,
+      BigDecimal quantity,
+      String unitSymbol,
+      String status) {}
+
   public record Input(
       @NotBlank @Size(max = 180) String title,
       @NotBlank @Size(max = 180) String clientName,
       @Size(max = 4000) String description,
-      @NotNull LocalDate eventDate,
-      @NotNull LocalTime startTime,
-      @NotNull LocalTime endTime,
+      @NotNull @JsonFormat(pattern = "[yyyy-MM-dd][dd-MM-yyyy]") LocalDate eventDate,
+      LocalTime startTime,
+      LocalTime endTime,
       @NotBlank @Size(max = 180) String venueName,
       @Size(max = 500) String venueAddress,
-      @NotNull Production.Priority priority,
-      @Min(0) @Max(100) int progressPercent) {}
+      Production.Priority priority,
+      @Min(0) @Max(100) Integer progressPercent) {}
+
+  public record CreateInput(
+      @NotBlank @Size(max = 180) String title,
+      @NotBlank @Size(max = 180) String clientName,
+      @Size(max = 4000) String description,
+      @NotNull @JsonFormat(pattern = "[yyyy-MM-dd][dd-MM-yyyy]") LocalDate eventDate,
+      LocalTime startTime,
+      LocalTime endTime,
+      @NotBlank @Size(max = 180) String venueName,
+      @Size(max = 500) String venueAddress,
+      Production.Priority priority,
+      @Min(0) @Max(100) Integer progressPercent,
+      List<MemberInput> crew,
+      List<TaskInput> tasks,
+      List<EquipmentInput> equipment) {}
 
   public record Transition(@NotNull Production.Status status) {}
 
@@ -67,6 +112,7 @@ public class ProductionService {
       Instant completedAt,
       List<MemberView> members,
       long unfinishedTaskCount,
+      List<EquipmentView> equipment,
       Instant createdAt,
       Instant updatedAt) {}
 
@@ -92,6 +138,8 @@ public class ProductionService {
   private final ProductionMemberRepository members;
   private final CalendarService calendar;
   private final EmployeeService employees;
+  private final WorkTaskService workTasks;
+  private final HeadquartersService headquarters;
   private final JdbcTemplate jdbc;
   private final AuditService audit;
   private final DomainEventService events;
@@ -102,6 +150,8 @@ public class ProductionService {
       ProductionMemberRepository members,
       CalendarService calendar,
       EmployeeService employees,
+      WorkTaskService workTasks,
+      HeadquartersService headquarters,
       JdbcTemplate jdbc,
       AuditService audit,
       DomainEventService events,
@@ -110,6 +160,8 @@ public class ProductionService {
     this.members = members;
     this.calendar = calendar;
     this.employees = employees;
+    this.workTasks = workTasks;
+    this.headquarters = headquarters;
     this.jdbc = jdbc;
     this.audit = audit;
     this.events = events;
@@ -153,13 +205,76 @@ public class ProductionService {
   }
 
   @Transactional
-  public View create(Input in) {
+  public View create(CreateInput in) {
     validateTime(in.startTime(), in.endTime());
     Production p = new Production();
-    apply(p, in);
+    p.title = in.title().trim();
+    p.clientName = in.clientName().trim();
+    p.description = clean(in.description());
+    p.eventDate = in.eventDate();
+    p.startTime = in.startTime();
+    p.endTime = in.endTime();
+    p.venueName = in.venueName().trim();
+    p.venueAddress = clean(in.venueAddress());
+    p.priority = in.priority() == null ? Production.Priority.NORMAL : in.priority();
+    p.progressPercent = in.progressPercent() == null ? 0 : in.progressPercent();
     p.status = Production.Status.DRAFT;
     productions.saveAndFlush(p);
     sync(p);
+
+    if (in.crew() != null) {
+      for (MemberInput member : in.crew()) {
+        if (member != null && member.employeeId() != null) {
+          addMember(p.id, member);
+        }
+      }
+    }
+
+    if (in.tasks() != null) {
+      for (TaskInput task : in.tasks()) {
+        if (task != null && task.title() != null && !task.title().isBlank()) {
+          workTasks.create(
+              new WorkTaskService.Input(
+                  p.id,
+                  null,
+                  task.title().trim(),
+                  clean(task.description()),
+                  task.assignedEmployeeId(),
+                  task.status() == null ? WorkTask.Status.TODO : task.status(),
+                  task.priority() == null ? WorkTask.Priority.NORMAL : task.priority(),
+                  task.startDate(),
+                  task.dueAt(),
+                  0));
+        }
+      }
+    }
+
+    if (in.equipment() != null && !in.equipment().isEmpty()) {
+      List<HeadquartersController.ReservationLine> lines = new ArrayList<>();
+      for (EquipmentInput eq : in.equipment()) {
+        if (eq != null
+            && eq.equipmentId() != null
+            && eq.quantity() != null
+            && eq.quantity().signum() > 0) {
+          lines.add(
+              new HeadquartersController.ReservationLine(
+                  eq.equipmentId(), eq.productionLocationId(), eq.quantity()));
+        }
+      }
+      if (!lines.isEmpty()) {
+        Instant startsAt =
+            p.startTime != null
+                ? p.eventDate.atTime(p.startTime).atZone(zone).toInstant()
+                : p.eventDate.atStartOfDay(zone).toInstant();
+        Instant endsAt =
+            p.endTime != null
+                ? p.eventDate.atTime(p.endTime).atZone(zone).toInstant()
+                : p.eventDate.atTime(23, 59, 59).atZone(zone).toInstant();
+        headquarters.reserve(
+            new HeadquartersController.ReservationInput(p.id, startsAt, endsAt, lines));
+      }
+    }
+
     var result = view(p);
     audit.record("PRODUCTION", "PRODUCTION_CREATED", p.id.toString(), null, result);
     events.emit(
@@ -168,6 +283,25 @@ public class ProductionService {
         p.id,
         Map.of("title", p.title, "eventDate", p.eventDate.toString()));
     return result;
+  }
+
+  @Transactional
+  public View create(Input in) {
+    return create(
+        new CreateInput(
+            in.title(),
+            in.clientName(),
+            in.description(),
+            in.eventDate(),
+            in.startTime(),
+            in.endTime(),
+            in.venueName(),
+            in.venueAddress(),
+            in.priority(),
+            in.progressPercent(),
+            null,
+            null,
+            null));
   }
 
   @Transactional
@@ -180,8 +314,8 @@ public class ProductionService {
     var before = view(p);
     boolean rescheduled =
         !p.eventDate.equals(in.eventDate())
-            || !p.startTime.equals(in.startTime())
-            || !p.endTime.equals(in.endTime());
+            || !Objects.equals(p.startTime, in.startTime())
+            || !Objects.equals(p.endTime, in.endTime());
     apply(p, in);
     productions.saveAndFlush(p);
     sync(p);
@@ -193,11 +327,16 @@ public class ProductionService {
       jdbc.update(
           "update production_members set assignment_status='PENDING',updated_at=now() where production_id=?",
           id);
-      jdbc.update(
-          "update event_attendees set response='PENDING',acknowledged_at=null,updated_at=now() where event_id=(select id from calendar_events where production_id=?)",
-          id);
+      calendar
+          .findEventForProduction(id)
+          .ifPresent(
+              event ->
+                  jdbc.update(
+                      "update event_attendees set response='PENDING',acknowledged_at=null,updated_at=now() where event_id=?",
+                      event.id));
       if (!employeeIds.isEmpty())
-        events.emit("PRODUCTION_UPDATED", "PRODUCTION", id, productionNotice(p, employeeIds, true));
+        events.emit(
+            "PRODUCTION_UPDATED", "PRODUCTION", id, productionNotice(p, employeeIds, true));
     }
     var result = view(p);
     audit.record(
@@ -223,7 +362,8 @@ public class ProductionService {
       p.completedAt = Instant.now();
     }
     if (target == Production.Status.CANCELLED) {
-      calendar.eventForProduction(id).status = CalendarEvent.Status.CANCELLED;
+      calendar.findEventForProduction(id).ifPresent(e -> e.status = CalendarEvent.Status.CANCELLED);
+      headquarters.cancelReservationForProduction(id);
     }
     productions.save(p);
     var result = view(p);
@@ -238,8 +378,12 @@ public class ProductionService {
       throw ApiException.conflict(
           "EMPLOYEE_ALREADY_ASSIGNED", "Employee is already assigned to this production.");
     employees.getEntity(in.employeeId());
-    var event = calendar.eventForProduction(id);
-    calendar.addAttendee(event, in.employeeId(), in.overrideConflict(), in.overrideReason());
+    calendar
+        .findEventForProduction(id)
+        .ifPresent(
+            event ->
+                calendar.addAttendee(
+                    event, in.employeeId(), in.overrideConflict(), in.overrideReason()));
     ProductionMember m = new ProductionMember();
     m.productionId = id;
     m.employeeId = in.employeeId();
@@ -270,7 +414,7 @@ public class ProductionService {
                     ApiException.notFound(
                         "PRODUCTION_MEMBER_NOT_FOUND", "Crew assignment was not found."));
     members.delete(member);
-    calendar.removeAttendee(calendar.eventForProduction(id).id, employeeId);
+    calendar.findEventForProduction(id).ifPresent(e -> calendar.removeAttendee(e.id, employeeId));
     audit.record(
         "PRODUCTION", "PRODUCTION_MEMBER_REMOVED", id.toString(), memberView(member), null);
   }
@@ -288,8 +432,12 @@ public class ProductionService {
     var before = memberView(member);
     member.assignmentStatus = in.assignmentStatus();
     members.save(member);
-    calendar.updateAttendeeResponse(
-        calendar.eventForProduction(id).id, employeeId, response(in.assignmentStatus()));
+    calendar
+        .findEventForProduction(id)
+        .ifPresent(
+            e ->
+                calendar.updateAttendeeResponse(
+                    e.id, employeeId, response(in.assignmentStatus())));
     audit.record(
         "PRODUCTION",
         "PRODUCTION_MEMBER_STATUS_UPDATED",
@@ -299,15 +447,95 @@ public class ProductionService {
     return view(p);
   }
 
+  @Transactional
+  public View addEquipment(UUID id, EquipmentInput in) {
+    Production p = entity(id);
+    validateTime(p.startTime, p.endTime);
+
+    // Idempotent duplicate check: if equipment is already reserved for this production:
+    // - exact duplicate (same quantity): return current view (idempotent retry safety)
+    // - intentional quantity change: reject with clear conflict guidance (cannot silently no-op)
+    List<BigDecimal> existingQuantities =
+        jdbc.queryForList(
+            """
+            SELECT rl.quantity
+            FROM hq_reservation_lines rl
+            JOIN hq_reservations r ON r.id = rl.reservation_id
+            WHERE r.production_id = ? AND rl.equipment_id = ? AND r.status <> 'CANCELLED'
+            """,
+            BigDecimal.class,
+            id,
+            in.equipmentId());
+    if (!existingQuantities.isEmpty()) {
+      BigDecimal totalExisting =
+          existingQuantities.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+      if (in.quantity() != null && totalExisting.compareTo(in.quantity()) == 0) {
+        return view(p);
+      }
+      throw ApiException.conflict(
+          "EQUIPMENT_ALREADY_ASSIGNED",
+          "Equipment is already assigned to this production ("
+              + totalExisting.stripTrailingZeros().toPlainString()
+              + " reserved). Remove the existing assignment first to adjust quantity.");
+    }
+
+    Instant startsAt =
+        p.startTime != null
+            ? p.eventDate.atTime(p.startTime).atZone(zone).toInstant()
+            : p.eventDate.atStartOfDay(zone).toInstant();
+    Instant endsAt =
+        p.endTime != null
+            ? p.eventDate.atTime(p.endTime).atZone(zone).toInstant()
+            : p.eventDate.atTime(23, 59, 59).atZone(zone).toInstant();
+
+    var line =
+        new HeadquartersController.ReservationLine(
+            in.equipmentId(), in.productionLocationId(), in.quantity());
+    headquarters.reserve(
+        new HeadquartersController.ReservationInput(id, startsAt, endsAt, List.of(line)));
+    return view(p);
+  }
+
+  @Transactional
+  public View removeEquipment(UUID id, UUID equipmentId) {
+    Production p = entity(id);
+    List<UUID> lineIds =
+        jdbc.queryForList(
+            """
+            SELECT rl.id
+            FROM hq_reservation_lines rl
+            JOIN hq_reservations r ON r.id = rl.reservation_id
+            WHERE r.production_id = ? AND rl.equipment_id = ? AND r.status <> 'CANCELLED'
+            """,
+            UUID.class,
+            id,
+            equipmentId);
+    for (UUID lineId : lineIds) {
+      headquarters.removeReservationLine(lineId);
+    }
+    return view(p);
+  }
+
   private void sync(Production p) {
-    calendar.syncProduction(
-        p.id,
-        p.title,
-        p.description,
-        p.eventDate.atTime(p.startTime).atZone(zone).toInstant(),
-        p.eventDate.atTime(p.endTime).atZone(zone).toInstant(),
-        p.venueName,
-        p.venueAddress);
+    if (p.startTime != null && p.endTime != null) {
+      var event =
+          calendar.syncProduction(
+              p.id,
+              p.title,
+              p.description,
+              p.eventDate.atTime(p.startTime).atZone(zone).toInstant(),
+              p.eventDate.atTime(p.endTime).atZone(zone).toInstant(),
+              p.venueName,
+              p.venueAddress);
+      var attendees = calendar.attendeeEmployeeIds(event.id);
+      for (var m : members.findAllByProductionIdOrderByCreatedAt(p.id)) {
+        if (!attendees.contains(m.employeeId)) {
+          calendar.addAttendee(event, m.employeeId, m.conflictOverridden, m.overrideReason);
+        }
+      }
+    } else {
+      calendar.deleteProductionEvent(p.id);
+    }
   }
 
   private Map<String, Object> productionNotice(
@@ -315,7 +543,11 @@ public class ProductionService {
     Map<String, Object> variables = new LinkedHashMap<>();
     variables.put(
         "parameters",
-        List.of(p.title, p.eventDate.toString(), p.startTime.toString(), p.venueName));
+        List.of(
+            p.title,
+            p.eventDate.toString(),
+            p.startTime != null ? p.startTime.toString() : "TBD",
+            p.venueName));
     variables.put("confirmPayload", "production:" + p.id + ":CONFIRM");
     variables.put("declinePayload", "production:" + p.id + ":DECLINE");
     Map<String, Object> payload = new LinkedHashMap<>();
@@ -325,7 +557,14 @@ public class ProductionService {
     payload.put("relatedId", p.id);
     payload.put("requiresResponse", response);
     payload.put(
-        "bodyPreview", p.title + " · " + p.eventDate + " · " + p.startTime + " · " + p.venueName);
+        "bodyPreview",
+        p.title
+            + " · "
+            + p.eventDate
+            + " · "
+            + (p.startTime != null ? p.startTime : "TBD")
+            + " · "
+            + p.venueName);
     payload.put("variables", variables);
     return payload;
   }
@@ -339,8 +578,8 @@ public class ProductionService {
     p.endTime = in.endTime();
     p.venueName = in.venueName().trim();
     p.venueAddress = clean(in.venueAddress());
-    p.priority = in.priority();
-    p.progressPercent = in.progressPercent();
+    if (in.priority() != null) p.priority = in.priority();
+    if (in.progressPercent() != null) p.progressPercent = in.progressPercent();
   }
 
   private View view(Production p) {
@@ -363,8 +602,24 @@ public class ProductionService {
             "select count(*) from tasks where production_id=? and status not in ('DONE','CANCELLED')",
             Long.class,
             p.id),
+        loadEquipment(p.id),
         p.createdAt,
         p.updatedAt);
+  }
+
+  private List<EquipmentView> loadEquipment(UUID productionId) {
+    return headquarters.equipmentForProduction(productionId).stream()
+        .map(
+            m ->
+                new EquipmentView(
+                    (UUID) m.get("id"),
+                    (UUID) m.get("equipmentId"),
+                    (String) m.get("equipmentName"),
+                    (String) m.get("internalCode"),
+                    (BigDecimal) m.get("quantity"),
+                    (String) m.get("unitSymbol"),
+                    (String) m.get("status")))
+        .toList();
   }
 
   private MemberView memberView(ProductionMember m) {
@@ -390,6 +645,11 @@ public class ProductionService {
   }
 
   private void validateTime(LocalTime start, LocalTime end) {
+    if (start == null && end == null) return;
+    if (start == null || end == null)
+      throw ApiException.badRequest(
+          "INVALID_PRODUCTION_TIME",
+          "Both start time and end time must be specified if schedule is set.");
     if (!end.isAfter(start))
       throw ApiException.badRequest(
           "INVALID_PRODUCTION_TIME", "End time must be after start time.");

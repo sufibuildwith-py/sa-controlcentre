@@ -37,7 +37,14 @@ const initial = {
 export function WorkPage() {
   const location = useLocation(),
     client = useQueryClient();
-  const [view, setView] = useState<View>("TODAY"),
+  const initialView =
+    (new URLSearchParams(location.search).get("view")?.toUpperCase() as View) ||
+    "TODAY";
+  const [view, setView] = useState<View>(
+    ["TODAY", "TEAM", "UPCOMING", "OVERDUE", "COMPLETED"].includes(initialView)
+      ? initialView
+      : "TODAY",
+  ),
     [open, setOpen] = useState(false),
     [editing, setEditing] = useState<WorkTask | null>(null),
     [selected, setSelected] = useState<WorkTask | null>(null),
@@ -45,8 +52,12 @@ export function WorkPage() {
     [progress, setProgress] = useState(0),
     [note, setNote] = useState("");
   useEffect(() => {
-    if (new URLSearchParams(location.search).get("create") === "task")
-      setOpen(true);
+    const params = new URLSearchParams(location.search);
+    if (params.get("create") === "task") setOpen(true);
+    const v = params.get("view")?.toUpperCase() as View | null;
+    if (v && ["TODAY", "TEAM", "UPCOMING", "OVERDUE", "COMPLETED"].includes(v)) {
+      setView(v);
+    }
   }, [location.search]);
   const tasks = useQuery({
     queryKey: ["tasks"],

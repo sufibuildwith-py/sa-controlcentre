@@ -46,7 +46,63 @@ public final class EmployeeDtos {
       String profilePhotoUrl,
       String notes,
       Instant createdAt,
-      Instant updatedAt) {}
+      Instant updatedAt,
+      String todayAttendance,
+      Long activeTasksCount,
+      Long activeProductionsCount) {
+
+    public View(
+        UUID id,
+        String employeeCode,
+        String firstName,
+        String lastName,
+        String displayName,
+        String phone,
+        String whatsappPhone,
+        String email,
+        String roleTitle,
+        String department,
+        String employmentType,
+        LocalDate joiningDate,
+        long baseSalaryMinor,
+        String salaryCurrency,
+        Employee.Status status,
+        String profilePhotoUrl,
+        String notes,
+        Instant createdAt,
+        Instant updatedAt) {
+      this(
+          id,
+          employeeCode,
+          firstName,
+          lastName,
+          displayName,
+          phone,
+          whatsappPhone,
+          email,
+          roleTitle,
+          department,
+          employmentType,
+          joiningDate,
+          baseSalaryMinor,
+          salaryCurrency,
+          status,
+          profilePhotoUrl,
+          notes,
+          createdAt,
+          updatedAt,
+          null,
+          null,
+          null);
+    }
+  }
+
+  public record PeopleSummary(
+      long activeEmployees,
+      long onLeaveEmployees,
+      long attendanceToday,
+      long openTasks,
+      long overdueTasks) {}
 
   public static View view(Employee e) {
     e = org.hibernate.Hibernate.unproxy(e, Employee.class);
