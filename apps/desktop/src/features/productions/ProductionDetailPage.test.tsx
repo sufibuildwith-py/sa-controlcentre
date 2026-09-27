@@ -43,7 +43,7 @@ vi.mock("../headquarters/headquarters.api", () => ({
 
 import { financeApi } from "../finance/finance.api";
 import { headquartersApi } from "../headquarters/headquarters.api";
-import { api } from "../../lib/api";
+import { api, ApiError } from "../../lib/api";
 
 afterEach(() => {
   cleanup();
@@ -561,8 +561,8 @@ describe("ProductionDetailPage — Production V2 Command Sheet", () => {
 
   const mockCatalog = {
     items: [
-      { id: "eq1", name: "Digital Mixing Console", internalCode: "DMC-32" },
-      { id: "eq2", name: "Subwoofer 18-inch", internalCode: "SUB-18" },
+      { id: "eq1", name: "Digital Mixing Console", internalCode: "DMC-32", available: 1, symbol: "pcs" },
+      { id: "eq2", name: "Subwoofer 18-inch", internalCode: "SUB-18", available: 5, symbol: "pcs" },
     ],
     total: 2,
     page: 0,
@@ -744,6 +744,94 @@ describe("ProductionDetailPage — Production V2 Command Sheet", () => {
         }),
       );
     });
+  });
+
+  it("displays error message and keeps modal open when equipment assignment fails", async () => {
+    vi.mocked(api).mockImplementation((path: string, options?: any) => {
+      if (path === "/productions/p1") return Promise.resolve(mockV2Production);
+      if (path === "/employees") return Promise.resolve(mockEmployees);
+      if (path.startsWith("/tasks")) return Promise.resolve(mockV2Tasks);
+      if (path === "/productions/p1/equipment" && options?.method === "POST") {
+        return Promise.reject(
+          new ApiError("CONFLICT", "Selected equipment is no longer available in the requested quantity"),
+        );
+      }
+      return Promise.resolve(null);
+    });
+
+    vi.mocked(headquartersApi.equipment).mockResolvedValue(mockCatalog as any);
+    vi.mocked(financeApi.production).mockResolvedValue(mockFinanceData);
+    vi.mocked(financeApi.config).mockResolvedValue(mockFinanceConfig);
+    vi.mocked(financeApi.counterparties).mockResolvedValue({ items: [], page: 0, size: 50, total: 0 });
+
+    renderPage("p1");
+
+    await waitFor(() => {
+      expect(screen.getByText("Digital Mixing Console")).toBeInTheDocument();
+    });
+
+    const addEqBtn = screen.getByRole("button", { name: "Add equipment" });
+    await userEvent.click(addEqBtn);
+
+    expect(screen.getByRole("heading", { name: "Assign Equipment" })).toBeInTheDocument();
+
+    const eqSelect = screen.getByLabelText("Assign equipment select");
+    await userEvent.selectOptions(eqSelect, "eq2");
+
+    const submitBtn = screen.getByRole("button", { name: "Assign Equipment" });
+    await userEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Selected equipment is no longer available in the requested quantity"),
+      ).toBeInTheDocument();
+    });
+
+    // Modal is still open for correction
+    expect(screen.getByRole("heading", { name: "Assign Equipment" })).toBeInTheDocument();
+  });
+
+  it("validates equipment quantity against available stock", async () => {
+    vi.mocked(api).mockImplementation((path: string) => {
+      if (path === "/productions/p1") return Promise.resolve(mockV2Production);
+      if (path === "/employees") return Promise.resolve(mockEmployees);
+      if (path.startsWith("/tasks")) return Promise.resolve(mockV2Tasks);
+      return Promise.resolve(null);
+    });
+
+    vi.mocked(headquartersApi.equipment).mockResolvedValue(mockCatalog as any);
+    vi.mocked(financeApi.production).mockResolvedValue(mockFinanceData);
+    vi.mocked(financeApi.config).mockResolvedValue(mockFinanceConfig);
+    vi.mocked(financeApi.counterparties).mockResolvedValue({ items: [], page: 0, size: 50, total: 0 });
+
+    renderPage("p1");
+
+    await waitFor(() => {
+      expect(screen.getByText("Digital Mixing Console")).toBeInTheDocument();
+    });
+
+    const addEqBtn = screen.getByRole("button", { name: "Add equipment" });
+    await userEvent.click(addEqBtn);
+
+    const eqSelect = screen.getByLabelText("Assign equipment select");
+    await userEvent.selectOptions(eqSelect, "eq2");
+
+    const qtyInput = screen.getByLabelText("Assign equipment quantity");
+    await userEvent.clear(qtyInput);
+    await userEvent.type(qtyInput, "99");
+
+    const submitBtn = screen.getByRole("button", { name: "Assign Equipment" });
+    await userEvent.click(submitBtn);
+
+    expect(
+      screen.getByText("Only 5 pcs available in inventory."),
+    ).toBeInTheDocument();
+
+    // API should NOT have been called for /productions/p1/equipment
+    expect(api).not.toHaveBeenCalledWith(
+      "/productions/p1/equipment",
+      expect.anything(),
+    );
   });
 
   it("updates schedule directly from the Command Sheet", async () => {

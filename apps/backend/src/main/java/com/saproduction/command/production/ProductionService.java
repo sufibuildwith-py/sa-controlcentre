@@ -450,6 +450,23 @@ public class ProductionService {
   @Transactional
   public View addEquipment(UUID id, EquipmentInput in) {
     Production p = entity(id);
+
+    // Idempotent duplicate check: if equipment is already reserved for this production, return current view
+    List<UUID> existingLineIds =
+        jdbc.queryForList(
+            """
+            SELECT rl.id
+            FROM hq_reservation_lines rl
+            JOIN hq_reservations r ON r.id = rl.reservation_id
+            WHERE r.production_id = ? AND rl.equipment_id = ? AND r.status <> 'CANCELLED'
+            """,
+            UUID.class,
+            id,
+            in.equipmentId());
+    if (!existingLineIds.isEmpty()) {
+      return view(p);
+    }
+
     Instant startsAt =
         p.startTime != null
             ? p.eventDate.atTime(p.startTime).atZone(zone).toInstant()
@@ -458,6 +475,9 @@ public class ProductionService {
         p.endTime != null
             ? p.eventDate.atTime(p.endTime).atZone(zone).toInstant()
             : p.eventDate.atTime(23, 59, 59).atZone(zone).toInstant();
+    if (!endsAt.isAfter(startsAt)) {
+      endsAt = startsAt.plus(java.time.Duration.ofHours(12));
+    }
 
     var line =
         new HeadquartersController.ReservationLine(

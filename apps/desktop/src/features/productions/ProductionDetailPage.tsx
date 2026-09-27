@@ -124,6 +124,7 @@ export function ProductionDetailPage() {
     equipmentId: "",
     quantity: "1",
   });
+  const [equipmentError, setEquipmentError] = useState("");
 
   const [notesModalOpen, setNotesModalOpen] = useState(false);
   const [notesText, setNotesText] = useState("");
@@ -363,6 +364,10 @@ export function ProductionDetailPage() {
     enabled: equipmentModalOpen,
   });
 
+  const selectedEquipment = equipmentCatalog.data?.items?.find(
+    (item) => item.id === equipmentForm.equipmentId,
+  );
+
   const taskToggleMutation = useMutation({
     mutationFn: ({ taskId, done }: { taskId: string; done: boolean }) =>
       api(`/tasks/${taskId}/updates`, {
@@ -403,18 +408,33 @@ export function ProductionDetailPage() {
   });
 
   const addEquipmentMutation = useMutation({
-    mutationFn: () =>
-      api<Production>(`/productions/${id}/equipment`, {
+    mutationFn: () => {
+      setEquipmentError("");
+      return api<Production>(`/productions/${id}/equipment`, {
         method: "POST",
         ...json({
           equipmentId: equipmentForm.equipmentId,
           quantity: Math.max(1, Number(equipmentForm.quantity) || 1),
         }),
-      }),
+      });
+    },
     onSuccess: (data) => {
       client.setQueryData(["production", id], data);
+      client.invalidateQueries({ queryKey: ["production", id] });
+      client.invalidateQueries({ queryKey: ["productions"] });
+      client.invalidateQueries({ queryKey: ["headquarters"] });
       setEquipmentModalOpen(false);
       setEquipmentForm({ equipmentId: "", quantity: "1" });
+      setEquipmentError("");
+    },
+    onError: (err: unknown) => {
+      if (err instanceof ApiError) {
+        setEquipmentError(err.message);
+      } else if (err instanceof Error) {
+        setEquipmentError(err.message);
+      } else {
+        setEquipmentError("Failed to assign equipment. Please try again.");
+      }
     },
   });
 
@@ -425,6 +445,9 @@ export function ProductionDetailPage() {
       }),
     onSuccess: (data) => {
       client.setQueryData(["production", id], data);
+      client.invalidateQueries({ queryKey: ["production", id] });
+      client.invalidateQueries({ queryKey: ["productions"] });
+      client.invalidateQueries({ queryKey: ["headquarters"] });
     },
   });
 
@@ -865,7 +888,14 @@ export function ProductionDetailPage() {
                   Assigned Equipment ({(p.equipment ?? []).length})
                 </h3>
                 <div className="production-section-actions">
-                  <SAButton size="sm" onClick={() => setEquipmentModalOpen(true)}>
+                  <SAButton
+                    size="sm"
+                    onClick={() => {
+                      setEquipmentError("");
+                      setEquipmentForm({ equipmentId: "", quantity: "1" });
+                      setEquipmentModalOpen(true);
+                    }}
+                  >
                     <Plus size={14} /> Add equipment
                   </SAButton>
                   <SAButton
@@ -881,7 +911,14 @@ export function ProductionDetailPage() {
                   title="No equipment assigned"
                   description="Reserve sound, lighting, video and stage equipment from Headquarters."
                   action={
-                    <SAButton size="sm" onClick={() => setEquipmentModalOpen(true)}>
+                    <SAButton
+                      size="sm"
+                      onClick={() => {
+                        setEquipmentError("");
+                        setEquipmentForm({ equipmentId: "", quantity: "1" });
+                        setEquipmentModalOpen(true);
+                      }}
+                    >
                       + Add equipment
                     </SAButton>
                   }
@@ -2099,18 +2136,40 @@ export function ProductionDetailPage() {
       {/* Add Equipment Modal */}
       <SAModal
         open={equipmentModalOpen}
-        onOpenChange={setEquipmentModalOpen}
+        onOpenChange={(v) => {
+          setEquipmentModalOpen(v);
+          if (!v) {
+            setEquipmentError("");
+            setEquipmentForm({ equipmentId: "", quantity: "1" });
+          }
+        }}
         title="Assign Equipment"
         description={`Reserve inventory gear from Headquarters for ${p.title}.`}
       >
+        {equipmentError && (
+          <div
+            className="field-error"
+            role="alert"
+            style={{
+              padding: "8px 12px",
+              marginBottom: "12px",
+              background: "rgba(239, 68, 68, 0.1)",
+              borderRadius: "8px",
+              fontSize: "13px",
+            }}
+          >
+            {equipmentError}
+          </div>
+        )}
         <div className="form-grid">
           <FormField label="Equipment">
             <select
               aria-label="Assign equipment select"
               value={equipmentForm.equipmentId}
-              onChange={(e) =>
-                setEquipmentForm({ ...equipmentForm, equipmentId: e.target.value })
-              }
+              onChange={(e) => {
+                setEquipmentError("");
+                setEquipmentForm({ ...equipmentForm, equipmentId: e.target.value });
+              }}
             >
               <option value="">Select equipment...</option>
               {equipmentCatalog.data?.items
@@ -2119,29 +2178,63 @@ export function ProductionDetailPage() {
                 )
                 .map((item) => (
                   <option key={item.id} value={item.id}>
-                    {item.name} {item.internalCode ? `(${item.internalCode})` : ""}
+                    {item.name} {item.internalCode ? `(${item.internalCode})` : ""}{item.available != null ? ` · ${item.available} ${item.symbol ?? "units"} available` : ""}
                   </option>
                 ))}
             </select>
           </FormField>
-          <FormField label="Quantity">
+          <FormField
+            label="Quantity"
+            hint={
+              selectedEquipment && selectedEquipment.available != null
+                ? `${selectedEquipment.available} ${selectedEquipment.symbol ?? "units"} available in inventory`
+                : undefined
+            }
+          >
             <input
               aria-label="Assign equipment quantity"
               type="number"
               min="1"
+              max={selectedEquipment?.available}
               value={equipmentForm.quantity}
-              onChange={(e) =>
-                setEquipmentForm({ ...equipmentForm, quantity: e.target.value })
-              }
+              onChange={(e) => {
+                setEquipmentError("");
+                setEquipmentForm({ ...equipmentForm, quantity: e.target.value });
+              }}
             />
           </FormField>
         </div>
         <div className="modal-actions">
-          <SAButton onClick={() => setEquipmentModalOpen(false)}>Cancel</SAButton>
+          <SAButton
+            onClick={() => {
+              setEquipmentModalOpen(false);
+              setEquipmentError("");
+            }}
+          >
+            Cancel
+          </SAButton>
           <SAButton
             variant="primary"
-            disabled={!equipmentForm.equipmentId || addEquipmentMutation.isPending}
-            onClick={() => addEquipmentMutation.mutate()}
+            disabled={
+              !equipmentForm.equipmentId ||
+              !equipmentForm.quantity ||
+              Number(equipmentForm.quantity) <= 0 ||
+              addEquipmentMutation.isPending
+            }
+            onClick={() => {
+              if (addEquipmentMutation.isPending) return;
+              if (
+                selectedEquipment &&
+                selectedEquipment.available != null &&
+                Number(equipmentForm.quantity) > selectedEquipment.available
+              ) {
+                setEquipmentError(
+                  `Only ${selectedEquipment.available} ${selectedEquipment.symbol ?? "units"} available in inventory.`
+                );
+                return;
+              }
+              addEquipmentMutation.mutate();
+            }}
           >
             {addEquipmentMutation.isPending ? "Reserving…" : "Assign Equipment"}
           </SAButton>

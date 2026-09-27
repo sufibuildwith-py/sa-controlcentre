@@ -23,6 +23,7 @@ class HeadquartersPostgresTest {
   @Container static PostgreSQLContainer<?> postgres=new PostgreSQLContainer<>("postgres:17-alpine");
   @DynamicPropertySource static void db(DynamicPropertyRegistry p){p.add("spring.datasource.url",postgres::getJdbcUrl);p.add("spring.datasource.username",postgres::getUsername);p.add("spring.datasource.password",postgres::getPassword);p.add("app.demo-seed",()->false);}
   @Autowired HeadquartersService service;
+  @Autowired com.saproduction.command.production.ProductionService productionService;
   @Autowired JdbcTemplate jdbc;
   UUID equipment,location,production;
 
@@ -56,5 +57,74 @@ class HeadquartersPostgresTest {
     var transfer=(UUID)service.createTransfer(new TransferInput(production,production,venueA,venueB,"Direct venue transfer",List.of(new OperationLine(equipment,null,new BigDecimal("5"))))).get("id");service.confirmTransfer(transfer,UUID.randomUUID());
     var returns=(UUID)service.createReturn(new ReturnInput(production,venueA,location,"Partial reconciliation",List.of(new ReturnLine(equipment,null,new BigDecimal("15"),new BigDecimal("10"),BigDecimal.ZERO,BigDecimal.ZERO,new BigDecimal("2"),new BigDecimal("1"))))).get("id");var returnKey=UUID.randomUUID();var result=service.confirmReturn(returns,returnKey);service.confirmReturn(returns,returnKey);
     assertThat(result).containsEntry("status","PARTIAL");assertThat(service.attention()).extracting(x->x.get("type")).contains("UNACCOUNTED_RETURN","DAMAGED_AWAITING_DECISION","MISSING_EQUIPMENT");assertThat(jdbc.queryForObject("SELECT count(*) FROM hq_inventory_movements WHERE dispatch_id=?",Long.class,dispatch)).isEqualTo(1);assertThat(service.reconcile()).containsEntry("consistent",true);
+  }
+
+  @Test
+  void addEquipmentEndToEnd_persistsReservationAndRefreshesProductionView() {
+    var view =
+        productionService.addEquipment(
+            production,
+            new com.saproduction.command.production.ProductionService.EquipmentInput(
+                equipment, BigDecimal.valueOf(5), null, null));
+
+    assertThat(view.equipment()).hasSize(1);
+    assertThat(view.equipment().getFirst().equipmentId()).isEqualTo(equipment);
+    assertThat(view.equipment().getFirst().quantity()).isEqualByComparingTo(BigDecimal.valueOf(5));
+    assertThat(view.equipment().getFirst().status()).isEqualTo("CONFIRMED");
+
+    // Visible from headquarters
+    var hqList = service.equipmentForProduction(production);
+    assertThat(hqList).hasSize(1);
+    assertThat(hqList.getFirst()).containsEntry("equipmentId", equipment);
+
+    // Remove equipment
+    var afterRemove = productionService.removeEquipment(production, equipment);
+    assertThat(afterRemove.equipment()).isEmpty();
+    assertThat(service.equipmentForProduction(production)).isEmpty();
+  }
+
+  @Test
+  void addEquipment_withoutScheduledTimes_usesWholeDayWindow() {
+    UUID unscheduledProd = UUID.randomUUID();
+    jdbc.update(
+        "INSERT INTO productions(id,title,client_name,event_date,start_time,end_time,venue_name,status,priority,progress_percent) VALUES(?,?,?,current_date,null,null,'Test venue','PLANNING','NORMAL',0)",
+        unscheduledProd,
+        "Unscheduled Prod",
+        "Test Client");
+
+    var view =
+        productionService.addEquipment(
+            unscheduledProd,
+            new com.saproduction.command.production.ProductionService.EquipmentInput(
+                equipment, BigDecimal.valueOf(3), null, null));
+
+    assertThat(view.equipment()).hasSize(1);
+    assertThat(view.equipment().getFirst().equipmentId()).isEqualTo(equipment);
+  }
+
+  @Test
+  void addEquipment_idempotentRetry_doesNotCreateDuplicateReservation() {
+    UUID retryProd = UUID.randomUUID();
+    jdbc.update(
+        "INSERT INTO productions(id,title,client_name,event_date,start_time,end_time,venue_name,status,priority,progress_percent) VALUES(?,?,?,current_date,'09:00','17:00','Retry Venue','PLANNING','NORMAL',0)",
+        retryProd,
+        "Retry Prod",
+        "Test Client");
+
+    var input =
+        new com.saproduction.command.production.ProductionService.EquipmentInput(
+            equipment, BigDecimal.valueOf(2), null, null);
+
+    // Call 1
+    var view1 = productionService.addEquipment(retryProd, input);
+    assertThat(view1.equipment()).hasSize(1);
+
+    // Call 2 (retry / double click)
+    var view2 = productionService.addEquipment(retryProd, input);
+    assertThat(view2.equipment()).hasSize(1);
+
+    // Only 1 reservation line in DB
+    var lines = service.equipmentForProduction(retryProd);
+    assertThat(lines).hasSize(1);
   }
 }
