@@ -2,21 +2,20 @@ package com.saproduction.command.eve;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /**
- * Context Engine for EVE.
+ * Context Engine for EVE Phase 2.
  * Assembles a bounded, deterministic context envelope containing:
  * 1. Authenticated operator
  * 2. Current route / context
  * 3. Current date/time & canonical timezone
  * 4. Active session & recent conversation
  * 5. Relevant canonical records
- * 6. Resolution information
+ * 6. Multi-turn referenced entities
  * 7. Retrieval evidence
  * 8. EVE system knowledge
  * 9. EVE memory hints
@@ -35,9 +34,27 @@ public class EveContextEngine {
   public static final int MAX_MEMORY_HINTS = 5;
 
   private final String timezone;
+  private final Map<UUID, EveRetrievalRouter.SessionContext> sessionContexts = new ConcurrentHashMap<>();
 
   public EveContextEngine(@Value("${app.timezone:Asia/Kolkata}") String timezone) {
     this.timezone = timezone;
+  }
+
+  public String getTimezone() {
+    return timezone;
+  }
+
+  public EveRetrievalRouter.SessionContext getSessionContext(UUID sessionId) {
+    if (sessionId == null) {
+      return new EveRetrievalRouter.SessionContext();
+    }
+    return sessionContexts.computeIfAbsent(sessionId, id -> new EveRetrievalRouter.SessionContext());
+  }
+
+  public void clearSessionContext(UUID sessionId) {
+    if (sessionId != null) {
+      sessionContexts.remove(sessionId);
+    }
   }
 
   public EveDtos.EveContext buildEnvelope(

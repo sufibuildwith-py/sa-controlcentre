@@ -88,13 +88,14 @@ class EveServiceTest {
     assertThat(response.message().content()).contains("outstanding");
 
     // Verify trace sequence and truthful events
-    assertThat(response.trace()).hasSize(6);
+    assertThat(response.trace()).hasSize(7);
     assertThat(response.trace().get(0).eventType()).isEqualTo("STARTED");
     assertThat(response.trace().get(1).eventType()).isEqualTo("INTERPRETING");
-    assertThat(response.trace().get(2).eventType()).isEqualTo("SEARCHING");
-    assertThat(response.trace().get(3).eventType()).isEqualTo("MATCHED");
+    assertThat(response.trace().get(2).eventType()).isEqualTo("RESOLVING");
+    assertThat(response.trace().get(3).eventType()).isEqualTo("ROUTING");
     assertThat(response.trace().get(4).eventType()).isEqualTo("RETRIEVING");
-    assertThat(response.trace().get(5).eventType()).isEqualTo("COMPLETED");
+    assertThat(response.trace().get(5).eventType()).isEqualTo("ASSEMBLING_CONTEXT");
+    assertThat(response.trace().get(6).eventType()).isEqualTo("COMPLETED");
 
     // Verify trace detail contains safe operational facts, never hidden reasoning
     for (EveDtos.TraceEventView t : response.trace()) {
@@ -112,8 +113,8 @@ class EveServiceTest {
     assertThat(response.context().memoryHints()).isNotEmpty();
 
     // Verify database inserts occurred for messages and traces
-    verify(jdbc, atLeast(2)).update(contains("INSERT INTO eve_messages"), any(), any(), any(), any());
-    verify(jdbc, times(6)).update(contains("INSERT INTO eve_trace_events"), any(), any(), any(), any(), any(), any(), any(), any(), any());
+    verify(jdbc, atLeast(2)).update(contains("INSERT INTO eve_messages"), any(), any(), any(), any(), any());
+    verify(jdbc, times(7)).update(contains("INSERT INTO eve_trace_events"), any(), any(), any(), any(), any(), any(), any(), any(), any());
   }
 
   @Test
@@ -162,7 +163,7 @@ class EveServiceTest {
     EveDtos.QueryResponse response = service.query(new EveDtos.QueryRequest(prompt, sessionId));
 
     assertThat(response.status()).isEqualTo("NOT_FOUND");
-    assertThat(response.message().content()).contains("could not find any active team member");
+    assertThat(response.message().content()).contains("could not find any active records matching \"UnknownPerson\"");
 
     verifyNoInteractions(financeReadService);
   }

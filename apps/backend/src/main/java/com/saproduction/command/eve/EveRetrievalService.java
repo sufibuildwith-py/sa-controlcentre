@@ -4,15 +4,17 @@ import com.saproduction.command.employee.Employee;
 import com.saproduction.command.employee.EmployeeDtos;
 import com.saproduction.command.employee.EmployeeRepository;
 import com.saproduction.command.employee.EmployeeService;
+import com.saproduction.command.production.Production;
+import com.saproduction.command.production.ProductionRepository;
 import java.util.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
  * Deterministic retrieval engine for EVE.
- * Enforces the authoritative canonical resolution order:
+ * Enforces the authoritative canonical resolution order across all domains:
  * 1. Exact canonical identifier / UUID
- * 2. Exact canonical code (case-insensitive, e.g. "SA-01")
+ * 2. Exact canonical code or name (case-insensitive)
  * 3. Normalized exact name (case & whitespace insensitive)
  * 4. Bounded canonical DB search -> Canonical candidate set
  * 5. Memory as supporting evidence / disambiguation hint (strictly validated against canonical DB)
@@ -25,15 +27,25 @@ public class EveRetrievalService {
   private final EmployeeRepository employeeRepo;
   private final EmployeeService employeeService;
   private final EveMemoryService memoryService;
+  private final ProductionRepository productionRepo;
+
+  public EveRetrievalService(
+      EmployeeRepository employeeRepo,
+      EmployeeService employeeService,
+      EveMemoryService memoryService) {
+    this(employeeRepo, employeeService, memoryService, null);
+  }
 
   @Autowired
   public EveRetrievalService(
       EmployeeRepository employeeRepo,
       EmployeeService employeeService,
-      @Autowired(required = false) EveMemoryService memoryService) {
+      @Autowired(required = false) EveMemoryService memoryService,
+      @Autowired(required = false) ProductionRepository productionRepo) {
     this.employeeRepo = employeeRepo;
     this.employeeService = employeeService;
     this.memoryService = memoryService;
+    this.productionRepo = productionRepo;
   }
 
   public enum MatchMethod {
@@ -165,7 +177,6 @@ public class EveRetrievalService {
               .findFirst();
 
           if (matchingCandidate.isPresent()) {
-            // Re-validate against canonical repository before resolving
             Optional<Employee> verified = employeeRepo.findById(matchingCandidate.get().id());
             if (verified.isPresent() && verified.get().status != Employee.Status.INACTIVE) {
               return ResolutionResult.resolved(toCandidate(verified.get()), MatchMethod.MEMORY_HINT, trimmed);
@@ -180,12 +191,8 @@ public class EveRetrievalService {
           trimmed);
     }
 
-    // 5. Canonical DB search yielded 0 matches for this spoken term (e.g. operator used an alias like "Raju").
+    // 5. Canonical DB search yielded 0 matches for this spoken term.
     // Memory can suggest a candidate, BUT memory is strictly a hint:
-    // - Memory cannot invent an entity
-    // - Memory cannot bypass canonical DB resolution
-    // - Stale memory pointing to a deleted or non-existent entity must return NOT_FOUND
-    // - Candidate suggested by memory MUST be fetched and re-validated against canonical DB state
     if (memoryService != null) {
       Optional<EveDtos.MemoryView> mem = memoryService.recall(trimmed);
       if (mem.isPresent() && "EMPLOYEE".equalsIgnoreCase(mem.get().canonicalType())) {
@@ -195,11 +202,9 @@ public class EveRetrievalService {
           if (verified.isPresent()) {
             Employee emp = verified.get();
             if (emp.status != Employee.Status.INACTIVE) {
-              // Return canonical database data (fresh displayName, current code)
               return ResolutionResult.resolved(toCandidate(emp), MatchMethod.MEMORY_HINT, trimmed);
             }
           }
-          // Stale memory pointing to deleted/missing entity: do NOT resolve.
         } else if (hint.canonicalName() != null) {
           List<EmployeeDtos.View> nameMatches = allActive.stream()
               .filter(e -> e.displayName().equalsIgnoreCase(hint.canonicalName()))
@@ -217,6 +222,89 @@ public class EveRetrievalService {
     return ResolutionResult.notFound(trimmed);
   }
 
+  public ResolutionResult resolveProduction(String spokenValue) {
+    if (spokenValue == null || spokenValue.isBlank() || productionRepo == null) {
+      return ResolutionResult.notFound(spokenValue);
+    }
+
+    String trimmed = normalizeWhitespace(spokenValue.trim());
+    String lower = trimmed.toLowerCase(Locale.ROOT);
+
+    // 1. Exact UUID
+    try {
+      UUID id = UUID.fromString(trimmed);
+      Optional<Production> prod = productionRepo.findById(id);
+      if (prod.isPresent()) {
+        return ResolutionResult.resolved(toCandidate(prod.get()), MatchMethod.EXACT_ID, trimmed);
+      }
+    } catch (IllegalArgumentException ignored) {
+      // Not a UUID
+    }
+
+    List<Production> allProds = productionRepo.findAll();
+
+    // 2. Exact Title Match
+    List<Production> exactMatches = allProds.stream()
+        .filter(p -> normalizeWhitespace(p.title).equalsIgnoreCase(trimmed))
+        .toList();
+
+    if (exactMatches.size() == 1) {
+      return ResolutionResult.resolved(toCandidate(exactMatches.get(0)), MatchMethod.EXACT_NAME, trimmed);
+    } else if (exactMatches.size() > 1) {
+      return ResolutionResult.ambiguous(
+          exactMatches.stream().map(this::toCandidate).toList(),
+          trimmed);
+    }
+
+    // 3. Bounded Canonical DB Search (title or client containing query)
+    List<Production> canonicalCandidates = allProds.stream()
+        .filter(p -> p.title.toLowerCase(Locale.ROOT).contains(lower)
+            || (p.clientName != null && p.clientName.toLowerCase(Locale.ROOT).contains(lower)))
+        .toList();
+
+    if (!canonicalCandidates.isEmpty()) {
+      if (canonicalCandidates.size() == 1) {
+        return ResolutionResult.resolved(toCandidate(canonicalCandidates.get(0)), MatchMethod.BOUNDED_SEARCH, trimmed);
+      }
+
+      // Disambiguate using memory hint if available
+      if (memoryService != null) {
+        Optional<EveDtos.MemoryView> mem = memoryService.recall(trimmed);
+        if (mem.isPresent() && "PRODUCTION".equalsIgnoreCase(mem.get().canonicalType())) {
+          EveDtos.MemoryView hint = mem.get();
+          Optional<Production> matching = canonicalCandidates.stream()
+              .filter(p -> (hint.canonicalId() != null && p.id.equals(hint.canonicalId()))
+                  || (hint.canonicalName() != null && p.title.equalsIgnoreCase(hint.canonicalName())))
+              .findFirst();
+
+          if (matching.isPresent()) {
+            return ResolutionResult.resolved(toCandidate(matching.get()), MatchMethod.MEMORY_HINT, trimmed);
+          }
+        }
+      }
+
+      return ResolutionResult.ambiguous(
+          canonicalCandidates.stream().map(this::toCandidate).toList(),
+          trimmed);
+    }
+
+    // 4. Memory hint for alias when canonical search yielded 0 matches
+    if (memoryService != null) {
+      Optional<EveDtos.MemoryView> mem = memoryService.recall(trimmed);
+      if (mem.isPresent() && "PRODUCTION".equalsIgnoreCase(mem.get().canonicalType())) {
+        EveDtos.MemoryView hint = mem.get();
+        if (hint.canonicalId() != null) {
+          Optional<Production> verified = productionRepo.findById(hint.canonicalId());
+          if (verified.isPresent()) {
+            return ResolutionResult.resolved(toCandidate(verified.get()), MatchMethod.MEMORY_HINT, trimmed);
+          }
+        }
+      }
+    }
+
+    return ResolutionResult.notFound(trimmed);
+  }
+
   /**
    * Model-assisted candidate selection strictly constrained to an existing candidate set.
    * Invariant: The model may select among real candidates; it can NEVER invent an entity.
@@ -226,11 +314,24 @@ public class EveRetrievalService {
       return Optional.empty();
     }
     String hint = normalizeWhitespace(selectionHint.trim()).toLowerCase(Locale.ROOT);
+
+    // Support index-based ordinal hints ("first", "1st", "1", "second", "2nd", "2", "the second one")
+    if (hint.equals("first") || hint.equals("1st") || hint.equals("1") || hint.contains("first")) {
+      return Optional.of(candidates.get(0));
+    }
+    if ((hint.equals("second") || hint.equals("2nd") || hint.equals("2") || hint.contains("second")) && candidates.size() > 1) {
+      return Optional.of(candidates.get(1));
+    }
+    if ((hint.equals("third") || hint.equals("3rd") || hint.equals("3") || hint.contains("third")) && candidates.size() > 2) {
+      return Optional.of(candidates.get(2));
+    }
+
     return candidates.stream()
         .filter(c -> c.id().toString().equalsIgnoreCase(hint)
             || c.code().toLowerCase(Locale.ROOT).equalsIgnoreCase(hint)
             || normalizeWhitespace(c.displayName()).toLowerCase(Locale.ROOT).equalsIgnoreCase(hint)
-            || normalizeWhitespace(c.displayName()).toLowerCase(Locale.ROOT).contains(hint))
+            || normalizeWhitespace(c.displayName()).toLowerCase(Locale.ROOT).contains(hint)
+            || (c.detail() != null && c.detail().toLowerCase(Locale.ROOT).contains(hint)))
         .findFirst();
   }
 
@@ -246,7 +347,7 @@ public class EveRetrievalService {
     return str.replaceAll("\\s+", " ").trim();
   }
 
-  private Candidate toCandidate(Employee e) {
+  public Candidate toCandidate(Employee e) {
     return new Candidate(
         e.id,
         "EMPLOYEE",
@@ -255,12 +356,21 @@ public class EveRetrievalService {
         e.roleTitle != null ? e.roleTitle : "Team Member");
   }
 
-  private Candidate toCandidate(EmployeeDtos.View v) {
+  public Candidate toCandidate(EmployeeDtos.View v) {
     return new Candidate(
         v.id(),
         "EMPLOYEE",
         v.displayName(),
         v.employeeCode(),
         v.roleTitle() != null ? v.roleTitle() : "Team Member");
+  }
+
+  public Candidate toCandidate(Production p) {
+    return new Candidate(
+        p.id,
+        "PRODUCTION",
+        p.title,
+        p.id.toString().substring(0, 8),
+        String.format("Client: %s, Date: %s, Venue: %s", p.clientName, p.eventDate, p.venueName));
   }
 }

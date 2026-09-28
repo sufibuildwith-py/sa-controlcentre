@@ -234,4 +234,130 @@ describe("EvePage — Phase 1 Grounded Command Console", () => {
     expect(screen.getByText("Amit Sharma")).toBeInTheDocument();
     expect(screen.getByText(/Ambiguity detected/i)).toBeInTheDocument();
   });
+
+  it("handles multi-turn conversation and carries sessionId forward in subsequent queries", async () => {
+    const turn1Response: EveQueryResponse = {
+      sessionId: "session-multi-1",
+      message: {
+        id: "msg-t1",
+        sessionId: "session-multi-1",
+        role: "ASSISTANT",
+        content: "Royal Wedding has 2 assigned crew members: Raj Sharma, Amit Kumar.",
+        createdAt: "2026-09-28T10:00:00Z",
+      },
+      trace: [
+        {
+          id: "tr-t1",
+          sessionId: "session-multi-1",
+          seq: 1,
+          eventType: "COMPLETED",
+          status: "OK",
+          label: "Query completed",
+          createdAt: "2026-09-28T10:00:01Z",
+        },
+      ],
+      context: {
+        owner: "Azeem Khan",
+        timezone: "Asia/Kolkata",
+        date: "2026-09-28",
+        referencedEntities: [
+          { id: "prod-1", type: "PRODUCTION", name: "Royal Wedding", code: "PROD-01" },
+        ],
+        evidence: [
+          { domain: "PRODUCTION", label: "Crew Count", value: "2" },
+        ],
+      },
+      status: "COMPLETED",
+      candidates: [],
+    };
+
+    const turn2Response: EveQueryResponse = {
+      sessionId: "session-multi-1",
+      message: {
+        id: "msg-t2",
+        sessionId: "session-multi-1",
+        role: "ASSISTANT",
+        content: "Yes, Raj Sharma was assigned to Royal Wedding as Lead Sound Engineer.",
+        createdAt: "2026-09-28T10:01:00Z",
+      },
+      trace: [
+        {
+          id: "tr-t2",
+          sessionId: "session-multi-1",
+          seq: 1,
+          eventType: "COMPLETED",
+          status: "OK",
+          label: "Query completed",
+          createdAt: "2026-09-28T10:01:01Z",
+        },
+      ],
+      context: {
+        owner: "Azeem Khan",
+        timezone: "Asia/Kolkata",
+        date: "2026-09-28",
+        referencedEntities: [
+          { id: "prod-1", type: "PRODUCTION", name: "Royal Wedding", code: "PROD-01" },
+          { id: "emp-1", type: "EMPLOYEE", name: "Raj Sharma", code: "SA-01" },
+        ],
+        evidence: [
+          { domain: "PRODUCTION", label: "Crew Check", value: "Assigned" },
+        ],
+      },
+      status: "COMPLETED",
+      candidates: [],
+    };
+
+    vi.mocked(eveApi.query)
+      .mockResolvedValueOnce(turn1Response)
+      .mockResolvedValueOnce(turn2Response);
+
+    renderEvePage();
+    const user = userEvent.setup();
+
+    const textarea = screen.getByPlaceholderText(/Ask Eve about employee finance/i);
+    await user.type(textarea, "Royal Wedding mein kaun kaun tha?");
+    await user.click(screen.getByRole("button", { name: /Send/i }));
+
+    expect(
+      await screen.findByText(/Royal Wedding has 2 assigned crew members/i),
+    ).toBeInTheDocument();
+
+    // Turn 2 follow-up
+    await user.type(textarea, "Usme Sharma bhi tha?");
+    await user.click(screen.getByRole("button", { name: /Send/i }));
+
+    await waitFor(() => {
+      expect(eveApi.query).toHaveBeenLastCalledWith(
+        "Usme Sharma bhi tha?",
+        "session-multi-1",
+      );
+    });
+
+    expect(
+      await screen.findByText(/Yes, Raj Sharma was assigned to Royal Wedding/i),
+    ).toBeInTheDocument();
+  });
+
+  it("creates a new session when + New Session is clicked", async () => {
+    vi.mocked(eveApi.createSession).mockResolvedValueOnce({
+      id: "new-session-789",
+      title: "New Command Session",
+      status: "ACTIVE",
+      createdAt: "2026-09-28T10:00:00Z",
+      updatedAt: "2026-09-28T10:00:00Z",
+      messages: [],
+    });
+
+    renderEvePage();
+    const user = userEvent.setup();
+
+    const newSessionBtn = screen.getByRole("button", { name: /\+ New Session/i });
+    await user.click(newSessionBtn);
+
+    await waitFor(() => {
+      expect(eveApi.createSession).toHaveBeenCalled();
+    });
+
+    expect(await screen.findByText(/Session new-sess/i)).toBeInTheDocument();
+  });
 });

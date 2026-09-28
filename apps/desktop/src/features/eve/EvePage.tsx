@@ -34,9 +34,12 @@ import type {
 
 const SUGGESTIONS = [
   "How much does Sharma still need?",
-  "Check Sharma payment status",
-  "Amit Sharma outstanding balance",
-  "Overview of current operations",
+  "Royal Wedding mein kaun kaun tha?",
+  "Usme Sharma bhi tha?",
+  "Aur uska equipment?",
+  "Kaunsa task abhi open hai?",
+  "Kal kaunsa event hai?",
+  "Raju se mera matlab Raj Kumar hai",
 ];
 
 export function EvePage() {
@@ -69,6 +72,7 @@ export function EvePage() {
       setCandidates(data.candidates ?? []);
       setStatus(data.status);
       setPrompt("");
+      sessionQuery.refetch();
     },
     onError: (err: any) => {
       setStatus("FAILED");
@@ -89,6 +93,43 @@ export function EvePage() {
     scrollRef.current?.scrollIntoView?.({ behavior: "smooth" });
   }, [messages, trace]);
 
+  const handleNewSession = async () => {
+    try {
+      const sess = await eveApi.createSession("New Command Session");
+      setActiveSessionId(sess.id);
+      setMessages([]);
+      setTrace([]);
+      setContext(null);
+      setCandidates([]);
+      setStatus("READY");
+      sessionQuery.refetch();
+    } catch {
+      setActiveSessionId(null);
+      setMessages([]);
+      setTrace([]);
+      setContext(null);
+      setCandidates([]);
+      setStatus("READY");
+    }
+  };
+
+  const handleSelectSession = async (sessionId: string) => {
+    if (!sessionId) {
+      handleNewSession();
+      return;
+    }
+    setActiveSessionId(sessionId);
+    try {
+      const sess = await eveApi.getSession(sessionId);
+      setMessages(sess.messages ?? []);
+      setTrace([]);
+      setCandidates([]);
+      setStatus("READY");
+    } catch {
+      // ignore
+    }
+  };
+
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!prompt.trim() || queryMutation.isPending) return;
@@ -106,7 +147,7 @@ export function EvePage() {
   };
 
   const handleSelectCandidate = (candidate: EveCandidate) => {
-    const refinedPrompt = `How much does ${candidate.displayName} (${candidate.code}) still need?`;
+    const refinedPrompt = candidate.displayName;
     setPrompt(refinedPrompt);
     const userMsg: EveMessage = {
       id: `usr-${Date.now()}`,
@@ -124,7 +165,7 @@ export function EvePage() {
     <div className="eve-workspace flex flex-col gap-6 p-6">
       <WorkspaceHeader
         title="Eve"
-        subtitle="Operational Intelligence Layer · Grounded System Operations"
+        subtitle="Operational Intelligence Layer · Grounded Multi-Domain Operations · Phase 2"
       />
 
       {/* Main Grid Console */}
@@ -139,10 +180,36 @@ export function EvePage() {
                 <span className="text-xs uppercase tracking-wider font-semibold text-neutral-400">
                   Command Composer
                 </span>
+                {activeSessionId && (
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-neutral-800 text-neutral-400 border border-neutral-700/60">
+                    Session {activeSessionId.slice(0, 8)}
+                  </span>
+                )}
               </div>
-              <span className="text-xs text-neutral-500 font-mono">
-                Canonical Read Grounding · Phase 1
-              </span>
+              <div className="flex items-center gap-2">
+                {sessionQuery.data && sessionQuery.data.length > 0 && (
+                  <select
+                    value={activeSessionId ?? ""}
+                    onChange={(e) => handleSelectSession(e.target.value)}
+                    aria-label="Select Session"
+                    className="text-[11px] bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-neutral-300 font-mono focus:outline-none"
+                  >
+                    <option value="">Active Session</option>
+                    {sessionQuery.data.slice(0, 5).map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.title} ({s.id.slice(0, 8)})
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <button
+                  type="button"
+                  onClick={handleNewSession}
+                  className="text-[11px] font-medium text-neutral-300 hover:text-neutral-100 px-2 py-1 rounded bg-neutral-800/80 hover:bg-neutral-800 border border-neutral-700/50 transition-colors"
+                >
+                  + New Session
+                </button>
+              </div>
             </div>
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-3">
@@ -399,10 +466,29 @@ export function EvePage() {
                           key={idx}
                           className="flex flex-col p-2.5 rounded-lg bg-neutral-900 border border-neutral-800"
                         >
-                          <span className="text-[10px] font-mono text-neutral-500 uppercase">
-                            {ev.label}
-                          </span>
-                          <span className="text-sm font-semibold text-neutral-200 mt-0.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-mono text-neutral-500 uppercase">
+                              {ev.label}
+                            </span>
+                            <span
+                              className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${
+                                ev.domain === "FINANCE"
+                                  ? "bg-emerald-950/80 text-emerald-400 border-emerald-800"
+                                  : ev.domain === "PRODUCTION"
+                                  ? "bg-sky-950/80 text-sky-400 border-sky-800"
+                                  : ev.domain === "EQUIPMENT" || ev.domain === "HEADQUARTERS"
+                                  ? "bg-amber-950/80 text-amber-400 border-amber-800"
+                                  : ev.domain === "WORK" || ev.domain === "TASK"
+                                  ? "bg-purple-950/80 text-purple-400 border-purple-800"
+                                  : ev.domain === "CALENDAR"
+                                  ? "bg-indigo-950/80 text-indigo-400 border-indigo-800"
+                                  : "bg-neutral-800 text-neutral-300 border-neutral-700"
+                              }`}
+                            >
+                              {ev.domain}
+                            </span>
+                          </div>
+                          <span className="text-sm font-semibold text-neutral-200 mt-1">
                             {ev.value}
                           </span>
                         </div>

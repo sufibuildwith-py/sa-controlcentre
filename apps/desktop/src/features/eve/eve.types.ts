@@ -14,9 +14,12 @@ export interface EveTraceEvent {
   eventType:
     | "STARTED"
     | "INTERPRETING"
+    | "RESOLVING"
+    | "ROUTING"
+    | "RETRIEVING"
+    | "ASSEMBLING_CONTEXT"
     | "SEARCHING"
     | "MATCHED"
-    | "RETRIEVING"
     | "VALIDATING"
     | "PLANNING"
     | "COMPLETED"

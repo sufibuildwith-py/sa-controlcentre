@@ -2,9 +2,7 @@ package com.saproduction.command.eve;
 
 import com.saproduction.command.finance.FinanceReadService;
 import com.saproduction.command.shared.ApiException;
-import java.math.BigDecimal;
 import java.sql.Timestamp;
-import java.text.NumberFormat;
 import java.time.Instant;
 import java.util.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,6 +10,12 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Core Orchestrator for EVE Phase 2 Conversational Intelligence.
+ * EVE is the intelligence layer; existing SA Command domain services are the source of truth.
+ * Supports multi-turn conversational session continuity, cross-domain reads, owner vocabulary,
+ * relative dates, colloquial amounts, observable trace, and zero business mutations.
+ */
 @Service
 public class EveService {
 
@@ -21,7 +25,19 @@ public class EveService {
   private final EveKnowledgeService knowledgeService;
   private final EveMemoryService memoryService;
   private final FinanceReadService financeReadService;
+  private final EveRetrievalRouter retrievalRouter;
   private final JdbcTemplate jdbc;
+
+  public EveService(
+      EveModelProvider modelProvider,
+      EveRetrievalService retrievalService,
+      EveContextEngine contextEngine,
+      EveKnowledgeService knowledgeService,
+      EveMemoryService memoryService,
+      FinanceReadService financeReadService,
+      JdbcTemplate jdbc) {
+    this(modelProvider, retrievalService, contextEngine, knowledgeService, memoryService, financeReadService, null, jdbc);
+  }
 
   @Autowired
   public EveService(
@@ -31,6 +47,7 @@ public class EveService {
       EveKnowledgeService knowledgeService,
       @Autowired(required = false) EveMemoryService memoryService,
       FinanceReadService financeReadService,
+      @Autowired(required = false) EveRetrievalRouter retrievalRouter,
       JdbcTemplate jdbc) {
     this.modelProvider = modelProvider;
     this.retrievalService = retrievalService;
@@ -39,6 +56,9 @@ public class EveService {
     this.memoryService = memoryService;
     this.financeReadService = financeReadService;
     this.jdbc = jdbc;
+    this.retrievalRouter = retrievalRouter != null
+        ? retrievalRouter
+        : new EveRetrievalRouter(retrievalService, financeReadService, null, null, null, null, null, null, memoryService, contextEngine.getTimezone());
   }
 
   @Transactional
@@ -51,7 +71,6 @@ public class EveService {
         ? request.sessionId()
         : createSessionInternal(summarizeTitle(request.prompt()));
 
-    // Verify session exists
     ensureSessionExists(sessionId);
 
     // Save User Message
@@ -63,13 +82,21 @@ public class EveService {
     // 1. STARTED
     trace.add(recordTrace(sessionId, userMsgId, seq++, "STARTED", "OK", "Request received", "Processing query: " + request.prompt()));
 
+    // Load Session Context
+    EveRetrievalRouter.SessionContext sessionContext = contextEngine.getSessionContext(sessionId);
+    String contextSummary = buildSessionContextSummary(sessionId);
+
     // 2. INTERPRETING
-    trace.add(recordTrace(sessionId, userMsgId, seq++, "INTERPRETING", "OK", "Interpreting intent", "Analyzing query with ModelProvider"));
+    trace.add(recordTrace(sessionId, userMsgId, seq++, "INTERPRETING", "OK", "Interpreting intent", "Analyzing query in session context with ModelProvider"));
     EveModelProvider.EveInterpretation interpretation;
     try {
       interpretation = modelProvider.interpret(
-          new EveModelProvider.EveInterpretationRequest(request.prompt(), null));
+          new EveModelProvider.EveInterpretationRequest(request.prompt(), contextSummary));
     } catch (ApiException e) {
+      String status = "MODEL_FAILED";
+      if ("EVE_MODEL_UNAVAILABLE".equals(e.code)) {
+        status = "SYSTEM_UNAVAILABLE";
+      }
       trace.add(recordTrace(sessionId, userMsgId, seq++, "FAILED", "ERROR", "Interpretation failed", e.getMessage()));
       UUID errAssistantMsgId = saveMessage(sessionId, "ASSISTANT", "Unable to process query: " + e.getMessage());
       return new EveDtos.QueryResponse(
@@ -77,10 +104,11 @@ public class EveService {
           new EveDtos.MessageView(errAssistantMsgId, sessionId, "ASSISTANT", "Unable to process query: " + e.getMessage(), Instant.now()),
           trace,
           null,
-          "MODEL_FAILED",
+          status,
           List.of());
     }
 
+    // Safety policy check
     if (interpretation.intent() == EveModelProvider.Intent.BLOCKED) {
       trace.add(recordTrace(sessionId, userMsgId, seq++, "BLOCKED", "BLOCKED", "Policy blocked", interpretation.refusalReason()));
       String blockMsg = "Request blocked by safety policy: " + interpretation.refusalReason();
@@ -94,135 +122,75 @@ public class EveService {
           List.of());
     }
 
-    // 3. SEARCHING / RETRIEVAL
-    String spoken = interpretation.spokenEntity() != null ? interpretation.spokenEntity() : request.prompt();
-    trace.add(recordTrace(sessionId, userMsgId, seq++, "SEARCHING", "OK", "Searching entities", "Looking up canonical entity for: " + spoken));
+    // 3. RESOLVING & ROUTING
+    trace.add(recordTrace(sessionId, userMsgId, seq++, "RESOLVING", "OK", "Resolving references", "Checking entities and session context"));
+    trace.add(recordTrace(sessionId, userMsgId, seq++, "ROUTING", "OK", "Routing retrieval", "Dispatching to domain read service: " + interpretation.intent()));
 
-    EveRetrievalService.ResolutionResult resolution = retrievalService.resolveEmployee(spoken);
+    // 4. RETRIEVING AUTHORITATIVE STATE
+    EveRetrievalRouter.RouterResult routerResult = retrievalRouter.routeAndRetrieve(interpretation, sessionContext, request.prompt());
 
-    if (resolution.status() == EveRetrievalService.ResolutionStatus.AMBIGUOUS) {
+    if ("CLARIFICATION_REQUIRED".equals(routerResult.status())) {
       trace.add(recordTrace(
-          sessionId,
-          userMsgId,
-          seq++,
-          "BLOCKED",
-          "BLOCKED",
-          "Ambiguity detected",
-          "Found " + resolution.candidates().size() + " matches for \"" + spoken + "\". Clarification required."));
+          sessionId, userMsgId, seq++, "BLOCKED", "BLOCKED", "Ambiguity detected", routerResult.answer()));
 
-      List<EveDtos.CandidateView> candidates = resolution.candidates().stream()
-          .map(c -> new EveDtos.CandidateView(c.id(), c.type(), c.displayName(), c.code(), c.detail()))
-          .toList();
-
-      String clarMsg = "I found multiple matching team members for \"" + spoken + "\". Please choose which employee you meant:";
-      UUID assistantMsgId = saveMessage(sessionId, "ASSISTANT", clarMsg);
-
+      UUID assistantMsgId = saveMessage(sessionId, "ASSISTANT", routerResult.answer());
       return new EveDtos.QueryResponse(
           sessionId,
-          new EveDtos.MessageView(assistantMsgId, sessionId, "ASSISTANT", clarMsg, Instant.now()),
+          new EveDtos.MessageView(assistantMsgId, sessionId, "ASSISTANT", routerResult.answer(), Instant.now()),
           trace,
           null,
           "CLARIFICATION_REQUIRED",
-          candidates);
+          routerResult.candidates());
     }
 
-    if (resolution.status() == EveRetrievalService.ResolutionStatus.NOT_FOUND) {
-      trace.add(recordTrace(sessionId, userMsgId, seq++, "BLOCKED", "WARN", "Entity not found", "No matching records found for \"" + spoken + "\""));
-      String notFoundMsg = "I could not find any active team member matching \"" + spoken + "\" in the system.";
-      UUID assistantMsgId = saveMessage(sessionId, "ASSISTANT", notFoundMsg);
-
+    if ("NOT_FOUND".equals(routerResult.status())) {
+      trace.add(recordTrace(sessionId, userMsgId, seq++, "BLOCKED", "WARN", "Entity not found", routerResult.answer()));
+      UUID assistantMsgId = saveMessage(sessionId, "ASSISTANT", routerResult.answer());
       return new EveDtos.QueryResponse(
           sessionId,
-          new EveDtos.MessageView(assistantMsgId, sessionId, "ASSISTANT", notFoundMsg, Instant.now()),
+          new EveDtos.MessageView(assistantMsgId, sessionId, "ASSISTANT", routerResult.answer(), Instant.now()),
           trace,
           null,
           "NOT_FOUND",
           List.of());
     }
 
-    // 4. MATCHED
-    EveRetrievalService.Candidate emp = resolution.resolved();
     trace.add(recordTrace(
-        sessionId,
-        userMsgId,
-        seq++,
-        "MATCHED",
-        "OK",
-        "Entity matched",
-        "Resolved to " + emp.displayName() + " (" + emp.code() + ") via " + resolution.provenance().matchMethod()));
+        sessionId, userMsgId, seq++, "RETRIEVING", "OK", "Retrieving authoritative state", "Loaded factual state from system of record"));
 
-    // 5. RETRIEVING AUTHORITATIVE STATE
+    // 5. ASSEMBLING CONTEXT
     trace.add(recordTrace(
-        sessionId,
-        userMsgId,
-        seq++,
-        "RETRIEVING",
-        "OK",
-        "Retrieving authoritative state",
-        "Loading current financial position from FinanceReadService"));
-
-    Map<String, Object> empFinance = financeReadService.employee(emp.id());
-    BigDecimal earned = (BigDecimal) empFinance.getOrDefault("earned", BigDecimal.ZERO);
-    BigDecimal paid = (BigDecimal) empFinance.getOrDefault("paid", BigDecimal.ZERO);
-    BigDecimal outstanding = (BigDecimal) empFinance.getOrDefault("outstanding", BigDecimal.ZERO);
-
-    NumberFormat inr = NumberFormat.getCurrencyInstance(Locale.of("en", "IN"));
-    String earnedStr = inr.format(earned);
-    String paidStr = inr.format(paid);
-    String outstandingStr = inr.format(outstanding);
-
-    // Build bounded context & evidence
-    List<EveDtos.EntityReference> entities = List.of(
-        new EveDtos.EntityReference(emp.id(), "EMPLOYEE", emp.displayName(), emp.code()));
-    List<EveDtos.EvidenceItem> evidence = List.of(
-        new EveDtos.EvidenceItem("FINANCE", "Total Earned", earnedStr),
-        new EveDtos.EvidenceItem("FINANCE", "Total Paid", paidStr),
-        new EveDtos.EvidenceItem("FINANCE", "Outstanding Balance", outstandingStr));
+        sessionId, userMsgId, seq++, "ASSEMBLING_CONTEXT", "OK", "Assembling bounded context", "Formulating grounded answer with visible evidence"));
 
     List<String> knowledgeSnippets = knowledgeService != null
-        ? knowledgeService.getRelevantKnowledge("FINANCE", "READ_EMPLOYEE_FINANCE")
+        ? knowledgeService.getRelevantKnowledge(interpretation.intent().name(), request.prompt())
         : List.of();
 
     List<EveDtos.MemoryView> memoryHints = new ArrayList<>();
-    if (memoryService != null) {
-      memoryService.recall(spoken).ifPresent(memoryHints::add);
+    if (memoryService != null && interpretation.spokenEntity() != null) {
+      memoryService.recall(interpretation.spokenEntity()).ifPresent(memoryHints::add);
     }
 
     EveDtos.ContextView context = contextEngine.buildContextView(
         "Azeem Khan",
-        entities,
-        evidence,
+        routerResult.referencedEntities(),
+        routerResult.evidence(),
         knowledgeSnippets,
         memoryHints);
 
-    // Grounded Answer Formulation
-    String answer = String.format(
-        "%s (%s) currently has %s outstanding. Total earned to date is %s with %s already disbursed.",
-        emp.displayName(),
-        emp.code(),
-        outstandingStr,
-        earnedStr,
-        paidStr);
-
     // 6. COMPLETED
     trace.add(recordTrace(
-        sessionId,
-        userMsgId,
-        seq++,
-        "COMPLETED",
-        "OK",
-        "Query completed",
-        "Grounded financial state verified from PostgreSQL"));
+        sessionId, userMsgId, seq++, "COMPLETED", "OK", "Query completed", "Grounded operational state verified from PostgreSQL"));
 
-    UUID assistantMsgId = saveMessage(sessionId, "ASSISTANT", answer);
+    UUID assistantMsgId = saveMessage(sessionId, "ASSISTANT", routerResult.answer());
 
     return new EveDtos.QueryResponse(
         sessionId,
-        new EveDtos.MessageView(assistantMsgId, sessionId, "ASSISTANT", answer, Instant.now()),
+        new EveDtos.MessageView(assistantMsgId, sessionId, "ASSISTANT", routerResult.answer(), Instant.now()),
         trace,
         context,
-        "COMPLETED",
-        List.of());
+        routerResult.status() != null ? routerResult.status() : "COMPLETED",
+        routerResult.candidates() != null ? routerResult.candidates() : List.of());
   }
 
   @Transactional(readOnly = true)
@@ -240,7 +208,9 @@ public class EveService {
 
   @Transactional(readOnly = true)
   public EveDtos.SessionView getSession(UUID id) {
-    List<EveDtos.SessionView> sessions = jdbc.query(
+    ensureSessionExists(id);
+
+    EveDtos.SessionView session = jdbc.queryForObject(
         "SELECT id, title, status, created_at, updated_at FROM eve_sessions WHERE id = ?",
         (rs, rowNum) -> new EveDtos.SessionView(
             (UUID) rs.getObject("id"),
@@ -251,12 +221,7 @@ public class EveService {
             List.of()),
         id);
 
-    if (sessions.isEmpty()) {
-      throw ApiException.notFound("EVE_SESSION_NOT_FOUND", "Session not found: " + id);
-    }
-
-    EveDtos.SessionView s = sessions.get(0);
-    List<EveDtos.MessageView> messages = jdbc.query(
+    List<EveDtos.MessageView> msgs = jdbc.query(
         "SELECT id, session_id, role, content, created_at FROM eve_messages WHERE session_id = ? ORDER BY created_at ASC",
         (rs, rowNum) -> new EveDtos.MessageView(
             (UUID) rs.getObject("id"),
@@ -266,40 +231,54 @@ public class EveService {
             rs.getTimestamp("created_at").toInstant()),
         id);
 
-    return new EveDtos.SessionView(s.id(), s.title(), s.status(), s.createdAt(), s.updatedAt(), messages);
+    return new EveDtos.SessionView(
+        session.id(),
+        session.title(),
+        session.status(),
+        session.createdAt(),
+        session.updatedAt(),
+        msgs);
   }
 
   @Transactional
   public EveDtos.SessionView createSession(String title) {
-    String cleanTitle = title != null && !title.isBlank() ? title.trim() : "Operational Intelligence Session";
-    UUID id = createSessionInternal(cleanTitle);
+    UUID id = createSessionInternal(title != null && !title.isBlank() ? title : "New Command Session");
     return getSession(id);
+  }
+
+  @Transactional(readOnly = true)
+  public List<EveDtos.MemoryView> listMemories() {
+    if (memoryService == null) {
+      return List.of();
+    }
+    return memoryService.listMemories();
   }
 
   @Transactional
   public EveDtos.MemoryView remember(EveDtos.MemoryRequest request) {
     if (memoryService == null) {
-      throw ApiException.badRequest("EVE_MEMORY_UNAVAILABLE", "Memory service is not available.");
+      throw ApiException.badRequest("EVE_MEMORY_UNAVAILABLE", "Memory service not configured.");
     }
     return memoryService.remember(request, "OPERATOR_EXPLICIT");
   }
 
-  @Transactional(readOnly = true)
-  public List<EveDtos.MemoryView> listMemories() {
-    return memoryService != null ? memoryService.listMemories() : List.of();
-  }
-
   @Transactional
   public boolean deleteMemory(UUID id) {
-    return memoryService != null && memoryService.deleteMemory(id);
+    if (memoryService == null) {
+      return false;
+    }
+    return memoryService.deleteMemory(id);
   }
 
   private UUID createSessionInternal(String title) {
     UUID id = UUID.randomUUID();
+    Timestamp now = Timestamp.from(Instant.now());
     jdbc.update(
-        "INSERT INTO eve_sessions (id, title, status, created_at, updated_at) VALUES (?, ?, 'ACTIVE', now(), now())",
+        "INSERT INTO eve_sessions (id, title, status, created_at, updated_at) VALUES (?, ?, 'ACTIVE', ?, ?)",
         id,
-        title);
+        title,
+        now,
+        now);
     return id;
   }
 
@@ -309,19 +288,22 @@ public class EveService {
         Integer.class,
         sessionId);
     if (count == null || count == 0) {
-      throw ApiException.notFound("EVE_SESSION_NOT_FOUND", "Session not found: " + sessionId);
+      throw ApiException.notFound("EVE_SESSION_NOT_FOUND", "Session " + sessionId + " does not exist.");
     }
-    jdbc.update("UPDATE eve_sessions SET updated_at = now() WHERE id = ?", sessionId);
   }
 
   private UUID saveMessage(UUID sessionId, String role, String content) {
     UUID id = UUID.randomUUID();
+    Timestamp now = Timestamp.from(Instant.now());
     jdbc.update(
-        "INSERT INTO eve_messages (id, session_id, role, content, created_at) VALUES (?, ?, ?, ?, now())",
+        "INSERT INTO eve_messages (id, session_id, role, content, created_at) VALUES (?, ?, ?, ?, ?)",
         id,
         sessionId,
         role,
-        content);
+        content,
+        now);
+
+    jdbc.update("UPDATE eve_sessions SET updated_at = ? WHERE id = ?", now, sessionId);
     return id;
   }
 
@@ -334,7 +316,7 @@ public class EveService {
       String label,
       String detail) {
     UUID id = UUID.randomUUID();
-    Instant now = Instant.now();
+    Timestamp now = Timestamp.from(Instant.now());
     jdbc.update(
         "INSERT INTO eve_trace_events (id, session_id, message_id, seq, event_type, status, label, detail, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
         id,
@@ -345,15 +327,28 @@ public class EveService {
         status,
         label,
         detail,
-        Timestamp.from(now));
-    return new EveDtos.TraceEventView(id, sessionId, messageId, seq, eventType, status, label, detail, now);
+        now);
+
+    return new EveDtos.TraceEventView(id, sessionId, messageId, seq, eventType, status, label, detail, now.toInstant());
+  }
+
+  private String buildSessionContextSummary(UUID sessionId) {
+    try {
+      List<String> recent = jdbc.query(
+          "SELECT role, content FROM eve_messages WHERE session_id = ? ORDER BY created_at DESC LIMIT 3",
+          (rs, rowNum) -> rs.getString("role") + ": " + rs.getString("content"),
+          sessionId);
+      Collections.reverse(recent);
+      return String.join(" | ", recent);
+    } catch (Exception ignored) {
+      return "";
+    }
   }
 
   private String summarizeTitle(String prompt) {
-    String trimmed = prompt.trim();
-    if (trimmed.length() <= 40) {
-      return trimmed;
+    if (prompt.length() <= 32) {
+      return prompt;
     }
-    return trimmed.substring(0, 37) + "...";
+    return prompt.substring(0, 32) + "...";
   }
 }

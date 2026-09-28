@@ -6,6 +6,7 @@ import com.saproduction.command.employee.Employee;
 import com.saproduction.command.employee.EmployeeRepository;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -78,9 +79,12 @@ class EvePostgresIntegrationTest {
 
     // Snapshot counts of canonical business tables before Eve query
     int initialEmployeeCount = jdbc.queryForObject("SELECT count(*) FROM employees", Integer.class);
+    int initialProdCount = jdbc.queryForObject("SELECT count(*) FROM productions", Integer.class);
+    int initialMemberCount = jdbc.queryForObject("SELECT count(*) FROM production_members", Integer.class);
     int initialTxCount = jdbc.queryForObject("SELECT count(*) FROM finance_transactions", Integer.class);
+    int initialTaskCount = jdbc.queryForObject("SELECT count(*) FROM tasks", Integer.class);
 
-    // 3. Test Eve memory CRUD against real PostgreSQL
+    // 3. Test Eve explicit memory learning against real PostgreSQL
     EveDtos.MemoryRequest memReq = new EveDtos.MemoryRequest(
         "VOCABULARY", "Raju", "EMPLOYEE", emp.id, "Raj Sharma");
     EveDtos.MemoryView savedMem = memoryService.remember(memReq, "OPERATOR_EXPLICIT");
@@ -90,6 +94,8 @@ class EvePostgresIntegrationTest {
     assertThat(recalled).isPresent();
     assertThat(recalled.get().canonicalName()).isEqualTo("Raj Sharma");
 
+    int memoryRowsAfterExplicit = jdbc.queryForObject("SELECT count(*) FROM eve_memory", Integer.class);
+
     // 4. Execute Eve natural language query
     EveDtos.QueryResponse response = eveService.query(
         new EveDtos.QueryRequest("How much does Sharma still need?", null));
@@ -98,7 +104,17 @@ class EvePostgresIntegrationTest {
     assertThat(response.message().content()).contains("Raj Sharma (SA-99)");
     assertThat(response.trace()).isNotEmpty();
 
-    // 5. Verify Eve persistence records were written
+    // Turn 2: Querying Raju using explicit memory hint
+    EveDtos.QueryResponse turn2 = eveService.query(
+        new EveDtos.QueryRequest("How much does Raju still need?", response.sessionId()));
+    assertThat(turn2.status()).isEqualTo("COMPLETED");
+    assertThat(turn2.message().content()).contains("Raj Sharma (SA-99)");
+
+    // STRICT INVARIANT: Implicit query must NEVER create new rows in eve_memory
+    int memoryRowsAfterQuery = jdbc.queryForObject("SELECT count(*) FROM eve_memory", Integer.class);
+    assertThat(memoryRowsAfterQuery).isEqualTo(memoryRowsAfterExplicit);
+
+    // 5. Verify Eve persistence records were written in EVE-owned tables
     Integer sessionRows = jdbc.queryForObject("SELECT count(*) FROM eve_sessions", Integer.class);
     Integer messageRows = jdbc.queryForObject("SELECT count(*) FROM eve_messages", Integer.class);
     Integer traceRows = jdbc.queryForObject("SELECT count(*) FROM eve_trace_events", Integer.class);
@@ -107,11 +123,25 @@ class EvePostgresIntegrationTest {
     assertThat(messageRows).isGreaterThan(0);
     assertThat(traceRows).isGreaterThan(0);
 
-    // 6. STRICT INVARIANT: Verify ZERO mutations to canonical business tables occurred
-    int finalEmployeeCount = jdbc.queryForObject("SELECT count(*) FROM employees", Integer.class);
-    int finalTxCount = jdbc.queryForObject("SELECT count(*) FROM finance_transactions", Integer.class);
+    // Verify trace events contain NO private reasoning, chain-of-thought, or secrets
+    List<String> traceDetails = jdbc.query(
+        "SELECT detail FROM eve_trace_events WHERE session_id = ?",
+        (rs, rowNum) -> rs.getString("detail"),
+        response.sessionId());
+    for (String detail : traceDetails) {
+      if (detail != null) {
+        assertThat(detail).doesNotContain("chain-of-thought");
+        assertThat(detail).doesNotContain("prompt");
+        assertThat(detail).doesNotContain("password");
+        assertThat(detail).doesNotContain("secret");
+      }
+    }
 
-    assertThat(finalEmployeeCount).isEqualTo(initialEmployeeCount);
-    assertThat(finalTxCount).isEqualTo(initialTxCount);
+    // 6. STRICT INVARIANT: Verify ZERO mutations to canonical business tables occurred
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM employees", Integer.class)).isEqualTo(initialEmployeeCount);
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM productions", Integer.class)).isEqualTo(initialProdCount);
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM production_members", Integer.class)).isEqualTo(initialMemberCount);
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM finance_transactions", Integer.class)).isEqualTo(initialTxCount);
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM tasks", Integer.class)).isEqualTo(initialTaskCount);
   }
 }

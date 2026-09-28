@@ -37,12 +37,78 @@ class TestModelProviderTest {
   }
 
   @Test
-  void interpretsProductionQueryCorrectly() {
-    var req = new EveModelProvider.EveInterpretationRequest("Royal event details", null);
+  void interpretsProductionCrewQuery() {
+    var req = new EveModelProvider.EveInterpretationRequest("Royal mein kaun gaya tha?", null);
     var result = provider.interpret(req);
 
-    assertThat(result.intent()).isEqualTo(EveModelProvider.Intent.READ_PRODUCTION);
+    assertThat(result.intent()).isEqualTo(EveModelProvider.Intent.READ_PRODUCTION_CREW);
+    assertThat(result.entityType()).isEqualTo("PRODUCTION");
     assertThat(result.spokenEntity()).isEqualTo("Royal");
+  }
+
+  @Test
+  void interpretsCheckProductionMemberQuery() {
+    var req = new EveModelProvider.EveInterpretationRequest("Usme Sharma bhi tha?", null);
+    var result = provider.interpret(req);
+
+    assertThat(result.intent()).isEqualTo(EveModelProvider.Intent.CHECK_PRODUCTION_MEMBER);
+    assertThat(result.spokenEntity()).isEqualTo("usme");
+    assertThat(result.secondaryEntity()).isEqualTo("Sharma");
+  }
+
+  @Test
+  void interpretsFollowUpEquipmentQuery() {
+    var req = new EveModelProvider.EveInterpretationRequest("Aur uska equipment?", null);
+    var result = provider.interpret(req);
+
+    assertThat(result.intent()).isEqualTo(EveModelProvider.Intent.READ_PRODUCTION_EQUIPMENT);
+    assertThat(result.followUp()).isTrue();
+  }
+
+  @Test
+  void interpretsOpenTasksQuery() {
+    var req = new EveModelProvider.EveInterpretationRequest("Kaunsa task abhi open hai?", null);
+    var result = provider.interpret(req);
+
+    assertThat(result.intent()).isEqualTo(EveModelProvider.Intent.READ_TASKS_SUMMARY);
+    assertThat(result.entityType()).isEqualTo("WORK");
+  }
+
+  @Test
+  void interpretsEquipmentAvailabilityQuery() {
+    var req = new EveModelProvider.EveInterpretationRequest("Stand kitna available hai?", null);
+    var result = provider.interpret(req);
+
+    assertThat(result.intent()).isEqualTo(EveModelProvider.Intent.READ_EQUIPMENT_AVAILABILITY);
+    assertThat(result.spokenEntity()).isEqualTo("Stand");
+  }
+
+  @Test
+  void interpretsRelativeDateQuery() {
+    var req = new EveModelProvider.EveInterpretationRequest("Kal kaunsa event hai?", null);
+    var result = provider.interpret(req);
+
+    assertThat(result.intent()).isEqualTo(EveModelProvider.Intent.READ_SCHEDULE_BY_DATE);
+    assertThat(result.relativeDate()).isEqualTo("kal");
+  }
+
+  @Test
+  void interpretsDisambiguationFollowUp() {
+    var req = new EveModelProvider.EveInterpretationRequest("The second one", null);
+    var result = provider.interpret(req);
+
+    assertThat(result.intent()).isEqualTo(EveModelProvider.Intent.RESOLVE_DISAMBIGUATION);
+    assertThat(result.followUp()).isTrue();
+  }
+
+  @Test
+  void interpretsVocabularyLearningQuery() {
+    var req = new EveModelProvider.EveInterpretationRequest("Raju se mera matlab Raj Kumar hai", null);
+    var result = provider.interpret(req);
+
+    assertThat(result.intent()).isEqualTo(EveModelProvider.Intent.REMEMBER_VOCABULARY);
+    assertThat(result.spokenEntity()).isEqualTo("Raju");
+    assertThat(result.secondaryEntity()).isEqualTo("Raj Kumar");
   }
 
   @Test
@@ -70,5 +136,14 @@ class TestModelProviderTest {
     assertThatThrownBy(() -> provider.interpret(req))
         .isInstanceOf(ApiException.class)
         .hasMessageContaining("unavailable");
+  }
+
+  @Test
+  void throwsOnSimulatedMalformed() {
+    var req = new EveModelProvider.EveInterpretationRequest("__SIMULATE_MALFORMED__", null);
+
+    assertThatThrownBy(() -> provider.interpret(req))
+        .isInstanceOf(ApiException.class)
+        .hasMessageContaining("schema validation");
   }
 }
