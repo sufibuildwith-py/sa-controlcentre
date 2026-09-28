@@ -1,0 +1,1 @@
+Moved from /eve_plan.md. Canonical Eve plan: see repository file /eve/eve_plan.md.
