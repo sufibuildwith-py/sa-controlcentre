@@ -39,6 +39,7 @@ const domains = [
   { label: "Calendar", to: "/calendar" },
   { label: "Finance", to: "/finance" },
   { label: "Billing", to: "/billing" },
+  { label: "Eve", to: "/eve" },
 ];
 const dock = [
   { label: "Command", to: "/", icon: Home },

@@ -53,6 +53,11 @@ const ProductionDetailPage = lazy(() =>
       default: m.BillingPage,
     })),
   ),
+  EvePage = lazy(() =>
+    import("../features/eve/EvePage").then((m) => ({
+      default: m.EvePage,
+    })),
+  ),
   NavigatorPage =
     import.meta.env.VITE_NAVIGATOR_ENABLED === "true"
       ? lazy(() =>
@@ -116,6 +121,7 @@ export function App() {
           <Route path="/headquarters" element={<HeadquartersPage />} />
           <Route path="/finance" element={<FinancePage />} />
           <Route path="/billing" element={<BillingPage />} />
+          <Route path="/eve" element={<EvePage />} />
           {NavigatorPage && (
             <Route path="/navigator" element={<NavigatorPage />} />
           )}
