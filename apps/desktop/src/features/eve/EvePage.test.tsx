@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { EvePage } from "./EvePage";
 import { eveApi } from "./eve.api";
-import type { EveQueryResponse } from "./eve.types";
+import type { EvePlan, EveQueryResponse } from "./eve.types";
 
 vi.mock("./eve.api", () => ({
   eveApi: {
@@ -13,6 +13,10 @@ vi.mock("./eve.api", () => ({
     listSessions: vi.fn().mockResolvedValue([]),
     getSession: vi.fn(),
     createSession: vi.fn(),
+    confirmPlan: vi.fn(),
+    cancelPlan: vi.fn(),
+    getPlan: vi.fn(),
+    listPlansForSession: vi.fn().mockResolvedValue([]),
   },
 }));
 
@@ -359,5 +363,218 @@ describe("EvePage — Phase 1 Grounded Command Console", () => {
     });
 
     expect(await screen.findByText(/Session new-sess/i)).toBeInTheDocument();
+  });
+
+  it("displays proposed EvePlan card with risk badge and actions, and confirms successfully", async () => {
+    const mockPlan: EvePlan = {
+      planId: "plan-456",
+      sessionId: "session-p3",
+      intent: "PROPOSE_EMPLOYEE_PAYMENT",
+      summary: "Post employee payment of ₹3,000.00 to Raj Sharma (SA-01) from Azeem Khan (AZ-2)",
+      riskTier: "FINANCIAL_WRITE",
+      confirmationRequired: true,
+      planHash: "hash-1234567890abcdef",
+      version: 1,
+      status: "PROPOSED",
+      actions: [
+        {
+          actionId: "act-1",
+          seq: 1,
+          domain: "FINANCE",
+          commandType: "POST_EMPLOYEE_PAYMENT",
+          targetEntityId: "emp-1",
+          targetEntityName: "Raj Sharma",
+          parameters: {
+            employeeId: "emp-1",
+            employeeName: "Raj Sharma",
+            amount: 3000,
+            payerAccountId: "AZ-2",
+            payerAccountName: "Azeem Khan",
+          },
+          estimatedEffect: "Employee payable decreases by ₹3,000.00; Azeem Khan cash balance decreases by ₹3,000.00",
+          status: "PENDING",
+        },
+      ],
+    };
+
+    const mockResponse: EveQueryResponse = {
+      sessionId: "session-p3",
+      message: {
+        id: "msg-p3",
+        sessionId: "session-p3",
+        role: "ASSISTANT",
+        content: "I have prepared an execution plan to post ₹3,000.00 to Raj Sharma.",
+        createdAt: "2026-09-28T10:00:00Z",
+      },
+      trace: [],
+      status: "COMPLETED",
+      candidates: [],
+      plan: mockPlan,
+    };
+
+    vi.mocked(eveApi.query).mockResolvedValueOnce(mockResponse);
+    vi.mocked(eveApi.confirmPlan).mockResolvedValueOnce({
+      planId: "plan-456",
+      sessionId: "session-p3",
+      status: "COMPLETED",
+      summary: "Execution completed successfully. 1 action verified.",
+      message: {
+        id: "msg-executed",
+        sessionId: "session-p3",
+        role: "ASSISTANT",
+        content: "Payment of ₹3,000.00 to Raj Sharma has been posted and verified. Transaction ID: txn-789.",
+        createdAt: "2026-09-28T10:01:00Z",
+      },
+      actions: [
+        {
+          ...mockPlan.actions[0],
+          status: "VERIFIED",
+          canonicalRecordId: "txn-789",
+          verificationResult: {
+            status: "VERIFIED",
+            ruleName: "EMPLOYEE_PAYMENT_VERIFICATION",
+            expectedState: "POSTED",
+            actualState: "POSTED",
+            verifiedAt: "2026-09-28T10:01:00Z",
+            notes: "Verified in finance_transactions",
+          },
+        },
+      ],
+      trace: [],
+    });
+
+    renderEvePage();
+    const user = userEvent.setup();
+
+    const textarea = screen.getByPlaceholderText(/Ask Eve about employee finance/i);
+    await user.type(textarea, "Sharma ko 3000 de do");
+    await user.click(screen.getByRole("button", { name: /Send/i }));
+
+    expect(await screen.findByText("Governed Execution Plan")).toBeInTheDocument();
+    expect(screen.getByText("FINANCIAL WRITE")).toBeInTheDocument();
+    expect(screen.getByText(/Post employee payment of ₹3,000.00/i)).toBeInTheDocument();
+    expect(screen.getByText("Confirm & Post Payment")).toBeInTheDocument();
+
+    await user.click(screen.getByText("Confirm & Post Payment"));
+
+    await waitFor(() => {
+      expect(eveApi.confirmPlan).toHaveBeenCalledWith("plan-456", {
+        sessionId: "session-p3",
+        planId: "plan-456",
+        planVersion: 1,
+        planHash: "hash-1234567890abcdef",
+        note: "Confirmed in UI",
+      });
+    });
+
+    expect(
+      await screen.findByText(/Payment of ₹3,000.00 to Raj Sharma has been posted and verified/i),
+    ).toBeInTheDocument();
+  });
+
+  it("allows operator to cancel a proposed plan cleanly without execution", async () => {
+    const mockPlan: EvePlan = {
+      planId: "plan-cancel-1",
+      sessionId: "session-cancel",
+      intent: "PROPOSE_EMPLOYEE_PAYMENT",
+      summary: "Post employee payment of ₹3,000.00 to Raj Sharma",
+      riskTier: "FINANCIAL_WRITE",
+      confirmationRequired: true,
+      planHash: "hash-cancel-123",
+      version: 1,
+      status: "PROPOSED",
+      actions: [],
+    };
+
+    vi.mocked(eveApi.query).mockResolvedValueOnce({
+      sessionId: "session-cancel",
+      message: {
+        id: "msg-can",
+        sessionId: "session-cancel",
+        role: "ASSISTANT",
+        content: "Plan proposed.",
+        createdAt: "2026-09-28T10:00:00Z",
+      },
+      trace: [],
+      status: "COMPLETED",
+      candidates: [],
+      plan: mockPlan,
+    });
+
+    vi.mocked(eveApi.cancelPlan).mockResolvedValueOnce({
+      ...mockPlan,
+      status: "CANCELLED",
+    });
+
+    renderEvePage();
+    const user = userEvent.setup();
+
+    const textarea = screen.getByPlaceholderText(/Ask Eve about employee finance/i);
+    await user.type(textarea, "Sharma payout");
+    await user.click(screen.getByRole("button", { name: /Send/i }));
+
+    expect(await screen.findByText("Cancel")).toBeInTheDocument();
+    await user.click(screen.getByText("Cancel"));
+
+    await waitFor(() => {
+      expect(eveApi.cancelPlan).toHaveBeenCalledWith("plan-cancel-1", {
+        sessionId: "session-cancel",
+        planId: "plan-cancel-1",
+        reason: "Cancelled by operator",
+      });
+    });
+
+    expect(
+      await screen.findByText(/Plan was cancelled. No changes were made to system of record/i),
+    ).toBeInTheDocument();
+  });
+
+  it("handles stale plan error and alerts the operator when preconditions change", async () => {
+    const mockPlan: EvePlan = {
+      planId: "plan-stale-1",
+      sessionId: "session-stale",
+      intent: "PROPOSE_EMPLOYEE_PAYMENT",
+      summary: "Post employee payment of ₹5,000.00 to Raj Sharma",
+      riskTier: "FINANCIAL_WRITE",
+      confirmationRequired: true,
+      planHash: "hash-stale-123",
+      version: 1,
+      status: "PROPOSED",
+      actions: [],
+    };
+
+    vi.mocked(eveApi.query).mockResolvedValueOnce({
+      sessionId: "session-stale",
+      message: {
+        id: "msg-stale",
+        sessionId: "session-stale",
+        role: "ASSISTANT",
+        content: "Plan proposed.",
+        createdAt: "2026-09-28T10:00:00Z",
+      },
+      trace: [],
+      status: "COMPLETED",
+      candidates: [],
+      plan: mockPlan,
+    });
+
+    vi.mocked(eveApi.confirmPlan).mockRejectedValueOnce({
+      code: "STALE_PLAN",
+      message: "Preconditions changed: payable balance updated",
+    });
+
+    renderEvePage();
+    const user = userEvent.setup();
+
+    const textarea = screen.getByPlaceholderText(/Ask Eve about employee finance/i);
+    await user.type(textarea, "Sharma 5000");
+    await user.click(screen.getByRole("button", { name: /Send/i }));
+
+    expect(await screen.findByText("Confirm & Post Payment")).toBeInTheDocument();
+    await user.click(screen.getByText("Confirm & Post Payment"));
+
+    expect(
+      await screen.findByText(/Execution failed: Preconditions changed: payable balance updated/i),
+    ).toBeInTheDocument();
   });
 });

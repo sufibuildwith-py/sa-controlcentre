@@ -1,5 +1,13 @@
 import { api, json } from "../../lib/api";
-import type { EveMemory, EveQueryResponse, EveSession } from "./eve.types";
+import type {
+  CancelPlanRequest,
+  ConfirmPlanRequest,
+  EveMemory,
+  EvePlan,
+  EveQueryResponse,
+  EveSession,
+  PlanExecutionResponse,
+} from "./eve.types";
 
 export const eveApi = {
   query: (prompt: string, sessionId?: string | null): Promise<EveQueryResponse> =>
@@ -39,4 +47,22 @@ export const eveApi = {
     api<boolean>(`/eve/memory/${id}`, {
       method: "DELETE",
     }),
+
+  confirmPlan: (planId: string, req: ConfirmPlanRequest): Promise<PlanExecutionResponse> =>
+    api<PlanExecutionResponse>(`/eve/plans/${planId}/confirm`, {
+      method: "POST",
+      ...json(req),
+    }),
+
+  cancelPlan: (planId: string, req: CancelPlanRequest): Promise<EvePlan> =>
+    api<EvePlan>(`/eve/plans/${planId}/cancel`, {
+      method: "POST",
+      ...json(req),
+    }),
+
+  getPlan: (planId: string): Promise<EvePlan> =>
+    api<EvePlan>(`/eve/plans/${planId}`),
+
+  listPlansForSession: (sessionId: string): Promise<EvePlan[]> =>
+    api<EvePlan[]>(`/eve/sessions/${sessionId}/plans`),
 };

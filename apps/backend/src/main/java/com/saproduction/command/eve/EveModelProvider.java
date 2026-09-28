@@ -74,9 +74,27 @@ public interface EveModelProvider {
       return new EveInterpretation(
           Intent.BLOCKED, null, null, null, null, null, null, false, 0.0, false, reason);
     }
+
+    public static EveInterpretation proposePayment(String employeeSpoken, Long amountMinor, String payerAccount) {
+      return new EveInterpretation(
+          Intent.PROPOSE_EMPLOYEE_PAYMENT,
+          "EMPLOYEE",
+          employeeSpoken,
+          null,
+          null,
+          amountMinor,
+          payerAccount,
+          false,
+          1.0,
+          true,
+          null);
+    }
   }
 
   enum Intent {
+    // Governed Write Execution (Phase 3)
+    PROPOSE_EMPLOYEE_PAYMENT,
+
     // Employee domain
     READ_EMPLOYEE_FINANCE,
     READ_EMPLOYEE_360,
@@ -84,6 +102,7 @@ public interface EveModelProvider {
 
     // Production domain & cross-domain reads
     READ_PRODUCTION,
+    READ_PRODUCTION_CLIENT,
     READ_PRODUCTION_CREW,
     READ_PRODUCTION_EQUIPMENT,
     READ_PRODUCTION_FINANCE,

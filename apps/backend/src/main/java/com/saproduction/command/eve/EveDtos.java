@@ -1,6 +1,7 @@
 package com.saproduction.command.eve;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -76,7 +77,21 @@ public final class EveDtos {
       RiskTier riskTier,
       boolean confirmationRequired,
       String planHash,
-      List<EvePlanAction> actions) {}
+      int version,
+      String status,
+      List<EvePlanAction> actions) {
+    public EvePlan(
+        UUID planId,
+        UUID sessionId,
+        String intent,
+        String summary,
+        RiskTier riskTier,
+        boolean confirmationRequired,
+        String planHash,
+        List<EvePlanAction> actions) {
+      this(planId, sessionId, intent, summary, riskTier, confirmationRequired, planHash, 1, "PROPOSED", actions);
+    }
+  }
 
   public record EvePlanAction(
       UUID actionId,
@@ -87,7 +102,37 @@ public final class EveDtos {
       String targetEntityName,
       Map<String, Object> parameters,
       String estimatedEffect,
-      String requiredPermission) {}
+      String requiredPermission,
+      String status,
+      UUID canonicalRecordId,
+      Map<String, Object> executionResult,
+      EveVerificationResult verificationResult) {
+    public EvePlanAction(
+        UUID actionId,
+        int seq,
+        String domain,
+        String commandType,
+        UUID targetEntityId,
+        String targetEntityName,
+        Map<String, Object> parameters,
+        String estimatedEffect,
+        String requiredPermission) {
+      this(
+          actionId,
+          seq,
+          domain,
+          commandType,
+          targetEntityId,
+          targetEntityName,
+          parameters,
+          estimatedEffect,
+          requiredPermission,
+          "PENDING",
+          null,
+          null,
+          null);
+    }
+  }
 
   public record EveCommand(
       String commandType,
@@ -185,7 +230,18 @@ public final class EveDtos {
       List<TraceEventView> trace,
       ContextView context,
       String status,
-      List<CandidateView> candidates) {}
+      List<CandidateView> candidates,
+      EvePlan plan) {
+    public QueryResponse(
+        UUID sessionId,
+        MessageView message,
+        List<TraceEventView> trace,
+        ContextView context,
+        String status,
+        List<CandidateView> candidates) {
+      this(sessionId, message, trace, context, status, candidates, null);
+    }
+  }
 
   public record CandidateView(
       UUID id,
@@ -243,4 +299,25 @@ public final class EveDtos {
       String source,
       Instant createdAt,
       Instant updatedAt) {}
+
+  public record ConfirmPlanRequest(
+      @NotNull UUID sessionId,
+      @NotNull UUID planId,
+      int planVersion,
+      @NotBlank String planHash,
+      String note) {}
+
+  public record CancelPlanRequest(
+      @NotNull UUID sessionId,
+      @NotNull UUID planId,
+      String reason) {}
+
+  public record PlanExecutionResponse(
+      UUID planId,
+      UUID sessionId,
+      String status,
+      String summary,
+      List<TraceEventView> trace,
+      List<EvePlanAction> actions,
+      MessageView message) {}
 }

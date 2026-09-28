@@ -313,4 +313,168 @@ class EveRetrievalRouterTest {
     assertThat(result.answer()).contains("could not find any active records matching \"Ghost\"");
     verify(memoryService, never()).remember(any(), any());
   }
+
+  @Test
+  void readsProductionClient_whenClientRecorded_returnsGroundedAnswer() {
+    UUID prodId = UUID.randomUUID();
+    var candidate = new EveRetrievalService.Candidate(prodId, "PRODUCTION", "Cultural Event MIPS", "MIPS", "MIPS venue");
+    when(retrievalService.resolveProduction("Cultural Event MIPS"))
+        .thenReturn(EveRetrievalService.ResolutionResult.resolved(candidate, EveRetrievalService.MatchMethod.EXACT_NAME, "Cultural Event MIPS"));
+
+    var prodView = new ProductionService.View(
+        prodId, "Cultural Event MIPS", "Nandhini srivastava", "Cultural festival",
+        LocalDate.of(2026, 9, 28), null, null, "MIPS", null,
+        Production.Status.DRAFT, Production.Priority.NORMAL, 0, null,
+        List.of(), 0, List.of(), Instant.now(), Instant.now());
+    when(productionService.get(prodId)).thenReturn(prodView);
+
+    var result = router.routeAndRetrieve(
+        EveModelProvider.EveInterpretation.of(EveModelProvider.Intent.READ_PRODUCTION_CLIENT, "PRODUCTION", "Cultural Event MIPS"),
+        new EveRetrievalRouter.SessionContext(),
+        "cultural event MIPS ka client kon hai?");
+
+    assertThat(result.status()).isEqualTo("COMPLETED");
+    assertThat(result.answer()).isEqualTo("The client for Cultural Event MIPS is Nandhini srivastava.");
+    assertThat(result.evidence()).anyMatch(e -> e.label().equals("Client") && e.value().equals("Nandhini srivastava"));
+    assertThat(result.referencedEntities()).anyMatch(e -> e.id().equals(prodId) && e.type().equals("PRODUCTION"));
+  }
+
+  @Test
+  void readsProductionClient_whenClientMissing_returnsExplicitNotRecorded() {
+    UUID prodId = UUID.randomUUID();
+    var candidate = new EveRetrievalService.Candidate(prodId, "PRODUCTION", "MIPS Event", "MIPS", "Hall");
+    when(retrievalService.resolveProduction("MIPS Event"))
+        .thenReturn(EveRetrievalService.ResolutionResult.resolved(candidate, EveRetrievalService.MatchMethod.BOUNDED_SEARCH, "MIPS Event"));
+
+    var prodView = new ProductionService.View(
+        prodId, "MIPS Event", "", "Desc",
+        LocalDate.of(2026, 9, 28), null, null, "Hall", null,
+        Production.Status.DRAFT, Production.Priority.NORMAL, 0, null,
+        List.of(), 0, List.of(), Instant.now(), Instant.now());
+    when(productionService.get(prodId)).thenReturn(prodView);
+
+    var result = router.routeAndRetrieve(
+        EveModelProvider.EveInterpretation.of(EveModelProvider.Intent.READ_PRODUCTION_CLIENT, "PRODUCTION", "MIPS Event"),
+        new EveRetrievalRouter.SessionContext(),
+        "MIPS Event ka client kaun hai?");
+
+    assertThat(result.status()).isEqualTo("COMPLETED");
+    assertThat(result.answer()).contains("I found MIPS Event, but I don't have a client recorded for it.");
+    assertThat(result.evidence()).anyMatch(e -> e.label().equals("Client") && e.value().equals("Not recorded"));
+  }
+
+  @Test
+  void readsProductionClient_whenProductionNotFound_returnsExplicitNotFound() {
+    when(retrievalService.resolveProduction("UnknownFest"))
+        .thenReturn(EveRetrievalService.ResolutionResult.notFound("UnknownFest"));
+
+    var result = router.routeAndRetrieve(
+        EveModelProvider.EveInterpretation.of(EveModelProvider.Intent.READ_PRODUCTION_CLIENT, "PRODUCTION", "UnknownFest"),
+        new EveRetrievalRouter.SessionContext(),
+        "UnknownFest ka client kaun hai?");
+
+    assertThat(result.status()).isEqualTo("NOT_FOUND");
+    assertThat(result.answer()).contains("I couldn't find a production/event matching \"UnknownFest\" in SA Command.");
+  }
+
+  @Test
+  void readsProductionClient_whenAmbiguous_returnsClarificationRequired() {
+    var c1 = new EveRetrievalService.Candidate(UUID.randomUUID(), "PRODUCTION", "MIPS Gala", "MIPS-1", "Venue 1");
+    var c2 = new EveRetrievalService.Candidate(UUID.randomUUID(), "PRODUCTION", "MIPS Conference", "MIPS-2", "Venue 2");
+    when(retrievalService.resolveProduction("MIPS"))
+        .thenReturn(EveRetrievalService.ResolutionResult.ambiguous(List.of(c1, c2), "MIPS"));
+
+    var context = new EveRetrievalRouter.SessionContext();
+    var result = router.routeAndRetrieve(
+        EveModelProvider.EveInterpretation.of(EveModelProvider.Intent.READ_PRODUCTION_CLIENT, "PRODUCTION", "MIPS"),
+        context,
+        "MIPS ka client kon hai?");
+
+    assertThat(result.status()).isEqualTo("CLARIFICATION_REQUIRED");
+    assertThat(result.candidates()).hasSize(2);
+    assertThat(result.answer()).contains("multiple matching productions for \"MIPS\"");
+    assertThat(context.hasPendingCandidates()).isTrue();
+  }
+
+  @Test
+  void readsProductionTasks_multiTurnPronoun_returnsOpenTasks() {
+    UUID prodId = UUID.randomUUID();
+    var prodCandidate = new EveRetrievalService.Candidate(prodId, "PRODUCTION", "Sharma Wedding", "SW", "Royal Orchid");
+    var context = new EveRetrievalRouter.SessionContext();
+    context.setLastReferencedProduction(prodCandidate);
+
+    var task1 = new WorkTaskService.View(
+        UUID.randomUUID(), prodId, "Sharma Wedding", null, "Prepare camera bodies", "Check batteries",
+        UUID.randomUUID(), "Rehan Ali", WorkTask.Status.TODO, WorkTask.Priority.HIGH,
+        null, null, null, 0, false, List.of(), Instant.now(), Instant.now());
+    var task2 = new WorkTaskService.View(
+        UUID.randomUUID(), prodId, "Sharma Wedding", null, "Client review export", "Export draft",
+        UUID.randomUUID(), "Amaan Khan", WorkTask.Status.IN_PROGRESS, WorkTask.Priority.NORMAL,
+        null, null, null, 50, false, List.of(), Instant.now(), Instant.now());
+
+    when(taskService.list(null, prodId, null, null, null, null, null))
+        .thenReturn(List.of(task1, task2));
+
+    var result = router.routeAndRetrieve(
+        EveModelProvider.EveInterpretation.of(EveModelProvider.Intent.READ_PRODUCTION_TASKS, "PRODUCTION", "usme", true),
+        context,
+        "Usme kaunsa task open hai?");
+
+    assertThat(result.status()).isEqualTo("COMPLETED");
+    assertThat(result.answer()).contains("Sharma Wedding");
+    assertThat(result.answer()).contains("Prepare camera bodies");
+    assertThat(result.answer()).contains("Client review export");
+    assertThat(result.evidence()).anyMatch(e -> e.label().equals("Production Open Tasks") && e.value().equals("2"));
+  }
+
+  @Test
+  void readsProductionSchedule_multiTurnPronoun_returnsScheduledEvent() {
+    UUID prodId = UUID.randomUUID();
+    var prodCandidate = new EveRetrievalService.Candidate(prodId, "PRODUCTION", "Cultural Event MIPS", "MIPS", "MIPS Venue");
+    var context = new EveRetrievalRouter.SessionContext();
+    context.setLastReferencedProduction(prodCandidate);
+
+    var prodView = new ProductionService.View(
+        prodId, "Cultural Event MIPS", "Nandhini srivastava", "Fest",
+        LocalDate.of(2026, 9, 28), null, null, "MIPS Venue", null,
+        Production.Status.DRAFT, Production.Priority.NORMAL, 0, null,
+        List.of(), 0, List.of(), Instant.now(), Instant.now());
+    when(productionService.get(prodId)).thenReturn(prodView);
+
+    var result = router.routeAndRetrieve(
+        EveModelProvider.EveInterpretation.of(EveModelProvider.Intent.READ_PRODUCTION, "PRODUCTION", "uska", true),
+        context,
+        "Uska event kab hai?");
+
+    assertThat(result.status()).isEqualTo("COMPLETED");
+    assertThat(result.answer()).contains("Cultural Event MIPS");
+    assertThat(result.answer()).contains("2026-09-28");
+    assertThat(result.evidence()).anyMatch(e -> e.label().equals("Venue") && e.value().equals("MIPS Venue"));
+  }
+
+  @Test
+  void readsProductionCrew_multiTurnPronoun_returnsAssignedCrew() {
+    UUID prodId = UUID.randomUUID();
+    var prodCandidate = new EveRetrievalService.Candidate(prodId, "PRODUCTION", "Cultural Event MIPS", "MIPS", "MIPS Venue");
+    var context = new EveRetrievalRouter.SessionContext();
+    context.setLastReferencedProduction(prodCandidate);
+
+    var member = new ProductionService.MemberView(
+        UUID.randomUUID(), UUID.randomUUID(), "Farhan Akhtar", "Director", true, ProductionMember.Status.CONFIRMED, false, null);
+    var prodView = new ProductionService.View(
+        prodId, "Cultural Event MIPS", "Nandhini srivastava", "Fest",
+        LocalDate.of(2026, 9, 28), null, null, "MIPS Venue", null,
+        Production.Status.DRAFT, Production.Priority.NORMAL, 0, null,
+        List.of(member), 0, List.of(), Instant.now(), Instant.now());
+    when(productionService.get(prodId)).thenReturn(prodView);
+
+    var result = router.routeAndRetrieve(
+        EveModelProvider.EveInterpretation.of(EveModelProvider.Intent.READ_PRODUCTION_CREW, "PRODUCTION", "usme", true),
+        context,
+        "Usme kaun kaam kar raha hai?");
+
+    assertThat(result.status()).isEqualTo("COMPLETED");
+    assertThat(result.answer()).contains("Cultural Event MIPS has 1 assigned crew member");
+    assertThat(result.answer()).contains("Farhan Akhtar (Director)");
+  }
 }

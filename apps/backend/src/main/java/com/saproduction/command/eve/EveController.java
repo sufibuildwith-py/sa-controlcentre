@@ -52,4 +52,28 @@ public class EveController {
   public ApiEnvelope<Boolean> deleteMemory(@PathVariable UUID id) {
     return ApiEnvelope.of(service.deleteMemory(id));
   }
+
+  @PostMapping("/plans/{id}/confirm")
+  public ApiEnvelope<EveDtos.PlanExecutionResponse> confirmPlan(
+      @PathVariable UUID id,
+      @Valid @RequestBody EveDtos.ConfirmPlanRequest request) {
+    return ApiEnvelope.of(service.confirmPlan(id, request));
+  }
+
+  @PostMapping("/plans/{id}/cancel")
+  public ApiEnvelope<EveDtos.EvePlan> cancelPlan(
+      @PathVariable UUID id,
+      @Valid @RequestBody EveDtos.CancelPlanRequest request) {
+    return ApiEnvelope.of(service.cancelPlan(id, request));
+  }
+
+  @GetMapping("/plans/{id}")
+  public ApiEnvelope<EveDtos.EvePlan> getPlan(@PathVariable UUID id) {
+    return ApiEnvelope.of(service.getPlan(id));
+  }
+
+  @GetMapping("/sessions/{sessionId}/plans")
+  public ApiEnvelope<List<EveDtos.EvePlan>> listPlansForSession(@PathVariable UUID sessionId) {
+    return ApiEnvelope.of(service.listPlansForSession(sessionId));
+  }
 }

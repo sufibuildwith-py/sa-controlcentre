@@ -24,16 +24,20 @@ import {
   Tooltip,
 } from "../../components/ui/sa";
 import { eveApi } from "./eve.api";
+import { EvePlanCard } from "./components/EvePlanCard";
 import type {
   EveCandidate,
   EveContext,
   EveMessage,
+  EvePlan,
   EveQueryResponse,
   EveTraceEvent,
+  PlanExecutionResponse,
 } from "./eve.types";
 
 const SUGGESTIONS = [
   "How much does Sharma still need?",
+  "Sharma ko 3000 de do",
   "Royal Wedding mein kaun kaun tha?",
   "Usme Sharma bhi tha?",
   "Aur uska equipment?",
@@ -49,6 +53,7 @@ export function EvePage() {
   const [trace, setTrace] = useState<EveTraceEvent[]>([]);
   const [context, setContext] = useState<EveContext | null>(null);
   const [candidates, setCandidates] = useState<EveCandidate[]>([]);
+  const [activePlan, setActivePlan] = useState<EvePlan | null>(null);
   const [status, setStatus] = useState<string>("READY");
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -70,6 +75,9 @@ export function EvePage() {
         setContext(data.context);
       }
       setCandidates(data.candidates ?? []);
+      if (data.plan) {
+        setActivePlan(data.plan);
+      }
       setStatus(data.status);
       setPrompt("");
       sessionQuery.refetch();
@@ -89,6 +97,63 @@ export function EvePage() {
     },
   });
 
+  const confirmMutation = useMutation({
+    mutationFn: (plan: EvePlan) =>
+      eveApi.confirmPlan(plan.planId, {
+        sessionId: plan.sessionId,
+        planId: plan.planId,
+        planVersion: plan.version,
+        planHash: plan.planHash,
+        note: "Confirmed in UI",
+      }),
+    onSuccess: (data: PlanExecutionResponse) => {
+      setMessages((prev) => [...prev, data.message]);
+      setTrace(data.trace);
+      setActivePlan((prev) => (prev ? { ...prev, status: "COMPLETED", actions: data.actions } : null));
+      setStatus("COMPLETED");
+      sessionQuery.refetch();
+    },
+    onError: (err: any) => {
+      setStatus("FAILED");
+      if (err.code === "STALE_PLAN" || err.message?.includes("stale") || err.message?.includes("Preconditions changed")) {
+        setActivePlan((prev) => (prev ? { ...prev, status: "STALE_PLAN" } : null));
+      }
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `err-${Date.now()}`,
+          sessionId: activeSessionId ?? "err",
+          role: "ASSISTANT",
+          content: `Execution failed: ${err.message ?? "Unknown error"}`,
+          createdAt: new Date().toISOString(),
+        },
+      ]);
+    },
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: (plan: EvePlan) =>
+      eveApi.cancelPlan(plan.planId, {
+        sessionId: plan.sessionId,
+        planId: plan.planId,
+        reason: "Cancelled by operator",
+      }),
+    onSuccess: (data: EvePlan) => {
+      setActivePlan(data);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `cancel-${Date.now()}`,
+          sessionId: activeSessionId ?? "cancel",
+          role: "ASSISTANT",
+          content: "Plan was cancelled. No changes were made to system of record.",
+          createdAt: new Date().toISOString(),
+        },
+      ]);
+      sessionQuery.refetch();
+    },
+  });
+
   useEffect(() => {
     scrollRef.current?.scrollIntoView?.({ behavior: "smooth" });
   }, [messages, trace]);
@@ -101,6 +166,7 @@ export function EvePage() {
       setTrace([]);
       setContext(null);
       setCandidates([]);
+      setActivePlan(null);
       setStatus("READY");
       sessionQuery.refetch();
     } catch {
@@ -109,6 +175,7 @@ export function EvePage() {
       setTrace([]);
       setContext(null);
       setCandidates([]);
+      setActivePlan(null);
       setStatus("READY");
     }
   };
@@ -119,12 +186,18 @@ export function EvePage() {
       return;
     }
     setActiveSessionId(sessionId);
+    setActivePlan(null);
     try {
       const sess = await eveApi.getSession(sessionId);
       setMessages(sess.messages ?? []);
       setTrace([]);
       setCandidates([]);
       setStatus("READY");
+      const plans = await eveApi.listPlansForSession(sessionId);
+      const pendingPlan = plans.find((p) => p.status === "PROPOSED") || plans[0] || null;
+      if (pendingPlan) {
+        setActivePlan(pendingPlan);
+      }
     } catch {
       // ignore
     }
@@ -177,11 +250,11 @@ export function EvePage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-emerald-500" />
-                <span className="text-xs uppercase tracking-wider font-semibold text-neutral-400">
+                <span className="text-xs uppercase tracking-wider font-semibold text-[var(--text-3)]">
                   Command Composer
                 </span>
                 {activeSessionId && (
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-neutral-800 text-neutral-400 border border-neutral-700/60">
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[var(--surface-soft)] text-[var(--text-2)] border border-[var(--border)]">
                     Session {activeSessionId.slice(0, 8)}
                   </span>
                 )}
@@ -192,7 +265,7 @@ export function EvePage() {
                     value={activeSessionId ?? ""}
                     onChange={(e) => handleSelectSession(e.target.value)}
                     aria-label="Select Session"
-                    className="text-[11px] bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-neutral-300 font-mono focus:outline-none"
+                    className="text-[11px] bg-[var(--surface)] border border-[var(--border)] rounded-lg px-2 py-1 text-[var(--text-1)] font-mono focus:outline-none"
                   >
                     <option value="">Active Session</option>
                     {sessionQuery.data.slice(0, 5).map((s) => (
@@ -205,7 +278,7 @@ export function EvePage() {
                 <button
                   type="button"
                   onClick={handleNewSession}
-                  className="text-[11px] font-medium text-neutral-300 hover:text-neutral-100 px-2 py-1 rounded bg-neutral-800/80 hover:bg-neutral-800 border border-neutral-700/50 transition-colors"
+                  className="text-[11px] font-medium text-[var(--text-2)] hover:text-[var(--text-1)] px-2.5 py-1 rounded-lg bg-[var(--surface-soft)] hover:bg-[var(--surface-raised)] border border-[var(--border)] transition-colors"
                 >
                   + New Session
                 </button>
@@ -227,7 +300,7 @@ export function EvePage() {
                   rows={3}
                   disabled={queryMutation.isPending}
                   placeholder="Ask Eve about employee finance, production status, tasks, or equipment (e.g. 'How much does Sharma still need?')..."
-                  className="w-full rounded-xl bg-neutral-900/60 border border-neutral-800 p-3 text-sm text-neutral-200 placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-600 focus:border-neutral-600 resize-none font-sans"
+                  className="w-full rounded-xl bg-[var(--surface-soft)] border border-[var(--border)] p-3 text-sm text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:ring-1 focus:ring-[var(--border-strong)] focus:border-[var(--border-strong)] resize-none font-sans"
                 />
                 <div className="absolute right-3 bottom-3 flex items-center gap-2">
                   <SAButton
@@ -243,7 +316,7 @@ export function EvePage() {
 
               {/* Suggestions */}
               <div className="flex flex-wrap items-center gap-2 pt-1">
-                <span className="text-xs text-neutral-500">Suggestions:</span>
+                <span className="text-xs text-[var(--text-3)]">Suggestions:</span>
                 {SUGGESTIONS.map((s) => (
                   <button
                     key={s}
@@ -252,7 +325,7 @@ export function EvePage() {
                       setPrompt(s);
                       textareaRef.current?.focus();
                     }}
-                    className="text-xs bg-neutral-800/60 hover:bg-neutral-800 border border-neutral-700/50 rounded-lg px-2.5 py-1 text-neutral-300 transition-colors"
+                    className="text-xs bg-[var(--surface-soft)] hover:bg-[var(--surface)] border border-[var(--border)] rounded-lg px-2.5 py-1 text-[var(--text-2)] hover:text-[var(--text-1)] transition-colors"
                   >
                     {s}
                   </button>
@@ -275,29 +348,29 @@ export function EvePage() {
               />
             ) : (
               <div className="flex flex-col gap-4 overflow-y-auto max-h-[500px] pr-2">
-                {messages.map((msg) => (
+                {messages.map((msg, index) => (
                   <div
                     key={msg.id}
                     className={`flex flex-col gap-1.5 p-4 rounded-xl border ${
                       msg.role === "USER"
-                        ? "bg-neutral-800/40 border-neutral-700/50 self-end max-w-[85%]"
-                        : "bg-neutral-900/80 border-neutral-800 self-start w-full"
+                        ? "bg-[var(--surface-soft)] border-[var(--border)] self-end max-w-[85%]"
+                        : "bg-[var(--surface)] border-[var(--border-soft)] self-start w-full shadow-sm"
                     }`}
                   >
                     <div className="flex items-center gap-2">
                       {msg.role === "USER" ? (
-                        <div className="w-5 h-5 rounded-full bg-neutral-700 flex items-center justify-center text-[10px] font-bold text-neutral-300">
+                        <div className="w-5 h-5 rounded-full bg-[var(--surface-raised)] border border-[var(--border)] flex items-center justify-center text-[10px] font-bold text-[var(--text-1)]">
                           M
                         </div>
                       ) : (
-                        <div className="w-5 h-5 rounded-full bg-emerald-950 border border-emerald-700 flex items-center justify-center text-[10px] font-bold text-emerald-400">
+                        <div className="w-5 h-5 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
                           E
                         </div>
                       )}
-                      <span className="text-xs font-semibold text-neutral-400">
+                      <span className="text-xs font-semibold text-[var(--text-2)]">
                         {msg.role === "USER" ? "Mamu" : "Eve"}
                       </span>
-                      <span className="text-[10px] text-neutral-500 font-mono ml-auto">
+                      <span className="text-[10px] text-[var(--text-3)] font-mono ml-auto">
                         {new Date(msg.createdAt).toLocaleTimeString([], {
                           hour: "2-digit",
                           minute: "2-digit",
@@ -305,14 +378,14 @@ export function EvePage() {
                       </span>
                     </div>
 
-                    <div className="text-sm text-neutral-200 whitespace-pre-wrap leading-relaxed">
+                    <div className="text-sm text-[var(--text-1)] whitespace-pre-wrap leading-relaxed">
                       {msg.content}
                     </div>
 
                     {/* Disambiguation candidate selection if returned */}
                     {msg.role === "ASSISTANT" && candidates.length > 0 && (
-                      <div className="mt-3 pt-3 border-t border-neutral-800 flex flex-col gap-2">
-                        <span className="text-xs font-semibold text-amber-400 flex items-center gap-1.5">
+                      <div className="mt-3 pt-3 border-t border-[var(--border)] flex flex-col gap-2">
+                        <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
                           <AlertCircle className="w-3.5 h-3.5" />
                           Disambiguation Candidates:
                         </span>
@@ -322,28 +395,41 @@ export function EvePage() {
                               key={cand.id}
                               type="button"
                               onClick={() => handleSelectCandidate(cand)}
-                              className="flex items-center justify-between p-2.5 rounded-lg bg-neutral-800/80 hover:bg-neutral-750 border border-neutral-700/70 text-left transition-colors"
+                              className="flex items-center justify-between p-2.5 rounded-lg bg-[var(--surface-soft)] hover:bg-[var(--surface-raised)] border border-[var(--border)] text-left transition-colors"
                             >
                               <div className="flex flex-col">
-                                <span className="text-sm font-medium text-neutral-200">
+                                <span className="text-sm font-medium text-[var(--text-1)]">
                                   {cand.displayName}
                                 </span>
-                                <span className="text-xs text-neutral-400 font-mono">
+                                <span className="text-xs text-[var(--text-3)] font-mono">
                                   {cand.code} · {cand.detail}
                                 </span>
                               </div>
-                              <ArrowRight className="w-4 h-4 text-neutral-400" />
+                              <ArrowRight className="w-4 h-4 text-[var(--text-3)]" />
                             </button>
                           ))}
                         </div>
                       </div>
                     )}
+
+                    {/* Active EvePlan Card if present on latest assistant message */}
+                    {msg.role === "ASSISTANT" && activePlan && index === messages.length - 1 && (
+                      <div className="mt-4">
+                        <EvePlanCard
+                          plan={activePlan}
+                          onConfirm={(p) => confirmMutation.mutate(p)}
+                          onCancel={(p) => cancelMutation.mutate(p)}
+                          isConfirming={confirmMutation.isPending}
+                          isCancelling={cancelMutation.isPending}
+                        />
+                      </div>
+                    )}
                   </div>
                 ))}
                 {queryMutation.isPending && (
-                  <div className="p-4 rounded-xl border border-neutral-800 bg-neutral-900/50 flex items-center gap-3">
+                  <div className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] flex items-center gap-3">
                     <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                    <span className="text-xs text-neutral-400 font-mono">
+                    <span className="text-xs text-[var(--text-2)] font-mono">
                       Querying PostgreSQL canonical records...
                     </span>
                   </div>
@@ -360,18 +446,18 @@ export function EvePage() {
           <SABentoCard className="p-5 flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Activity className="w-4 h-4 text-sky-400" />
-                <h3 className="text-xs uppercase tracking-wider font-semibold text-neutral-400">
+                <Activity className="w-4 h-4 text-sky-500" />
+                <h3 className="text-xs uppercase tracking-wider font-semibold text-[var(--text-3)]">
                   Activity Trace
                 </h3>
               </div>
-              <span className="text-[10px] text-neutral-500 font-mono">
+              <span className="text-[10px] text-[var(--text-3)] font-mono">
                 Truthful Lifecycle Events
               </span>
             </div>
 
             {trace.length === 0 ? (
-              <p className="text-xs text-neutral-500 italic py-4">
+              <p className="text-xs text-[var(--text-3)] italic py-4">
                 No activity yet. Execute a query to view live deterministic trace events.
               </p>
             ) : (
@@ -379,30 +465,30 @@ export function EvePage() {
                 {trace.map((t) => (
                   <div
                     key={t.id}
-                    className="flex items-start gap-2.5 p-2 rounded-lg bg-neutral-900/70 border border-neutral-800/80 text-xs"
+                    className="flex items-start gap-2.5 p-2 rounded-lg bg-[var(--surface-soft)] border border-[var(--border-soft)] text-xs"
                   >
-                    <span className="text-[10px] font-mono text-neutral-500 px-1.5 py-0.5 rounded bg-neutral-800 border border-neutral-700">
+                    <span className="text-[10px] font-mono text-[var(--text-3)] px-1.5 py-0.5 rounded bg-[var(--surface)] border border-[var(--border)]">
                       #{t.seq}
                     </span>
                     <div className="flex flex-col flex-1 gap-0.5">
                       <div className="flex items-center justify-between">
-                        <span className="font-semibold text-neutral-300">
+                        <span className="font-semibold text-[var(--text-1)]">
                           {t.label}
                         </span>
                         <span
                           className={`text-[9px] font-bold px-1.5 py-0.2 rounded font-mono ${
                             t.status === "OK"
-                              ? "bg-emerald-950/80 text-emerald-400 border border-emerald-800"
+                              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
                               : t.status === "BLOCKED"
-                              ? "bg-amber-950/80 text-amber-400 border border-amber-800"
-                              : "bg-red-950/80 text-red-400 border border-red-800"
+                              ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                              : "bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20"
                           }`}
                         >
                           {t.eventType}
                         </span>
                       </div>
                       {t.detail && (
-                        <span className="text-neutral-400 text-[11px] leading-tight font-sans">
+                        <span className="text-[var(--text-2)] text-[11px] leading-tight font-sans">
                           {t.detail}
                         </span>
                       )}
@@ -417,12 +503,12 @@ export function EvePage() {
           <SABentoCard className="p-5 flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Database className="w-4 h-4 text-emerald-400" />
-                <h3 className="text-xs uppercase tracking-wider font-semibold text-neutral-400">
+                <Database className="w-4 h-4 text-emerald-500" />
+                <h3 className="text-xs uppercase tracking-wider font-semibold text-[var(--text-3)]">
                   System Context & Evidence
                 </h3>
               </div>
-              <span className="text-[10px] text-neutral-500 font-mono">
+              <span className="text-[10px] text-[var(--text-3)] font-mono">
                 PostgreSQL Authoritative
               </span>
             </div>
@@ -432,21 +518,21 @@ export function EvePage() {
                 {/* Referenced Entity */}
                 {context.referencedEntities.length > 0 && (
                   <div className="flex flex-col gap-1.5">
-                    <span className="text-[11px] font-semibold text-neutral-400">
+                    <span className="text-[11px] font-semibold text-[var(--text-2)]">
                       Resolved Entity
                     </span>
                     {context.referencedEntities.map((ent) => (
                       <div
                         key={ent.id}
-                        className="flex items-center justify-between p-2.5 rounded-lg bg-neutral-900 border border-neutral-800"
+                        className="flex items-center justify-between p-2.5 rounded-lg bg-[var(--surface-soft)] border border-[var(--border)]"
                       >
                         <div className="flex items-center gap-2">
-                          <UserCheck className="w-4 h-4 text-emerald-400" />
-                          <span className="text-sm font-medium text-neutral-200">
+                          <UserCheck className="w-4 h-4 text-emerald-500" />
+                          <span className="text-sm font-medium text-[var(--text-1)]">
                             {ent.name}
                           </span>
                         </div>
-                        <span className="text-xs font-mono text-neutral-400 px-2 py-0.5 rounded bg-neutral-800">
+                        <span className="text-xs font-mono text-[var(--text-2)] px-2 py-0.5 rounded bg-[var(--surface)] border border-[var(--border)]">
                           {ent.code}
                         </span>
                       </div>
@@ -457,38 +543,38 @@ export function EvePage() {
                 {/* Evidence Metrics */}
                 {context.evidence.length > 0 && (
                   <div className="flex flex-col gap-1.5">
-                    <span className="text-[11px] font-semibold text-neutral-400">
+                    <span className="text-[11px] font-semibold text-[var(--text-2)]">
                       Authoritative Ledger Evidence
                     </span>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {context.evidence.map((ev, idx) => (
                         <div
                           key={idx}
-                          className="flex flex-col p-2.5 rounded-lg bg-neutral-900 border border-neutral-800"
+                          className="flex flex-col p-2.5 rounded-lg bg-[var(--surface-soft)] border border-[var(--border)]"
                         >
                           <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-mono text-neutral-500 uppercase">
+                            <span className="text-[10px] font-mono text-[var(--text-3)] uppercase">
                               {ev.label}
                             </span>
                             <span
                               className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${
                                 ev.domain === "FINANCE"
-                                  ? "bg-emerald-950/80 text-emerald-400 border-emerald-800"
+                                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
                                   : ev.domain === "PRODUCTION"
-                                  ? "bg-sky-950/80 text-sky-400 border-sky-800"
+                                  ? "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20"
                                   : ev.domain === "EQUIPMENT" || ev.domain === "HEADQUARTERS"
-                                  ? "bg-amber-950/80 text-amber-400 border-amber-800"
+                                  ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
                                   : ev.domain === "WORK" || ev.domain === "TASK"
-                                  ? "bg-purple-950/80 text-purple-400 border-purple-800"
+                                  ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20"
                                   : ev.domain === "CALENDAR"
-                                  ? "bg-indigo-950/80 text-indigo-400 border-indigo-800"
-                                  : "bg-neutral-800 text-neutral-300 border-neutral-700"
+                                  ? "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20"
+                                  : "bg-[var(--surface)] text-[var(--text-2)] border-[var(--border)]"
                               }`}
                             >
                               {ev.domain}
                             </span>
                           </div>
-                          <span className="text-sm font-semibold text-neutral-200 mt-1">
+                          <span className="text-sm font-semibold text-[var(--text-1)] mt-1">
                             {ev.value}
                           </span>
                         </div>
@@ -499,10 +585,10 @@ export function EvePage() {
 
                 {/* Memory & Knowledge Indicators */}
                 {context.memoryHints && context.memoryHints.length > 0 && (
-                  <div className="flex flex-col gap-1 p-2 rounded-lg bg-neutral-900/60 border border-neutral-800 text-[11px]">
-                    <span className="font-semibold text-neutral-400">Memory Hint Active</span>
+                  <div className="flex flex-col gap-1 p-2 rounded-lg bg-[var(--surface-soft)] border border-[var(--border)] text-[11px]">
+                    <span className="font-semibold text-[var(--text-2)]">Memory Hint Active</span>
                     {context.memoryHints.map((m) => (
-                      <span key={m.id} className="text-neutral-300 font-mono">
+                      <span key={m.id} className="text-[var(--text-1)] font-mono">
                         "{m.term}" → {m.canonicalName ?? m.canonicalType}
                       </span>
                     ))}
@@ -510,13 +596,13 @@ export function EvePage() {
                 )}
 
                 {/* Context Metadata */}
-                <div className="pt-2 border-t border-neutral-800 flex items-center justify-between text-[10px] text-neutral-500 font-mono">
+                <div className="pt-2 border-t border-[var(--border)] flex items-center justify-between text-[10px] text-[var(--text-3)] font-mono">
                   <span>Operator: {context.owner}</span>
                   <span>Timezone: {context.timezone}</span>
                 </div>
               </div>
             ) : (
-              <p className="text-xs text-neutral-500 italic py-2">
+              <p className="text-xs text-[var(--text-3)] italic py-2">
                 Context envelope will populate automatically with verified PostgreSQL records when a query resolves.
               </p>
             )}

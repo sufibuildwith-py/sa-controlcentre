@@ -191,7 +191,37 @@ public class EveRetrievalRouter {
       return handleEmployeeFinance(emp);
     }
 
-    // 4. Production Crew Domain ("Royal mein kaun gaya tha?")
+    // 4. Production Client Domain ("cultural event MIPS ka client kon hai?")
+    if (intent == EveModelProvider.Intent.READ_PRODUCTION_CLIENT) {
+      if (sessionContext != null && isPronoun(interpretation.spokenEntity()) && sessionContext.getLastReferencedProduction() != null) {
+        return handleProductionClient(sessionContext.getLastReferencedProduction());
+      }
+      String spoken = resolveSpokenWithContext(interpretation.spokenEntity(), sessionContext != null ? sessionContext.getLastReferencedProduction() : null);
+      if (spoken == null) {
+        return notFoundResponse("production");
+      }
+
+      EveRetrievalService.ResolutionResult res = retrievalService.resolveProduction(spoken);
+      if (res.status() == EveRetrievalService.ResolutionStatus.AMBIGUOUS) {
+        return ambiguityResponse(sessionContext, intent, "productions", spoken, res.candidates());
+      }
+      if (res.status() == EveRetrievalService.ResolutionStatus.NOT_FOUND) {
+        return new RouterResult(
+            String.format("I couldn't find a production/event matching \"%s\" in SA Command.", spoken),
+            "NOT_FOUND",
+            List.of(),
+            List.of(),
+            List.of());
+      }
+
+      EveRetrievalService.Candidate prod = res.resolved();
+      if (sessionContext != null) {
+        sessionContext.setLastReferencedProduction(prod);
+      }
+      return handleProductionClient(prod);
+    }
+
+    // 5. Production Crew Domain ("Royal mein kaun gaya tha?")
     if (intent == EveModelProvider.Intent.READ_PRODUCTION_CREW) {
       if (sessionContext != null && isPronoun(interpretation.spokenEntity()) && sessionContext.getLastReferencedProduction() != null) {
         return handleProductionCrew(sessionContext.getLastReferencedProduction());
@@ -328,7 +358,36 @@ public class EveRetrievalRouter {
       }
     }
 
-    // 8. Work / Task Domain ("Kaunsa task abhi open hai?")
+    // 9. Production Tasks Domain ("Usme kaunsa task open hai?")
+    if (intent == EveModelProvider.Intent.READ_PRODUCTION_TASKS) {
+      EveRetrievalService.Candidate prod = sessionContext != null ? sessionContext.getLastReferencedProduction() : null;
+      if (interpretation.spokenEntity() != null && !isPronoun(interpretation.spokenEntity())) {
+        EveRetrievalService.ResolutionResult pRes = retrievalService.resolveProduction(interpretation.spokenEntity());
+        if (pRes.status() == EveRetrievalService.ResolutionStatus.RESOLVED) {
+          prod = pRes.resolved();
+        } else if (pRes.status() == EveRetrievalService.ResolutionStatus.AMBIGUOUS) {
+          return ambiguityResponse(sessionContext, intent, "productions", interpretation.spokenEntity(), pRes.candidates());
+        } else {
+          return new RouterResult(
+              String.format("I couldn't find a production/event matching \"%s\" in SA Command.", interpretation.spokenEntity()),
+              "NOT_FOUND",
+              List.of(),
+              List.of(),
+              List.of());
+        }
+      }
+
+      if (prod != null) {
+        if (sessionContext != null) {
+          sessionContext.setLastReferencedProduction(prod);
+        }
+        return handleProductionTasks(prod);
+      } else {
+        return notFoundResponse("production");
+      }
+    }
+
+    // 10. Work / Task Domain ("Kaunsa task abhi open hai?")
     if (intent == EveModelProvider.Intent.READ_TASKS_SUMMARY && taskService != null) {
       List<WorkTaskService.View> openTasks = taskService.list(null, null, null, null, null, null, null).stream()
           .filter(t -> t.status() != WorkTask.Status.DONE && t.status() != WorkTask.Status.CANCELLED)
@@ -427,12 +486,18 @@ public class EveRetrievalRouter {
       if (pRes.status() == EveRetrievalService.ResolutionStatus.AMBIGUOUS) {
         return ambiguityResponse(sessionContext, intent, "productions", interpretation.spokenEntity(), pRes.candidates());
       }
+      return new RouterResult(
+          String.format("I couldn't find a production/event matching \"%s\" in SA Command.", interpretation.spokenEntity()),
+          "NOT_FOUND",
+          List.of(),
+          List.of(),
+          List.of());
     }
 
-    // 12. Fallback / Unrecognized
+    // 14. Fallback / Unrecognized
     return new RouterResult(
-        "I am operational in SA Command. You can ask about employee earnings, production crew, reserved equipment, open tasks, or the event schedule.",
-        "COMPLETED",
+        "I couldn't find relevant records matching your request in SA Command. Please verify the entity name or ask about employee finance, productions, tasks, or equipment.",
+        "NOT_FOUND",
         List.of(),
         List.of(),
         List.of());
@@ -580,6 +645,76 @@ public class EveRetrievalRouter {
 
     String msg = String.format("I found multiple matching %s for \"%s\". Please choose which one you meant:", domainPlural, spoken);
     return new RouterResult(msg, "CLARIFICATION_REQUIRED", List.of(), List.of(), views);
+  }
+
+  private RouterResult handleProductionClient(EveRetrievalService.Candidate prod) {
+    if (productionService == null) {
+      return new RouterResult("Production service is currently unavailable.", "SYSTEM_UNAVAILABLE", List.of(), List.of(), List.of());
+    }
+    ProductionService.View view = productionService.get(prod.id());
+    String clientName = view.clientName();
+
+    List<EveDtos.EntityReference> entities = List.of(
+        new EveDtos.EntityReference(view.id(), "PRODUCTION", view.title(), view.id().toString().substring(0, 8)));
+
+    if (clientName != null && !clientName.isBlank()) {
+      String answer = String.format("The client for %s is %s.", view.title(), clientName);
+      List<EveDtos.EvidenceItem> evidence = List.of(
+          new EveDtos.EvidenceItem("PRODUCTION", "Client", clientName),
+          new EveDtos.EvidenceItem("PRODUCTION", "Event Date", view.eventDate().toString()),
+          new EveDtos.EvidenceItem("PRODUCTION", "Venue", view.venueName()),
+          new EveDtos.EvidenceItem("PRODUCTION", "Status", view.status().name()));
+      return new RouterResult(answer, "COMPLETED", entities, evidence, List.of());
+    } else {
+      String answer = String.format("I found %s, but I don't have a client recorded for it.", view.title());
+      List<EveDtos.EvidenceItem> evidence = List.of(
+          new EveDtos.EvidenceItem("PRODUCTION", "Client", "Not recorded"),
+          new EveDtos.EvidenceItem("PRODUCTION", "Event Date", view.eventDate().toString()),
+          new EveDtos.EvidenceItem("PRODUCTION", "Venue", view.venueName()));
+      return new RouterResult(answer, "COMPLETED", entities, evidence, List.of());
+    }
+  }
+
+  private RouterResult handleProductionTasks(EveRetrievalService.Candidate prod) {
+    if (taskService == null) {
+      return new RouterResult("Task service is currently unavailable.", "SYSTEM_UNAVAILABLE", List.of(), List.of(), List.of());
+    }
+    List<WorkTaskService.View> allTasks = taskService.list(null, prod.id(), null, null, null, null, null);
+    List<WorkTaskService.View> openTasks = allTasks.stream()
+        .filter(t -> t.status() != WorkTask.Status.DONE && t.status() != WorkTask.Status.CANCELLED)
+        .toList();
+
+    List<EveDtos.EntityReference> entities = List.of(
+        new EveDtos.EntityReference(prod.id(), "PRODUCTION", prod.displayName(), prod.code()));
+
+    if (openTasks.isEmpty()) {
+      String answer = String.format("There are currently no open tasks for %s.", prod.displayName());
+      List<EveDtos.EvidenceItem> evidence = List.of(
+          new EveDtos.EvidenceItem("WORK", "Production Tasks Count", String.valueOf(allTasks.size())),
+          new EveDtos.EvidenceItem("WORK", "Open Tasks", "0"));
+      return new RouterResult(answer, "COMPLETED", entities, evidence, List.of());
+    } else {
+      StringBuilder sb = new StringBuilder(String.format("There %s %d open task%s for %s: ",
+          openTasks.size() == 1 ? "is" : "are",
+          openTasks.size(),
+          openTasks.size() == 1 ? "" : "s",
+          prod.displayName()));
+      for (int i = 0; i < Math.min(openTasks.size(), 3); i++) {
+        if (i > 0) sb.append(", ");
+        WorkTaskService.View t = openTasks.get(i);
+        sb.append(t.title());
+        if (t.assigneeName() != null) {
+          sb.append(" (").append(t.assigneeName()).append(")");
+        }
+      }
+      if (openTasks.size() > 3) {
+        sb.append(String.format(" and %d more.", openTasks.size() - 3));
+      }
+      List<EveDtos.EvidenceItem> evidence = List.of(
+          new EveDtos.EvidenceItem("WORK", "Production Open Tasks", String.valueOf(openTasks.size())),
+          new EveDtos.EvidenceItem("WORK", "Next Task", openTasks.get(0).title()));
+      return new RouterResult(sb.toString(), "COMPLETED", entities, evidence, List.of());
+    }
   }
 
   private RouterResult notFoundResponse(String term) {

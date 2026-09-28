@@ -22,9 +22,15 @@ export interface EveTraceEvent {
     | "MATCHED"
     | "VALIDATING"
     | "PLANNING"
+    | "WAITING_CONFIRMATION"
+    | "REVALIDATING"
+    | "EXECUTING"
+    | "VERIFYING"
     | "COMPLETED"
     | "BLOCKED"
-    | "FAILED";
+    | "STALE_PLAN"
+    | "FAILED"
+    | "CANCELLED";
   status: "OK" | "WARN" | "BLOCKED" | "ERROR";
   label: string;
   detail?: string | null;
@@ -75,13 +81,85 @@ export interface EveContext {
   memoryHints?: EveMemory[];
 }
 
+export interface EveVerificationResult {
+  status: string;
+  ruleName: string;
+  expectedState: string;
+  actualState: string;
+  verifiedAt: string;
+  notes?: string;
+}
+
+export interface EvePlanAction {
+  actionId: string;
+  seq: number;
+  domain: string;
+  commandType: string;
+  targetEntityId?: string;
+  targetEntityName?: string;
+  parameters: Record<string, unknown>;
+  estimatedEffect?: string;
+  requiredPermission?: string;
+  status: "PENDING" | "EXECUTED" | "VERIFIED" | "FAILED" | "VERIFICATION_FAILED";
+  canonicalRecordId?: string;
+  executionResult?: Record<string, unknown>;
+  verificationResult?: EveVerificationResult;
+}
+
+export interface EvePlan {
+  planId: string;
+  sessionId: string;
+  intent: string;
+  summary: string;
+  riskTier: "READ" | "SAFE_OPERATION" | "FINANCIAL_WRITE" | "BLOCKED";
+  confirmationRequired: boolean;
+  planHash: string;
+  version: number;
+  status: "PROPOSED" | "CONFIRMED" | "EXECUTING" | "COMPLETED" | "FAILED" | "CANCELLED" | "STALE_PLAN";
+  actions: EvePlanAction[];
+}
+
+export interface ConfirmPlanRequest {
+  sessionId: string;
+  planId: string;
+  planVersion: number;
+  planHash: string;
+  note?: string;
+}
+
+export interface CancelPlanRequest {
+  sessionId: string;
+  planId: string;
+  reason?: string;
+}
+
+export interface PlanExecutionResponse {
+  planId: string;
+  sessionId: string;
+  status: string;
+  summary: string;
+  trace: EveTraceEvent[];
+  actions: EvePlanAction[];
+  message: EveMessage;
+}
+
 export interface EveQueryResponse {
   sessionId: string;
   message: EveMessage;
   trace: EveTraceEvent[];
   context?: EveContext | null;
-  status: "COMPLETED" | "CLARIFICATION_REQUIRED" | "NOT_FOUND" | "POLICY_BLOCKED" | "MODEL_FAILED" | "SYSTEM_UNAVAILABLE";
+  status:
+    | "COMPLETED"
+    | "WAITING_CONFIRMATION"
+    | "CLARIFICATION_REQUIRED"
+    | "NOT_FOUND"
+    | "POLICY_BLOCKED"
+    | "MODEL_FAILED"
+    | "SYSTEM_UNAVAILABLE"
+    | "BLOCKED"
+    | "STALE_PLAN";
   candidates: EveCandidate[];
+  plan?: EvePlan | null;
 }
 
 export interface EveSession {
