@@ -3953,10 +3953,19 @@ Build **depth before breadth**. A smaller set of workflows that are reliable, au
 
 ---
 
-**Status:** V1 blueprint locked.  
-**Execution:** 3 phases only.  
-**Presentation rule:** the app must remain fully demoable without live external services.  
-**Design rule:** the attached reference is the spatial/motion authority; SA Pearl is the default Apple-clean theme and Reference Charcoal preserves the exact dark reference feel.  
-**Engineering rule:** reuse proven open-source primitives aggressively, but own the domain logic, provenance, visual system and operational behavior.
+# 71. Production Onboarding & Financial Settlement Architecture
 
+## Operational and Financial Integration
+Production creation in SA Command is an atomic onboarding operation coordinating operational event planning with canonical Finance:
+- **Operational Data:** Title, Client, Event Date, Priority, Venue, Address, Schedule, Crew, Tasks, Equipment reservations.
+- **Equipment Needed:** Positioned directly below Venue/Address, preserving full integration with the Headquarters inventory catalog.
+- **Financial Settlement:** Positioned directly after Equipment Needed with two primary controls:
+  - `[ Set Contract ]` (Required): Defines the total agreed commercial value of the production.
+  - `[ Advance ]` (Optional, defaults to 0): Captures client money already received for the production.
 
+## Financial Truth & Semantics
+- **Contract:** Total agreed production value (`PRODUCTION_CONTRACT`), establishing `finance_production_profiles.contracted_amount`.
+- **Advance:** Client payment already received toward the contract (`PRODUCTION_RECEIPT`), allocating to `finance_production_receipt_allocations` and updating owner accounts.
+- **Outstanding:** Computed canonically as `contracted - received`.
+- **Invariants:** Advance cannot be negative, cannot exceed Contract, and requires a valid owner receiver account when > 0.
+- **Single Source of Truth:** Finance subsystem (`FinancePostingService`, `FinanceReadService`, and PostgreSQL finance ledger) remains the sole authoritative truth. No financial totals or contract fields are stored on the `productions` operational table.

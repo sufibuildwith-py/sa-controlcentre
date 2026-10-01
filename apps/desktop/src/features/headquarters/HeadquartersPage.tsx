@@ -429,7 +429,7 @@ export function HeadquartersPage() {
             <input
               type="number"
               min="0"
-              step="1"
+              step="0.001"
               value={equipmentForm.minimumReserve}
               onChange={(e) =>
                 setEquipmentForm({

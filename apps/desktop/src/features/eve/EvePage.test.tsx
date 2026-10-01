@@ -17,6 +17,17 @@ vi.mock("./eve.api", () => ({
     cancelPlan: vi.fn(),
     getPlan: vi.fn(),
     listPlansForSession: vi.fn().mockResolvedValue([]),
+    listSuggestions: vi.fn().mockResolvedValue([]),
+    getSuggestion: vi.fn(),
+    dismissSuggestion: vi.fn(),
+    resolveSuggestion: vi.fn(),
+    evaluateSuggestions: vi.fn().mockResolvedValue([]),
+    getStatus: vi.fn().mockResolvedValue({
+      modelProvider: "LOCAL_QWEN",
+      status: "READY",
+      modelName: "Qwen3-4B-Q4_K_M.gguf",
+      modelVersion: "Q4_K_M",
+    }),
   },
 }));
 
@@ -58,6 +69,76 @@ describe("EvePage — Phase 1 Grounded Command Console", () => {
     expect(screen.getByText("Command Composer")).toBeInTheDocument();
     expect(screen.getByText("Eve is ready")).toBeInTheDocument();
     expect(screen.getByText("How much does Sharma still need?")).toBeInTheDocument();
+  });
+
+  it("displays local intelligence status badge when status is ready", async () => {
+    renderEvePage();
+
+    await waitFor(() => {
+      expect(screen.getByText(/Local Intelligence/)).toBeInTheDocument();
+    });
+  });
+
+  it("submits a query and displays cognitive reasoning trace when present", async () => {
+    const mockResponse: EveQueryResponse = {
+      sessionId: "session-cognitive-123",
+      message: {
+        id: "msg-cog-1",
+        sessionId: "session-cognitive-123",
+        role: "ASSISTANT",
+        content: "There are 3 productions scheduled for next week.",
+        createdAt: "2026-10-01T10:00:00Z",
+      },
+      trace: [],
+      reasoning: [
+        {
+          sequence: 1,
+          stage: "GOAL_INTERPRETATION",
+          summary: "Identified goal: COUNT productions with temporal constraint",
+          status: "COMPLETED",
+          timestamp: "2026-10-01T10:00:00.100Z",
+        },
+        {
+          sequence: 2,
+          stage: "TEMPORAL_GROUNDING",
+          summary: "Resolved 'next week' to 2026-10-05 through 2026-10-11 in Asia/Kolkata",
+          status: "COMPLETED",
+          timestamp: "2026-10-01T10:00:00.200Z",
+        },
+        {
+          sequence: 3,
+          stage: "TOOL_EXECUTION",
+          summary: "Executed search_productions with date range",
+          status: "COMPLETED",
+          timestamp: "2026-10-01T10:00:00.300Z",
+          relatedTool: "search_productions",
+        },
+      ],
+      status: "COMPLETED",
+      candidates: [],
+    };
+
+    vi.mocked(eveApi.query).mockResolvedValueOnce(mockResponse);
+
+    renderEvePage();
+    const user = userEvent.setup();
+
+    const textarea = screen.getByPlaceholderText(/Ask Eve about employee finance/i);
+    await user.type(textarea, "next week kitne events hai");
+
+    const sendButton = screen.getByRole("button", { name: /Send/i });
+    await user.click(sendButton);
+
+    await waitFor(() => {
+      expect(screen.getByText("Cognitive Reasoning Trace")).toBeInTheDocument();
+    });
+
+    expect(screen.getByText("GOAL_INTERPRETATION")).toBeInTheDocument();
+    expect(screen.getByText(/Identified goal: COUNT productions/)).toBeInTheDocument();
+    expect(screen.getByText("TEMPORAL_GROUNDING")).toBeInTheDocument();
+    expect(screen.getByText(/Resolved 'next week' to 2026-10-05/)).toBeInTheDocument();
+    expect(screen.getByText("TOOL_EXECUTION")).toBeInTheDocument();
+    expect(screen.getByText("search_productions")).toBeInTheDocument();
   });
 
   it("submits a query and displays grounded response, activity trace, and evidence panel", async () => {
@@ -151,6 +232,9 @@ describe("EvePage — Phase 1 Grounded Command Console", () => {
         null,
       );
     });
+
+    // Verify user role is displayed as 'You' (not 'Mamu')
+    expect(screen.getByText("You")).toBeInTheDocument();
 
     // Verify assistant answer appears
     expect(
@@ -576,5 +660,102 @@ describe("EvePage — Phase 1 Grounded Command Console", () => {
     expect(
       await screen.findByText(/Execution failed: Preconditions changed: payable balance updated/i),
     ).toBeInTheDocument();
+  });
+});
+
+describe("EvePage — Phase 4 Continuous Intelligence & Proactive Suggestions", () => {
+  it("renders active suggestions and allows inspecting evidence and investigating", async () => {
+    vi.mocked(eveApi.listSuggestions).mockResolvedValueOnce([
+      {
+        id: "sug-1",
+        type: "OUTSTANDING_EMPLOYEE_PAYMENT",
+        status: "ACTIVE",
+        priority: "HIGH",
+        title: "Outstanding payable balance for Rehan Ali",
+        summary: "Rehan Ali has ₹6000.00 outstanding payable balance. Review or schedule payment.",
+        targetDomain: "FINANCE",
+        canonicalEntityType: "EMPLOYEE",
+        canonicalEntityId: "emp-rehan-1",
+        canonicalEntityName: "Rehan Ali",
+        evidence: [
+          {
+            domain: "FINANCE",
+            entityType: "EMPLOYEE",
+            entityId: "emp-rehan-1",
+            label: "Outstanding Balance",
+            value: "₹6000.00",
+            observedAt: "2026-09-29T00:00:00Z",
+          },
+        ],
+        dedupeKey: "OUTSTANDING_EMPLOYEE_PAYMENT:emp-rehan-1",
+        createdAt: "2026-09-29T00:00:00Z",
+        updatedAt: "2026-09-29T00:00:00Z",
+      },
+    ]);
+
+    renderEvePage();
+    const user = userEvent.setup();
+
+    expect(await screen.findByText("Outstanding payable balance for Rehan Ali")).toBeInTheDocument();
+    expect(screen.getByText(/₹6000.00 outstanding payable balance/i)).toBeInTheDocument();
+    expect(screen.getByText("HIGH")).toBeInTheDocument();
+
+    // Inspect evidence
+    const evidenceBtn = screen.getByText(/Evidence \(1\)/i);
+    await user.click(evidenceBtn);
+    expect(screen.getByText("Outstanding Balance")).toBeInTheDocument();
+    expect(screen.getByText("₹6000.00")).toBeInTheDocument();
+
+    // Click Investigate in EVE -> populates query input
+    const investigateBtn = screen.getByText("Investigate in EVE");
+    await user.click(investigateBtn);
+
+    const textarea = screen.getByPlaceholderText(/Ask Eve about employee finance/i);
+    expect(textarea).toHaveValue("Review payment for Rehan Ali");
+  });
+
+  it("allows dismissing an active suggestion", async () => {
+    vi.mocked(eveApi.listSuggestions).mockResolvedValueOnce([
+      {
+        id: "sug-2",
+        type: "APPROACHING_PRODUCTION_OPEN_TASKS",
+        status: "ACTIVE",
+        priority: "MEDIUM",
+        title: "Cultural Event MIPS is approaching with 3 open tasks",
+        summary: "Production Cultural Event MIPS has 3 open tasks remaining.",
+        targetDomain: "PRODUCTION",
+        canonicalEntityType: "PRODUCTION",
+        canonicalEntityId: "prod-mips-1",
+        canonicalEntityName: "Cultural Event MIPS",
+        evidence: [],
+        dedupeKey: "APPROACHING_PRODUCTION_OPEN_TASKS:prod-mips-1",
+        createdAt: "2026-09-29T00:00:00Z",
+        updatedAt: "2026-09-29T00:00:00Z",
+      },
+    ]);
+    vi.mocked(eveApi.dismissSuggestion).mockResolvedValueOnce({
+      id: "sug-2",
+      type: "APPROACHING_PRODUCTION_OPEN_TASKS",
+      status: "DISMISSED",
+      priority: "MEDIUM",
+      title: "Cultural Event MIPS is approaching with 3 open tasks",
+      summary: "Production Cultural Event MIPS has 3 open tasks remaining.",
+      targetDomain: "PRODUCTION",
+      canonicalEntityType: "PRODUCTION",
+      canonicalEntityId: "prod-mips-1",
+      evidence: [],
+      dedupeKey: "APPROACHING_PRODUCTION_OPEN_TASKS:prod-mips-1",
+      createdAt: "2026-09-29T00:00:00Z",
+      updatedAt: "2026-09-29T00:00:00Z",
+    });
+
+    renderEvePage();
+    const user = userEvent.setup();
+
+    expect(await screen.findByText("Cultural Event MIPS is approaching with 3 open tasks")).toBeInTheDocument();
+    const dismissBtn = screen.getByRole("button", { name: "Dismiss" });
+    await user.click(dismissBtn);
+
+    expect(eveApi.dismissSuggestion).toHaveBeenCalledWith("sug-2");
   });
 });

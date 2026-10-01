@@ -6,6 +6,7 @@ import type {
   EvePlan,
   EveQueryResponse,
   EveSession,
+  EveStatusView,
   PlanExecutionResponse,
 } from "./eve.types";
 
@@ -65,4 +66,36 @@ export const eveApi = {
 
   listPlansForSession: (sessionId: string): Promise<EvePlan[]> =>
     api<EvePlan[]>(`/eve/sessions/${sessionId}/plans`),
+
+  listSuggestions: (status: string = "ACTIVE", domain?: string, priority?: string): Promise<import("./eve.types").EveSuggestion[]> => {
+    const params = new URLSearchParams();
+    if (status) params.append("status", status);
+    if (domain) params.append("domain", domain);
+    if (priority) params.append("priority", priority);
+    const query = params.toString() ? `?${params.toString()}` : "";
+    return api<import("./eve.types").EveSuggestion[]>(`/eve/suggestions${query}`);
+  },
+
+  getSuggestion: (id: string): Promise<import("./eve.types").EveSuggestion> =>
+    api<import("./eve.types").EveSuggestion>(`/eve/suggestions/${id}`),
+
+  dismissSuggestion: (id: string, reason?: string): Promise<import("./eve.types").EveSuggestion> =>
+    api<import("./eve.types").EveSuggestion>(`/eve/suggestions/${id}/dismiss`, {
+      method: "POST",
+      ...json({ reason: reason ?? null }),
+    }),
+
+  resolveSuggestion: (id: string, note?: string): Promise<import("./eve.types").EveSuggestion> =>
+    api<import("./eve.types").EveSuggestion>(`/eve/suggestions/${id}/resolve`, {
+      method: "POST",
+      ...json({ note: note ?? null }),
+    }),
+
+  evaluateSuggestions: (): Promise<import("./eve.types").EveSuggestion[]> =>
+    api<import("./eve.types").EveSuggestion[]>("/eve/suggestions/evaluate", {
+      method: "POST",
+    }),
+
+  getStatus: (): Promise<EveStatusView> =>
+    api<EveStatusView>("/eve/status"),
 };

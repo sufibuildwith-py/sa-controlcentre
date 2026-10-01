@@ -143,6 +143,16 @@ export interface PlanExecutionResponse {
   message: EveMessage;
 }
 
+export interface EveReasoningStep {
+  sequence: number;
+  stage: string;
+  summary: string;
+  status: "IN_PROGRESS" | "COMPLETED" | "FAILED" | "SKIPPED" | string;
+  timestamp: string;
+  relatedTool?: string;
+  relatedEvidenceIds?: string[];
+}
+
 export interface EveQueryResponse {
   sessionId: string;
   message: EveMessage;
@@ -160,6 +170,7 @@ export interface EveQueryResponse {
     | "STALE_PLAN";
   candidates: EveCandidate[];
   plan?: EvePlan | null;
+  reasoning?: EveReasoningStep[];
 }
 
 export interface EveSession {
@@ -170,3 +181,60 @@ export interface EveSession {
   updatedAt: string;
   messages: EveMessage[];
 }
+
+export interface SuggestionEvidenceItem {
+  domain: string;
+  entityType: string;
+  entityId: string;
+  label: string;
+  value: string;
+  observedAt: string;
+}
+
+export interface EveSuggestion {
+  id: string;
+  type: string;
+  status: "ACTIVE" | "DISMISSED" | "RESOLVED" | "EXPIRED" | "SUPERSEDED" | "STALE";
+  priority: "LOW" | "MEDIUM" | "HIGH";
+  title: string;
+  summary: string;
+  sourceSignalId?: string;
+  targetDomain: string;
+  canonicalEntityType: string;
+  canonicalEntityId: string;
+  canonicalEntityName?: string;
+  evidence: SuggestionEvidenceItem[];
+  dedupeKey: string;
+  createdAt: string;
+  updatedAt: string;
+  expiresAt?: string;
+  dismissedAt?: string;
+  resolvedAt?: string;
+  dismissedBy?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface EveSignal {
+  id: string;
+  signalType: string;
+  sourceDomain: string;
+  canonicalEntityType: string;
+  canonicalEntityId: string;
+  canonicalVersion?: number;
+  actorId?: string;
+  correlationId?: string;
+  metadata?: Record<string, unknown>;
+  status: string;
+  occurredAt: string;
+  processedAt?: string;
+  failureReason?: string;
+}
+
+export interface EveStatusView {
+  modelProvider: string;
+  status: "INITIALIZING" | "READY" | "UNAVAILABLE" | string;
+  modelName: string;
+  modelVersion: string;
+  details?: string;
+}
+

@@ -1,0 +1,1884 @@
+
+
+## 1–200 — Employee / People basics
+
+1. Who is Aarav Mehta?
+2. What is Aarav Mehta's role?
+3. Which department is Aarav Mehta in?
+4. When did Aarav Mehta join?
+5. What is Aarav Mehta's employment type?
+6. Is Aarav Mehta active?
+7. What is Aarav Mehta's phone number?
+8. What is Aarav Mehta's email?
+9. What is Aarav Mehta's salary?
+10. What is Aarav Mehta's employee code?
+11. Who is Kabir Khan?
+12. What is Kabir Khan's role?
+13. Which department is Kabir Khan in?
+14. When did Kabir Khan join?
+15. What is Kabir Khan's employment type?
+16. Is Kabir Khan active?
+17. What is Kabir Khan's phone number?
+18. What is Kabir Khan's email?
+19. What is Kabir Khan's salary?
+20. What is Kabir Khan's employee code?
+21. Who is Rohan Sharma?
+22. What is Rohan Sharma's role?
+23. Which department is Rohan Sharma in?
+24. When did Rohan Sharma join?
+25. What is Rohan Sharma's employment type?
+26. Is Rohan Sharma active?
+27. What is Rohan Sharma's phone number?
+28. What is Rohan Sharma's email?
+29. What is Rohan Sharma's salary?
+30. What is Rohan Sharma's employee code?
+31. Who is Zoya Siddiqui?
+32. What is Zoya Siddiqui's role?
+33. Which department is Zoya Siddiqui in?
+34. When did Zoya Siddiqui join?
+35. What is Zoya Siddiqui's employment type?
+36. Is Zoya Siddiqui active?
+37. What is Zoya Siddiqui's phone number?
+38. What is Zoya Siddiqui's email?
+39. What is Zoya Siddiqui's salary?
+40. What is Zoya Siddiqui's employee code?
+41. Who is Meera Iyer?
+42. What is Meera Iyer's role?
+43. Which department is Meera Iyer in?
+44. When did Meera Iyer join?
+45. What is Meera Iyer's employment type?
+46. Is Meera Iyer active?
+47. What is Meera Iyer's phone number?
+48. What is Meera Iyer's email?
+49. What is Meera Iyer's salary?
+50. What is Meera Iyer's employee code?
+51. Who is Sana Qureshi?
+52. What is Sana Qureshi's role?
+53. Which department is Sana Qureshi in?
+54. When did Sana Qureshi join?
+55. What is Sana Qureshi's employment type?
+56. Is Sana Qureshi active?
+57. What is Sana Qureshi's phone number?
+58. What is Sana Qureshi's email?
+59. What is Sana Qureshi's salary?
+60. What is Sana Qureshi's employee code?
+61. Who is Aditi Sharma?
+62. What is Aditi Sharma's role?
+63. Which department is Aditi Sharma in?
+64. When did Aditi Sharma join?
+65. What is Aditi Sharma's employment type?
+66. Is Aditi Sharma active?
+67. What is Aditi Sharma's phone number?
+68. What is Aditi Sharma's email?
+69. What is Aditi Sharma's salary?
+70. What is Aditi Sharma's employee code?
+71. Who is Sameer Kapoor?
+72. What is Sameer Kapoor's role?
+73. Which department is Sameer Kapoor in?
+74. When did Sameer Kapoor join?
+75. What is Sameer Kapoor's employment type?
+76. Is Sameer Kapoor active?
+77. What is Sameer Kapoor's phone number?
+78. What is Sameer Kapoor's email?
+79. What is Sameer Kapoor's salary?
+80. What is Sameer Kapoor's employee code?
+81. Who is Sameer Khan?
+82. What is Sameer Khan's role?
+83. Which department is Sameer Khan in?
+84. When did Sameer Khan join?
+85. What is Sameer Khan's employment type?
+86. Is Sameer Khan active?
+87. What is Sameer Khan's phone number?
+88. What is Sameer Khan's email?
+89. What is Sameer Khan's salary?
+90. What is Sameer Khan's employee code?
+91. Who is Sara Khan?
+92. What is Sara Khan's role?
+93. Which department is Sara Khan in?
+94. When did Sara Khan join?
+95. What is Sara Khan's employment type?
+96. Is Sara Khan active?
+97. What is Sara Khan's phone number?
+98. What is Sara Khan's email?
+99. What is Sara Khan's salary?
+100. What is Sara Khan's employee code?
+101. Who is Omar Khan?
+102. What is Omar Khan's role?
+103. Which department is Omar Khan in?
+104. When did Omar Khan join?
+105. What is Omar Khan's employment type?
+106. Is Omar Khan active?
+107. What is Omar Khan's phone number?
+108. What is Omar Khan's email?
+109. What is Omar Khan's salary?
+110. What is Omar Khan's employee code?
+111. Who is Priya Nair?
+112. What is Priya Nair's role?
+113. Which department is Priya Nair in?
+114. When did Priya Nair join?
+115. What is Priya Nair's employment type?
+116. Is Priya Nair active?
+117. What is Priya Nair's phone number?
+118. What is Priya Nair's email?
+119. What is Priya Nair's salary?
+120. What is Priya Nair's employee code?
+121. Who is Manav Khanna?
+122. What is Manav Khanna's role?
+123. Which department is Manav Khanna in?
+124. When did Manav Khanna join?
+125. What is Manav Khanna's employment type?
+126. Is Manav Khanna active?
+127. What is Manav Khanna's phone number?
+128. What is Manav Khanna's email?
+129. What is Manav Khanna's salary?
+130. What is Manav Khanna's employee code?
+131. Who is Elena D'Souza?
+132. What is Elena D'Souza's role?
+133. Which department is Elena D'Souza in?
+134. When did Elena D'Souza join?
+135. What is Elena D'Souza's employment type?
+136. Is Elena D'Souza active?
+137. What is Elena D'Souza's phone number?
+138. What is Elena D'Souza's email?
+139. What is Elena D'Souza's salary?
+140. What is Elena D'Souza's employee code?
+141. Who is Rohan Sharma in the company?
+142. Tell me about Kabir Khan.
+143. Tell me about Aarav Mehta.
+144. Tell me about Zoya Siddiqui.
+145. Tell me about Meera Iyer.
+146. Tell me about Sana Qureshi.
+147. Tell me about Aditi Sharma.
+148. Tell me about Sameer Kapoor.
+149. Tell me about Sameer Khan.
+150. Tell me about Sara Khan.
+151. Tell me about Omar Khan.
+152. Tell me about Priya Nair.
+153. Tell me about Manav Khanna.
+154. Tell me about Elena D'Souza.
+155. Who works in Production?
+156. Who works in Camera?
+157. Who works in Sound?
+158. Who works in Lighting?
+159. Who works in Logistics?
+160. Who works in Art?
+161. Who works in Post Production?
+162. Who works in Creative?
+163. Who works in Client Services?
+164. Who works in Technical?
+165. Who works in Headquarters?
+166. Who works in Finance?
+167. Who works in Operations?
+168. Which employees are full-time?
+169. Which employees are part-time?
+170. Which employees are contract workers?
+171. Which employees are currently active?
+172. Which employees are on leave?
+173. How many employees are there?
+174. How many full-time employees are there?
+175. How many part-time employees are there?
+176. How many contract employees are there?
+177. Show me employee EMP-001.
+178. Show me employee EMP-002.
+179. Show me employee EMP-003.
+180. Show me employee EMP-010.
+181. Show me employee EMP-020.
+182. Show me employee EMP-030.
+183. Show me employee EMP-040.
+184. Show me employee EMP-050.
+185. What is Aarav's employee code?
+186. What is Kabir's employee code?
+187. What is Rohan's employee code?
+188. What is Zoya's employee code?
+189. What is Meera's employee code?
+190. What is Sana's employee code?
+191. What is Aditi's employee code?
+192. What is Priya's employee code?
+193. What is Manav's employee code?
+194. Who has the role Production Manager?
+195. Who is the Production Coordinator?
+196. Who is the Senior Camera Operator?
+197. Who is the Sound Engineer?
+198. Who is the Lighting Technician?
+199. Who is the Executive Producer?
+200. Which employee has code EMP-050?
+
+## 201–500 — Employee variations, search and relationships
+
+201. Find Aarav Mehta.
+202. Find Kabir Khan.
+203. Find Rohan Sharma.
+204. Find Zoya Siddiqui.
+205. Find Meera Iyer.
+206. Find Sana Qureshi.
+207. Find Aditi Sharma.
+208. Find Priya Nair.
+209. Find Manav Khanna.
+210. Find Elena D'Souza.
+211. Search for Aarav.
+212. Search for Kabir.
+213. Search for Rohan.
+214. Search for Zoya.
+215. Search for Meera.
+216. Search for Sana.
+217. Search for Aditi.
+218. Search for Priya.
+219. Search for Manav.
+220. Search for Elena.
+221. What department is Rohan in?
+222. What department is Kabir in?
+223. What department is Zoya in?
+224. What department is Meera in?
+225. What department is Sana in?
+226. What department is Priya in?
+227. What department is Manav in?
+228. What department is Elena in?
+229. What does Rohan do?
+230. What does Kabir do?
+231. What does Zoya do?
+232. What does Meera do?
+233. What does Sana do?
+234. What does Priya do?
+235. What does Manav do?
+236. What does Elena do?
+237. Is Rohan full-time?
+238. Is Kabir full-time?
+239. Is Zoya full-time?
+240. Is Meera full-time?
+241. Is Sana full-time?
+242. Is Priya full-time?
+243. Is Manav full-time?
+244. Is Elena full-time?
+245. When did Rohan join?
+246. When did Kabir join?
+247. When did Zoya join?
+248. When did Meera join?
+249. When did Sana join?
+250. When did Priya join?
+251. When did Manav join?
+252. When did Elena join?
+253. How much does Rohan earn?
+254. How much does Kabir earn?
+255. How much does Zoya earn?
+256. How much does Meera earn?
+257. How much does Sana earn?
+258. How much does Priya earn?
+259. How much does Manav earn?
+260. How much does Elena earn?
+261. Give me Rohan's contact details.
+262. Give me Kabir's contact details.
+263. Give me Zoya's contact details.
+264. Give me Meera's contact details.
+265. Give me Sana's contact details.
+266. Give me Priya's contact details.
+267. Give me Manav's contact details.
+268. Give me Elena's contact details.
+269. Who has the Production Coordinator role?
+270. Who has the Camera Operator role?
+271. Who has the Sound Engineer role?
+272. Who has the Lighting Technician role?
+273. Who has the Production Assistant role?
+274. Who is in the Production department?
+275. Who is in the Camera department?
+276. Who is in the Sound department?
+277. Who is in the Lighting department?
+278. Who is in the Finance department?
+279. Who is in Operations?
+280. Show me all production employees.
+281. Show me all camera employees.
+282. Show me all sound employees.
+283. Show me all lighting employees.
+284. Show me all finance employees.
+285. Show me all operations employees.
+286. Who is on leave?
+287. Is anyone from Production on leave?
+288. Is anyone from Camera on leave?
+289. Is anyone from Sound on leave?
+290. Which employees are active?
+291. Which employees are inactive?
+292. Who joined most recently?
+293. Who joined earliest?
+294. Show me employees with Khan in their name.
+295. Show me employees with Sharma in their name.
+296. Show me employees with Singh in their name.
+297. Show me employees with Kapoor in their name.
+298. Find everyone named Khan.
+299. Find everyone named Sharma.
+300. Find everyone named Mehta.
+301. Who has the highest salary?
+302. Who has the lowest salary?
+303. Show me employees earning over 50000.
+304. Show me employees earning under 50000.
+305. Which employees earn around 40000?
+306. Which employees earn around 60000?
+307. What currency are salaries stored in?
+308. Are salaries stored in rupees?
+309. What is the salary of EMP-001?
+310. What is the salary of EMP-010?
+311. What is the salary of EMP-020?
+312. What is the salary of EMP-030?
+313. What is the salary of EMP-040?
+314. What is the salary of EMP-050?
+315. What is Aarav's department?
+316. What is Kabir's department?
+317. What is Rohan's department?
+318. What is Zoya's department?
+319. What is Meera's department?
+320. What is Sana's department?
+321. Who is the executive producer?
+322. Who is the production manager?
+323. Who is the production coordinator?
+324. Who is a senior camera operator?
+325. Who is a sound engineer?
+326. Who is a lighting technician?
+327. Who is a production assistant?
+328. Which employees are in client services?
+329. Which employees are in technical?
+330. Which employees are in headquarters?
+331. Tell me Kabir's role.
+332. Tell me Rohan's role.
+333. Tell me Zoya's role.
+334. Tell me Meera's role.
+335. Tell me Sana's role.
+336. Tell me Priya's role.
+337. Tell me Manav's role.
+338. Tell me Elena's role.
+339. Where does Kabir work?
+340. Where does Rohan work?
+341. Where does Zoya work?
+342. Where does Meera work?
+343. Where does Sana work?
+344. Where does Priya work?
+345. Where does Manav work?
+346. Where does Elena work?
+347. Is Kabir on leave?
+348. Is Rohan on leave?
+349. Is Zoya on leave?
+350. Is Meera on leave?
+351. Is Sana on leave?
+352. Is Priya on leave?
+353. Is Manav on leave?
+354. Is Elena on leave?
+355. Who has phone number ending 10001?
+356. Who has employee code EMP-001?
+357. Who has employee code EMP-002?
+358. Who has employee code EMP-003?
+359. Who has employee code EMP-004?
+360. Who has employee code EMP-005?
+361. What is the email for EMP-001?
+362. What is the email for EMP-002?
+363. What is the email for EMP-003?
+364. What is the email for EMP-004?
+365. What is the email for EMP-005?
+366. How many people work in Production?
+367. How many people work in Camera?
+368. How many people work in Sound?
+369. How many people work in Lighting?
+370. How many people work in Logistics?
+371. How many people work in Art?
+372. How many people work in Post Production?
+373. How many people work in Creative?
+374. How many people work in Client Services?
+375. How many people work in Technical?
+376. How many people work in Headquarters?
+377. How many people work in Finance?
+378. How many people work in Operations?
+379. Show me Production staff.
+380. Show me Camera staff.
+381. Show me Sound staff.
+382. Show me Lighting staff.
+383. Show me Logistics staff.
+384. Show me Art staff.
+385. Show me Post Production staff.
+386. Show me Creative staff.
+387. Show me Client Services staff.
+388. Show me Technical staff.
+389. Show me Headquarters staff.
+390. Show me Finance staff.
+391. Show me Operations staff.
+392. Who works full time in Production?
+393. Who works part time in Production?
+394. Who works on contract in Production?
+395. Who works full time in Camera?
+396. Who works full time in Sound?
+397. Who works full time in Lighting?
+398. Who works on contract in Creative?
+399. Who works on contract in Finance?
+400. Who works on contract in Operations?
+401. Show me all employees with notes.
+402. Show me employees who are on leave.
+403. Show me active employees in Production.
+404. Show me active employees in Camera.
+405. Show me active employees in Sound.
+406. Show me active employees in Lighting.
+407. Show me active employees in Finance.
+408. Show me active employees in Operations.
+409. Which department has Aarav?
+410. Which department has Kabir?
+411. Which department has Rohan?
+412. Which department has Zoya?
+413. Which department has Meera?
+414. Which department has Sana?
+415. Which department has Priya?
+416. Which department has Manav?
+417. Which department has Elena?
+418. What role does Aarav have?
+419. What role does Kabir have?
+420. What role does Rohan have?
+421. What role does Zoya have?
+422. What role does Meera have?
+423. What role does Sana have?
+424. What role does Priya have?
+425. What role does Manav have?
+426. What role does Elena have?
+427. Give me EMP-001 details.
+428. Give me EMP-002 details.
+429. Give me EMP-003 details.
+430. Give me EMP-004 details.
+431. Give me EMP-005 details.
+432. Give me EMP-006 details.
+433. Give me EMP-007 details.
+434. Give me EMP-008 details.
+435. Give me EMP-009 details.
+436. Give me EMP-010 details.
+437. Give me EMP-011 details.
+438. Give me EMP-012 details.
+439. Give me EMP-013 details.
+440. Give me EMP-014 details.
+441. Give me EMP-015 details.
+442. Give me EMP-016 details.
+443. Give me EMP-017 details.
+444. Give me EMP-018 details.
+445. Give me EMP-019 details.
+446. Give me EMP-020 details.
+447. Find EMP-021.
+448. Find EMP-022.
+449. Find EMP-023.
+450. Find EMP-024.
+451. Find EMP-025.
+452. Find EMP-026.
+453. Find EMP-027.
+454. Find EMP-028.
+455. Find EMP-029.
+456. Find EMP-030.
+457. Find EMP-031.
+458. Find EMP-032.
+459. Find EMP-033.
+460. Find EMP-034.
+461. Find EMP-035.
+462. Find EMP-036.
+463. Find EMP-037.
+464. Find EMP-038.
+465. Find EMP-039.
+466. Find EMP-040.
+467. Find EMP-041.
+468. Find EMP-042.
+469. Find EMP-043.
+470. Find EMP-044.
+471. Find EMP-045.
+472. Find EMP-046.
+473. Find EMP-047.
+474. Find EMP-048.
+475. Find EMP-049.
+476. Find EMP-050.
+477. Who is EMP-021?
+478. Who is EMP-022?
+479. Who is EMP-023?
+480. Who is EMP-024?
+481. Who is EMP-025?
+482. Who is EMP-026?
+483. Who is EMP-027?
+484. Who is EMP-028?
+485. Who is EMP-029?
+486. Who is EMP-030?
+487. Who is EMP-031?
+488. Who is EMP-032?
+489. Who is EMP-033?
+490. Who is EMP-034?
+491. Who is EMP-035?
+492. Who is EMP-036?
+493. Who is EMP-037?
+494. Who is EMP-038?
+495. Who is EMP-039?
+496. Who is EMP-040?
+497. Who is EMP-041?
+498. Who is EMP-042?
+499. Who is EMP-043?
+500. Who is EMP-044?
+
+## 501–800 — Productions basics
+
+501. What is Sharma Wedding?
+502. Who is the client for Sharma Wedding?
+503. When is Sharma Wedding?
+504. Where is Sharma Wedding?
+505. What is the venue for Sharma Wedding?
+506. What equipment is needed for Sharma Wedding?
+507. What is the contract for Sharma Wedding?
+508. How much advance did we receive for Sharma Wedding?
+509. How much is outstanding for Sharma Wedding?
+510. What time does Sharma Wedding start?
+511. What time does Sharma Wedding end?
+512. What is the priority of Sharma Wedding?
+513. Who is working on Sharma Wedding?
+514. What tasks are open for Sharma Wedding?
+515. What notes do we have for Sharma Wedding?
+516. What is Sharma Reception?
+517. Who is the client for Sharma Reception?
+518. When is Sharma Reception?
+519. Where is Sharma Reception?
+520. What is the venue for Sharma Reception?
+521. What equipment is needed for Sharma Reception?
+522. What is the contract for Sharma Reception?
+523. How much advance did we receive for Sharma Reception?
+524. How much is outstanding for Sharma Reception?
+525. What time does Sharma Reception start?
+526. What time does Sharma Reception end?
+527. What is the priority of Sharma Reception?
+528. Who is working on Sharma Reception?
+529. What tasks are open for Sharma Reception?
+530. What notes do we have for Sharma Reception?
+531. Show me Sharma Wedding.
+532. Show me Sharma Reception.
+533. Find Sharma Wedding.
+534. Find Sharma Reception.
+535. Tell me about Sharma Wedding.
+536. Tell me about Sharma Reception.
+537. Which productions are for Sharma Family?
+538. Which productions are for Kapoor Family?
+539. Which productions are for Khan Family?
+540. Which productions are for Singh Family?
+541. How many productions are there?
+542. How many productions are scheduled in September?
+543. How many productions are scheduled in October?
+544. How many productions are scheduled in November?
+545. How many productions are scheduled in December?
+546. Which productions are high priority?
+547. Which productions are normal priority?
+548. Show me today's productions.
+549. Show me upcoming productions.
+550. What is the next production?
+551. What productions are happening this week?
+552. What productions are happening next month?
+553. Which production is on 30 September?
+554. Which production is on 2 October?
+555. Which production is on 3 October?
+556. Which production is on 4 October?
+557. Which production is on 5 October?
+558. Which production is on 6 October?
+559. Which production is on 7 October?
+560. Which production is on 8 October?
+561. Which production is on 9 October?
+562. Which production is on 10 October?
+563. Which production is at Royal Orchid?
+564. Which production is at Grand Palace Hall?
+565. Which production is at The Grand Palace?
+566. Which production is in Bengaluru?
+567. Which production is in Chandigarh?
+568. What is the earliest production?
+569. What is the latest production?
+570. Show me productions in Bengaluru.
+571. Show me productions in Chandigarh.
+572. Show me productions for Sharma Family.
+573. Show me productions for Singh Family.
+574. Show me productions for Khan Family.
+575. Show me productions for Kapoor Family.
+576. Which productions have a contract?
+577. Which productions have an advance?
+578. Which productions still have money outstanding?
+579. Which productions are fully paid?
+580. Which productions have an advance of 100000?
+581. Which productions have an advance of 250000?
+582. Which production has a contract of 280000?
+583. Which production has a contract of 500000?
+584. What is the contract value for Sharma Wedding?
+585. What is the advance for Sharma Wedding?
+586. What is the outstanding amount for Sharma Wedding?
+587. What is the contract value for Sharma Reception?
+588. What is the advance for Sharma Reception?
+589. What is the outstanding amount for Sharma Reception?
+590. Which production has the highest contract?
+591. Which production has the lowest contract?
+592. Which production received the largest advance?
+593. Which production received the smallest advance?
+594. Show me production finance for Sharma Wedding.
+595. Show me production finance for Sharma Reception.
+596. Show me the finance for Grand Spring Wedding.
+597. What is the finance status of Sharma Wedding?
+598. What is the finance status of Grand Spring Wedding?
+599. Is Sharma Wedding fully paid?
+600. Is Grand Spring Wedding fully paid?
+601. Who is the client for Grand Spring Wedding?
+602. When is Grand Spring Wedding?
+603. Where is Grand Spring Wedding?
+604. What equipment is needed for Grand Spring Wedding?
+605. Who is working on Grand Spring Wedding?
+606. What tasks are open for Grand Spring Wedding?
+607. What is the contract for Grand Spring Wedding?
+608. What is the advance for Grand Spring Wedding?
+609. What is outstanding for Grand Spring Wedding?
+610. What time does Grand Spring Wedding start?
+611. What time does Grand Spring Wedding end?
+612. What is the priority of Grand Spring Wedding?
+613. Tell me about Grand Spring Wedding.
+614. Find Grand Spring Wedding.
+615. Show me Grand Spring Wedding.
+616. What is Digital India Innovation Expo?
+617. Who is the client for Digital India Innovation Expo?
+618. When is Digital India Innovation Expo?
+619. Where is Digital India Innovation Expo?
+620. What equipment is needed for Digital India Innovation Expo?
+621. Who is working on Digital India Innovation Expo?
+622. What tasks are open for Digital India Innovation Expo?
+623. What is the contract for Digital India Innovation Expo?
+624. What is the advance for Digital India Innovation Expo?
+625. What is outstanding for Digital India Innovation Expo?
+626. Tell me about Digital India Innovation Expo.
+627. Which production has the Royal Orchid venue?
+628. Which production has Grand Palace Hall?
+629. Which production has The Grand Palace?
+630. Which production is at MG Road?
+631. Which production is at Chandigarh?
+632. Which production is a wedding?
+633. Which productions are receptions?
+634. Which productions are expos?
+635. Which productions are corporate events?
+636. Which productions are conferences?
+637. Which productions are high priority?
+638. Which productions are normal priority?
+639. What is the first production in the dataset?
+640. What is the last production in the dataset?
+641. Show me production number 1.
+642. Show me production number 2.
+643. Show me production number 3.
+644. Show me production number 10.
+645. Show me production number 20.
+646. Show me production number 30.
+647. Show me production number 40.
+648. Show me production number 50.
+649. What is production 1 called?
+650. What is production 50 called?
+651. What date is production 1?
+652. What date is production 50?
+653. What client is production 1 for?
+654. What client is production 50 for?
+655. What venue is production 1 at?
+656. What venue is production 50 at?
+657. What is the priority of production 1?
+658. What is the priority of production 50?
+659. Who is on production 1?
+660. Who is on production 50?
+661. What tasks belong to production 1?
+662. What tasks belong to production 50?
+663. What equipment is needed for production 1?
+664. What equipment is needed for production 50?
+665. What is the contract for production 1?
+666. What is the contract for production 50?
+667. What advance was received for production 1?
+668. What advance was received for production 50?
+669. What is outstanding on production 1?
+670. What is outstanding on production 50?
+671. Show me productions with cameras.
+672. Show me productions with lights.
+673. Show me productions with audio equipment.
+674. Show me productions with LED walls.
+675. Show me productions with four cameras.
+676. Show me productions with eight lights.
+677. Show me productions needing an audio kit.
+678. Show me productions needing an LED wall.
+679. Which productions need camera equipment?
+680. Which productions need lighting?
+681. Which productions need audio?
+682. Which productions need an LED wall?
+683. What equipment does Sharma Wedding need?
+684. What equipment does Grand Spring Wedding need?
+685. What equipment does Sharma Reception need?
+686. Does Sharma Wedding need cameras?
+687. Does Sharma Wedding need lights?
+688. Does Sharma Wedding need audio?
+689. Does Grand Spring Wedding need an LED wall?
+690. Does Grand Spring Wedding need cameras?
+691. What is the venue address for Sharma Wedding?
+692. What is the venue address for Sharma Reception?
+693. What is the venue address for Grand Spring Wedding?
+694. What time is Sharma Wedding?
+695. What time is Sharma Reception?
+696. What time is Grand Spring Wedding?
+697. Which production starts at 14:00?
+698. Which production ends at 23:00?
+699. Which productions run in the evening?
+700. Which productions have long schedules?
+
+## 801–1100 — Crew and production relationships
+
+801. Who works on Sharma Wedding?
+802. Who is assigned to Sharma Wedding?
+803. Who is the crew for Sharma Wedding?
+804. Sharma Wedding mein kaun kaam kar raha hai?
+805. Sharma Wedding ki crew kaun hai?
+806. Sharma Wedding par kaun hai?
+807. Who went to Sharma Wedding?
+808. Who is working at Sharma Wedding?
+809. Who is assigned to Sharma Wedding?
+810. Who is the camera person for Sharma Wedding?
+811. Who handles sound for Sharma Wedding?
+812. Who handles lighting for Sharma Wedding?
+813. Who is the production coordinator for Sharma Wedding?
+814. Who is the production assistant for Sharma Wedding?
+815. Is Rohan Sharma working on Sharma Wedding?
+816. Is Kabir Khan working on Sharma Wedding?
+817. Is Zoya Siddiqui working on Sharma Wedding?
+818. Is Meera Iyer working on Sharma Wedding?
+819. Is Sana Qureshi working on Sharma Wedding?
+820. What role does Rohan have on Sharma Wedding?
+821. What role does Kabir have on Sharma Wedding?
+822. What role does Zoya have on Sharma Wedding?
+823. What role does Meera have on Sharma Wedding?
+824. What role does Sana have on Sharma Wedding?
+825. Who is the camera operator on Sharma Wedding?
+826. Who is the sound engineer on Sharma Wedding?
+827. Who is the lighting technician on Sharma Wedding?
+828. Who is the production manager on Sharma Wedding?
+829. Who is the production coordinator on Sharma Wedding?
+830. How many people are on Sharma Wedding?
+831. How many crew members are on Sharma Wedding?
+832. List the Sharma Wedding crew.
+833. Give me Sharma Wedding's crew.
+834. Show me Sharma Wedding's crew.
+835. Who works on Grand Spring Wedding?
+836. Who is assigned to Grand Spring Wedding?
+837. Who is the crew for Grand Spring Wedding?
+838. Grand Spring Wedding mein kaun kaam kar raha hai?
+839. Grand Spring Wedding par kaun hai?
+840. Who handles camera on Grand Spring Wedding?
+841. Who handles sound on Grand Spring Wedding?
+842. Who handles lighting on Grand Spring Wedding?
+843. Who handles production on Grand Spring Wedding?
+844. Is Rohan Sharma on Grand Spring Wedding?
+845. Is Sara Khan on Grand Spring Wedding?
+846. Is Zoya Siddiqui on Grand Spring Wedding?
+847. Is Priya Nair on Grand Spring Wedding?
+848. Is Manav Khanna on Grand Spring Wedding?
+849. Is Kabir Khan on Grand Spring Wedding?
+850. What role does Rohan have on Grand Spring Wedding?
+851. What role does Sara have on Grand Spring Wedding?
+852. What role does Zoya have on Grand Spring Wedding?
+853. What role does Priya have on Grand Spring Wedding?
+854. What role does Manav have on Grand Spring Wedding?
+855. What role does Kabir have on Grand Spring Wedding?
+856. How many people are on Grand Spring Wedding?
+857. List the Grand Spring Wedding crew.
+858. Show me the Grand Spring Wedding crew.
+859. Who is working on Sharma Reception?
+860. Who is assigned to Sharma Reception?
+861. Who is the crew for Sharma Reception?
+862. Sharma Reception mein kaun hai?
+863. Who handles camera for Sharma Reception?
+864. Who handles sound for Sharma Reception?
+865. Who handles lighting for Sharma Reception?
+866. Is Kabir working on Sharma Reception?
+867. Is Rohan working on Sharma Reception?
+868. Who is assigned to the production team?
+869. Which productions is Rohan Sharma assigned to?
+870. Which productions is Kabir Khan assigned to?
+871. Which productions is Zoya Siddiqui assigned to?
+872. Which productions is Meera Iyer assigned to?
+873. Which productions is Sana Qureshi assigned to?
+874. Which productions is Priya Nair assigned to?
+875. Which productions is Manav Khanna assigned to?
+876. Which productions is Sara Khan assigned to?
+877. Which productions is Omar Khan assigned to?
+878. Which productions is Aditi Sharma assigned to?
+879. What productions is Rohan working on?
+880. What productions is Kabir working on?
+881. What productions is Zoya working on?
+882. What productions is Meera working on?
+883. What productions is Sana working on?
+884. What productions is Priya working on?
+885. What productions is Manav working on?
+886. Who is assigned to more than one production?
+887. Which employee is on Sharma Wedding and another production?
+888. Which employees work on multiple productions?
+889. Which productions have Kabir?
+890. Which productions have Rohan?
+891. Which productions have Zoya?
+892. Which productions have Meera?
+893. Which productions have Sana?
+894. Which productions have Priya?
+895. Which productions have Manav?
+896. Which productions have Sara?
+897. Who from Production is working on Sharma Wedding?
+898. Who from Camera is working on Sharma Wedding?
+899. Who from Sound is working on Sharma Wedding?
+900. Who from Lighting is working on Sharma Wedding?
+901. Who from Production is working on Grand Spring Wedding?
+902. Who from Camera is working on Grand Spring Wedding?
+903. Who from Sound is working on Grand Spring Wedding?
+904. Who from Lighting is working on Grand Spring Wedding?
+905. Which productions have a Sound Engineer assigned?
+906. Which productions have a Lighting Technician assigned?
+907. Which productions have a Camera Operator assigned?
+908. Which productions have a Production Coordinator assigned?
+909. Which productions have a Production Assistant assigned?
+910. Who is the crew member with the camera role?
+911. Who is the crew member with the sound role?
+912. Who is the crew member with the lighting role?
+913. Who is the crew member with the production coordinator role?
+914. Who is the crew member with the production assistant role?
+915. Which production has Rohan Sharma?
+916. Which production has Kabir Khan?
+917. Which production has Zoya Siddiqui?
+918. Which production has Meera Iyer?
+919. Which production has Sana Qureshi?
+920. Which production has Priya Nair?
+921. Which production has Manav Khanna?
+922. Which production has Sara Khan?
+923. Is Kabir assigned to a wedding?
+924. Is Rohan assigned to a wedding?
+925. Is Zoya assigned to a wedding?
+926. Is Priya assigned to a wedding?
+927. Which employees are working on weddings?
+928. Which employees are working on receptions?
+929. Which employees are working on expos?
+930. Which employees are working on corporate events?
+931. Who is working at Royal Orchid?
+932. Who is working at Grand Palace Hall?
+933. Who is working at The Grand Palace?
+934. Which employees are at Royal Orchid?
+935. Which employees are at Grand Palace Hall?
+936. Which employees are at The Grand Palace?
+937. Who works with Rohan Sharma?
+938. Who works with Kabir Khan?
+939. Who works with Zoya Siddiqui?
+940. Who works with Meera Iyer?
+941. Who works with Sana Qureshi?
+942. Who works with Priya Nair?
+943. Who works with Manav Khanna?
+944. Who works with Sara Khan?
+945. Which employees have worked together on Sharma Wedding?
+946. Which employees have worked together on Grand Spring Wedding?
+947. Are Kabir and Rohan on the same production?
+948. Are Zoya and Rohan on the same production?
+949. Are Kabir and Zoya on the same production?
+950. Are Priya and Manav on the same production?
+951. Who is the production coordinator on Sharma Wedding?
+952. Who is the senior camera operator on Sharma Wedding?
+953. Who is the sound engineer on Sharma Wedding?
+954. Who is the lighting technician on Sharma Wedding?
+955. Who is the production assistant on Sharma Wedding?
+956. Who is the production coordinator on Grand Spring Wedding?
+957. Who is the camera operator on Grand Spring Wedding?
+958. Who is the sound engineer on Grand Spring Wedding?
+959. Who is the lighting technician on Grand Spring Wedding?
+960. Who is the production assistant on Grand Spring Wedding?
+961. Tell me Rohan's assignments.
+962. Tell me Kabir's assignments.
+963. Tell me Zoya's assignments.
+964. Tell me Meera's assignments.
+965. Tell me Sana's assignments.
+966. Tell me Priya's assignments.
+967. Tell me Manav's assignments.
+968. Tell me Sara's assignments.
+969. Show me Rohan's productions.
+970. Show me Kabir's productions.
+971. Show me Zoya's productions.
+972. Show me Meera's productions.
+973. Show me Sana's productions.
+974. Show me Priya's productions.
+975. Show me Manav's productions.
+976. Show me Sara's productions.
+977. Who is assigned to the most productions?
+978. Which production has the largest crew?
+979. Which production has the smallest crew?
+980. How many crew assignments exist?
+981. How many people are assigned across productions?
+982. Which employees are assigned to Sharma Family productions?
+983. Which employees are assigned to Singh Family productions?
+984. Which employees are assigned to Khan Family productions?
+985. Which employees are assigned to Kapoor Family productions?
+986. Who from Camera works on Sharma Family productions?
+987. Who from Sound works on Sharma Family productions?
+988. Who from Lighting works on Sharma Family productions?
+989. Who from Production works on Sharma Family productions?
+990. Which employees are on the same event as Kabir?
+991. Which employees are on the same event as Rohan?
+992. Which employees are on the same event as Zoya?
+993. Which employees are on the same event as Meera?
+994. Which employees are on the same event as Sana?
+995. Who else is working with Kabir?
+996. Who else is working with Rohan?
+997. Who else is working with Zoya?
+998. Who else is working with Meera?
+999. Who else is working with Sana?
+1000. Who is on the same production as me? 
+
+## 1001–1200 — Tasks and operations
+
+1001. What tasks are open for Sharma Wedding?
+1002. What tasks are pending for Sharma Wedding?
+1003. Show me Sharma Wedding tasks.
+1004. List Sharma Wedding tasks.
+1005. How many tasks does Sharma Wedding have?
+1006. How many tasks are unfinished for Sharma Wedding?
+1007. Is Venue power check done?
+1008. Is Camera setup done?
+1009. Is Sound check done?
+1010. What is the status of Venue power check?
+1011. What is the status of Camera setup?
+1012. What is the status of Sound check?
+1013. What is the priority of Venue power check?
+1014. What is the priority of Camera setup?
+1015. What is the priority of Sound check?
+1016. What tasks belong to Sharma Wedding?
+1017. Which production has Venue power check?
+1018. Which production has Camera setup?
+1019. Which production has Sound check?
+1020. Show me all TODO tasks.
+1021. How many tasks are TODO?
+1022. Which tasks are normal priority?
+1023. Show me tasks for Grand Spring Wedding.
+1024. What tasks are open for Grand Spring Wedding?
+1025. How many tasks are there for Grand Spring Wedding?
+1026. What is the status of the Grand Spring Wedding tasks?
+1027. Which tasks belong to Grand Spring Wedding?
+1028. Show me all production tasks.
+1029. Which productions have unfinished tasks?
+1030. Which production has the most tasks?
+1031. Which production has three tasks?
+1032. Does Sharma Wedding have a venue task?
+1033. Does Sharma Wedding have a camera task?
+1034. Does Sharma Wedding have a sound task?
+1035. Does Grand Spring Wedding have a venue task?
+1036. Does Grand Spring Wedding have a sound task?
+1037. What is the first task for Sharma Wedding?
+1038. What is the second task for Sharma Wedding?
+1039. What is the third task for Sharma Wedding?
+1040. Which tasks are still TODO?
+1041. Which tasks are completed?
+1042. Which tasks are in progress?
+1043. Are there any overdue tasks?
+1044. Show me unfinished production tasks.
+1045. Show me pending work.
+1046. What work is still pending?
+1047. What needs to be done for Sharma Wedding?
+1048. What still needs to be done for Grand Spring Wedding?
+1049. What work remains for Sharma Wedding?
+1050. What work remains for Grand Spring Wedding.
+1051. Sharma Wedding ke tasks kya hain?
+1052. Sharma Wedding ka kaam kya pending hai?
+1053. Sharma Wedding me kya karna hai?
+1054. Sharma Wedding ka kaunsa task open hai?
+1055. Sharma Wedding ke pending tasks dikhao.
+1056. Sharma Wedding ka kaam batao.
+1057. Grand Spring Wedding ke tasks kya hain?
+1058. Grand Spring Wedding ka kaam kya pending hai?
+1059. Grand Spring Wedding me kya karna hai?
+1060. Grand Spring Wedding ka kaunsa task open hai?
+1061. What task is pending for the wedding?
+1062. Which event has the camera setup task?
+1063. Which event has a sound check?
+1064. Which event has a venue power check?
+1065. What production needs a camera setup?
+1066. What production needs a sound check?
+1067. What production needs a venue power check?
+1068. Show me all venue-related tasks.
+1069. Show me all camera-related tasks.
+1070. Show me all sound-related tasks.
+1071. How many tasks are there?
+1072. How many tasks are pending?
+1073. How many tasks are completed?
+1074. How many tasks are normal priority?
+1075. Which production has unfinished work?
+1076. Which production has completed work?
+1077. Which tasks are linked to production?
+1078. Show me the task list for the first production.
+1079. Show me the task list for the last production.
+1080. What tasks belong to production 1?
+1081. What tasks belong to production 50?
+1082. Is production 1's work complete?
+1083. Is production 50's work complete?
+1084. What needs doing at Royal Orchid?
+1085. What needs doing at Grand Palace Hall?
+1086. What needs doing at The Grand Palace?
+1087. What is pending at Royal Orchid?
+1088. What is pending at Grand Palace Hall?
+1089. What is pending at The Grand Palace?
+1090. Are there any tasks for Sharma Family?
+1091. Are there any tasks for Singh Family?
+1092. Are there any tasks for Khan Family?
+1093. Are there any tasks for Kapoor Family?
+1094. Which tasks belong to wedding productions?
+1095. Which tasks belong to reception productions?
+1096. Which tasks belong to expo productions?
+1097. Which tasks belong to corporate productions?
+1098. Show me pending wedding tasks.
+1099. Show me pending reception tasks.
+1100. Show me pending expo tasks.
+1101. Show me pending corporate tasks.
+1102. What is still open?
+1103. What work is left?
+1104. What should the production team do?
+1105. What tasks are not finished?
+1106. Show me open work.
+1107. Show me pending work for today.
+1108. Show me pending work this week.
+1109. Which tasks are assigned to productions?
+1110. How many tasks does each production have?
+1111. Which production has three open tasks?
+1112. What tasks are on Sharma Wedding?
+1113. What tasks are on Grand Spring Wedding?
+1114. What tasks are on Sharma Reception?
+1115. What task comes after camera setup?
+1116. What task comes before sound check?
+1117. Which task is related to venue power?
+1118. Which task is related to camera?
+1119. Which task is related to sound?
+1120. Which tasks are normal priority?
+1121. Are the Sharma Wedding tasks normal priority?
+1122. Are the Grand Spring Wedding tasks normal priority?
+1123. Are there any high-priority tasks?
+1124. Are there any low-priority tasks?
+1125. What is the status of the production checklist?
+1126. Is the Sharma Wedding checklist complete?
+1127. Is the Grand Spring Wedding checklist complete?
+1128. How many unfinished tasks does Sharma Wedding have?
+1129. How many unfinished tasks does Grand Spring Wedding have?
+1130. Which production has unfinished tasks?
+1131. What production has the most unfinished work?
+1132. Which production has the least unfinished work?
+1133. What tasks are linked to Royal Orchid?
+1134. What tasks are linked to Grand Palace Hall?
+1135. What tasks are linked to The Grand Palace?
+1136. Show me all tasks for weddings.
+1137. Show me all tasks for receptions.
+1138. Show me all tasks for conferences.
+1139. Show me all tasks for expos.
+1140. Show me all tasks for corporate events.
+1141. What does Sharma Wedding still need?
+1142. What does Grand Spring Wedding still need?
+1143. What does Sharma Reception still need?
+1144. What does production 1 still need?
+1145. What does production 50 still need?
+1146. What's left on Sharma Wedding?
+1147. What's left on Grand Spring Wedding?
+1148. What's left on Sharma Reception?
+1149. What's left on the wedding?
+1150. What's left on the event?
+1151. What work is unfinished at Sharma Wedding?
+1152. What work is unfinished at Grand Spring Wedding?
+1153. Is there unfinished work on the wedding?
+1154. Are all Sharma Wedding tasks done?
+1155. Are all Grand Spring Wedding tasks done?
+1156. Which tasks are still open for the wedding?
+1157. Which tasks are still open for the expo?
+1158. Which tasks are still open for the reception?
+1159. Which production has camera setup pending?
+1160. Which production has sound check pending?
+1161. Which production has venue power pending?
+1162. Which production has the most TODO tasks?
+1163. How many TODO tasks does Sharma Wedding have?
+1164. How many TODO tasks does Grand Spring Wedding have?
+1165. How many TODO tasks does production 1 have?
+1166. How many TODO tasks does production 50 have?
+1167. Show me all task titles.
+1168. Show me all task statuses.
+1169. Show me all task priorities.
+1170. Which tasks are normal?
+1171. Which tasks are TODO?
+1172. What is the status of Camera setup?
+1173. What is the status of Sound check?
+1174. What is the status of Venue power check?
+1175. Is Camera setup pending?
+1176. Is Sound check pending?
+1177. Is Venue power check pending?
+1178. Does the wedding have a sound check?
+1179. Does the wedding have camera setup?
+1180. Does the wedding have venue power check?
+1181. Which event needs sound check?
+1182. Which event needs camera setup?
+1183. Which event needs venue power?
+1184. What should we do at the venue?
+1185. What should we do with the cameras?
+1186. What should we do with the sound?
+1187. What operational work is pending?
+1188. What operational tasks are there?
+1189. Give me the operational checklist.
+1190. Give me the wedding checklist.
+1191. Give me the event checklist.
+1192. Give me the production checklist.
+1193. Show me all production checklists.
+1194. Which productions have operational tasks?
+1195. Which productions have three tasks?
+1196. Which productions have two tasks?
+1197. Which productions have one task?
+1198. Are any productions missing tasks?
+1199. Are there any productions without tasks?
+1200. Show me productions with open tasks.
+
+## 1201–1400 — Finance
+
+1201. What is the contract for Sharma Wedding?
+1202. How much advance did we receive for Sharma Wedding?
+1203. How much is outstanding for Sharma Wedding?
+1204. How much have we received for Sharma Wedding?
+1205. How much has Sharma Family paid?
+1206. Is Sharma Wedding fully paid?
+1207. What is Sharma Wedding's financial status?
+1208. Show me Sharma Wedding's finance.
+1209. Show me Sharma Wedding's transactions.
+1210. What payments have we received for Sharma Wedding?
+1211. What is the contracted amount?
+1212. What is the received amount?
+1213. What is the outstanding amount?
+1214. What is the production contract?
+1215. What is the production receipt?
+1216. What is the advance?
+1217. What is the contract value?
+1218. Which account received the advance?
+1219. Which owner account received Sharma Wedding's advance?
+1220. How much is in the owner position?
+1221. What is the finance profile for Sharma Wedding?
+1222. What is the contracted margin for Sharma Wedding?
+1223. What is the realized margin for Sharma Wedding?
+1224. How much remains to be received?
+1225. Has the client paid the advance?
+1226. When was the contract posted?
+1227. When was the advance posted?
+1228. What is the latest finance transaction?
+1229. What is transaction number 27?
+1230. What is transaction number 28?
+1231. What is the contract for Grand Spring Wedding?
+1232. What is the advance for Grand Spring Wedding?
+1233. What is outstanding for Grand Spring Wedding?
+1234. Has Grand Spring Wedding received an advance?
+1235. Is Grand Spring Wedding fully paid?
+1236. Show me Grand Spring Wedding finance.
+1237. What is the contracted amount for Grand Spring Wedding?
+1238. What is the received amount for Grand Spring Wedding?
+1239. What is the outstanding amount for Grand Spring Wedding?
+1240. Which production has the largest contract?
+1241. Which production has the largest advance?
+1242. Which production has no outstanding amount?
+1243. Which productions have outstanding balances?
+1244. Which productions have received advances?
+1245. Which productions have contracts posted?
+1246. How many production contracts are there?
+1247. How many production receipts are there?
+1248. How many productions have advances?
+1249. How many productions still have money due?
+1250. Which clients still owe money?
+1251. What is Sharma Family's outstanding amount?
+1252. What is Singh Family's outstanding amount?
+1253. What is Khan Family's outstanding amount?
+1254. What is Kapoor Family's outstanding amount?
+1255. Which productions belong to Sharma Family?
+1256. What are the contracts for Sharma Family productions?
+1257. What advances did Sharma Family pay?
+1258. What is still outstanding from Sharma Family?
+1259. Which production has a 280000 contract?
+1260. Which production has a 500000 contract?
+1261. Which production received 100000?
+1262. Which production received 250000?
+1263. Which production has 180000 outstanding?
+1264. Which production has 250000 outstanding?
+1265. What is the finance for production 1?
+1266. What is the finance for production 50?
+1267. What is the contract for production 1?
+1268. What is the contract for production 50?
+1269. What is the advance for production 1?
+1270. What is the advance for production 50?
+1271. What is outstanding for production 1?
+1272. What is outstanding for production 50?
+1273. Is production 1 paid?
+1274. Is production 50 paid?
+1275. Show me production 1's transactions.
+1276. Show me production 50's transactions.
+1277. What account is used for production receipts?
+1278. What is AZ-2?
+1279. Which owner account is AZ-2?
+1280. What type of account is AZ-2?
+1281. Which account received the production advance?
+1282. How much did we receive as production advances?
+1283. What is the total contract value across productions?
+1284. What is the total advance received across productions?
+1285. What is the total outstanding across productions?
+1286. How many contracts are posted?
+1287. How many receipts are posted?
+1288. Are production contracts posted?
+1289. Are production receipts posted?
+1290. Show me posted production contracts.
+1291. Show me posted production receipts.
+1292. Which transactions are for productions?
+1293. Which transactions are receipts?
+1294. Which transactions are contracts?
+1295. What is a PRODUCTION_CONTRACT?
+1296. What is a PRODUCTION_RECEIPT?
+1297. Is an advance recorded as a receipt?
+1298. Does an advance reduce the outstanding amount?
+1299. Does a contract increase the contracted amount?
+1300. Where is production finance stored?
+1301. How much did Sharma Wedding contract for?
+1302. How much did Sharma Wedding receive?
+1303. How much does Sharma Wedding still owe?
+1304. Sharma Wedding ka contract kitna hai?
+1305. Sharma Wedding ka advance kitna mila?
+1306. Sharma Wedding ka outstanding kitna hai?
+1307. Sharma Wedding ka paisa kitna aaya?
+1308. Sharma Wedding ka kitna paisa baaki hai?
+1309. Sharma Wedding ka payment hua?
+1310. Sharma Wedding fully paid hai?
+1311. Grand Spring Wedding ka contract kitna hai?
+1312. Grand Spring Wedding ka advance kitna hai?
+1313. Grand Spring Wedding ka outstanding kitna hai?
+1314. Grand Spring Wedding ka paisa kitna aaya?
+1315. Grand Spring Wedding ka kitna baaki hai?
+1316. Grand Spring Wedding paid hai?
+1317. Sharma Wedding ke finance details dikhao.
+1318. Grand Spring Wedding ke finance details dikhao.
+1319. Sharma Wedding ke transactions dikhao.
+1320. Grand Spring Wedding ke transactions dikhao.
+1321. Which productions still owe us money?
+1322. Which clients still owe us money?
+1323. Which productions have unpaid balances?
+1324. Which productions have zero outstanding?
+1325. Which production has the largest outstanding?
+1326. Which production has the smallest outstanding?
+1327. What is the average contract?
+1328. What is the average advance?
+1329. What is the average outstanding?
+1330. How much money is contracted?
+1331. How much money has been received?
+1332. How much money remains outstanding?
+1333. What percentage of a contract has been received?
+1334. What percentage of Sharma Wedding has been received?
+1335. What percentage of Grand Spring Wedding has been received?
+1336. Has the advance been allocated?
+1337. Is the advance linked to the production?
+1338. Which production received the latest receipt?
+1339. Which production has the largest receipt?
+1340. Which production has the smallest receipt?
+1341. What was received for the wedding?
+1342. What was received for the reception?
+1343. What was received for the expo?
+1344. What was received for the corporate event?
+1345. Which wedding has the highest contract?
+1346. Which wedding has the highest advance?
+1347. Which wedding has the largest outstanding?
+1348. Which reception has the highest contract?
+1349. Which expo has the highest contract?
+1350. Which corporate production has the highest contract?
+1351. How much does Sharma Family owe?
+1352. How much does Singh Family owe?
+1353. How much does Khan Family owe?
+1354. How much does Kapoor Family owe?
+1355. How much has Sharma Family paid?
+1356. How much has Singh Family paid?
+1357. How much has Khan Family paid?
+1358. How much has Kapoor Family paid?
+1359. What contracts belong to Sharma Family?
+1360. What receipts belong to Sharma Family?
+1361. Which production has a ₹100,000 advance?
+1362. Which production has a ₹250,000 advance?
+1363. Which production has a ₹280,000 contract?
+1364. Which production has a ₹500,000 contract?
+1365. Which production has ₹180,000 outstanding?
+1366. Which production has ₹250,000 outstanding?
+1367. Show me all productions with outstanding balances.
+1368. Show me all productions with advances.
+1369. Show me all productions with contracts.
+1370. Show me all fully paid productions.
+1371. Which contracts are still unpaid?
+1372. Which advances have been received?
+1373. Which production received an advance but still has a balance?
+1374. Which production has no advance?
+1375. Which production has received the full contract?
+1376. Is the advance less than the contract for Sharma Wedding?
+1377. Is the advance less than the contract for Grand Spring Wedding?
+1378. Is the outstanding amount calculated correctly for Sharma Wedding?
+1379. Is the outstanding amount calculated correctly for Grand Spring Wedding?
+1380. Does Sharma Wedding have a receipt allocation?
+1381. Does Grand Spring Wedding have a receipt allocation?
+1382. What is Sharma Wedding's finance profile?
+1383. What is Grand Spring Wedding's finance profile?
+1384. Show me finance profiles for productions.
+1385. Which productions have receipt allocations?
+1386. Which production receipts are posted?
+1387. Which production contracts are posted?
+1388. Which finance transactions belong to Sharma Wedding?
+1389. Which finance transactions belong to Grand Spring Wedding?
+1390. What was the first finance transaction for Sharma Wedding?
+1391. What was the second finance transaction for Sharma Wedding?
+1392. What contract was posted for Sharma Wedding?
+1393. What receipt was posted for Sharma Wedding?
+1394. Who received the advance?
+1395. Which owner account was credited?
+1396. Which account was debited for the receipt?
+1397. What happens to receivable when an advance arrives?
+1398. How much receivable remains for Sharma Wedding?
+1399. How much receivable remains for Grand Spring Wedding?
+1400. Give me a quick finance summary of Sharma Wedding.
+
+## 1401–1550 — Equipment
+
+1401. What equipment is needed for Sharma Wedding?
+1402. Does Sharma Wedding need cameras?
+1403. How many cameras are needed for Sharma Wedding?
+1404. Does Sharma Wedding need lights?
+1405. How many lights are needed for Sharma Wedding?
+1406. Does Sharma Wedding need an audio kit?
+1407. What equipment does Sharma Reception need?
+1408. Does Sharma Reception need cameras?
+1409. Does Sharma Reception need lights?
+1410. Does Sharma Reception need audio?
+1411. What equipment does Grand Spring Wedding need?
+1412. Does Grand Spring Wedding need cameras?
+1413. Does Grand Spring Wedding need lights?
+1414. Does Grand Spring Wedding need an audio kit?
+1415. Does Grand Spring Wedding need an LED wall?
+1416. Which productions need cameras?
+1417. Which productions need lights?
+1418. Which productions need audio kits?
+1419. Which productions need LED walls?
+1420. Which productions need four cameras?
+1421. Which productions need eight lights?
+1422. Which productions need an LED wall?
+1423. Which production needs the most equipment?
+1424. Which productions need audio equipment?
+1425. Which productions need lighting equipment?
+1426. Which productions need camera equipment?
+1427. What equipment is needed at Royal Orchid?
+1428. What equipment is needed at Grand Palace Hall?
+1429. What equipment is needed at The Grand Palace?
+1430. What equipment is needed for the wedding?
+1431. What equipment is needed for the reception?
+1432. What equipment is needed for the expo?
+1433. What equipment is needed for the corporate event?
+1434. Which production needs an audio kit?
+1435. Which production needs cameras and lights?
+1436. Which production needs cameras and audio?
+1437. Which production needs lights and audio?
+1438. Which production needs all three?
+1439. Which production needs an LED wall?
+1440. Does the wedding need an LED wall?
+1441. Does the Grand Spring Wedding need an LED wall?
+1442. How many lights does Grand Spring Wedding need?
+1443. How many cameras does Grand Spring Wedding need?
+1444. What does "equipment needed" mean for a production?
+1445. Show me the equipment requirements for Sharma Wedding.
+1446. Show me the equipment requirements for Grand Spring Wedding.
+1447. Show me the equipment requirements for production 1.
+1448. Show me the equipment requirements for production 50.
+1449. What equipment is listed for production 1?
+1450. What equipment is listed for production 50?
+1451. Is Gaffer Tape available?
+1452. How much Gaffer Tape do we have?
+1453. How many Gaffer Tape rolls are in stock?
+1454. What is the stock of Gaffer Tape?
+1455. What equipment is in headquarters inventory?
+1456. Show me HQ equipment.
+1457. What equipment do we have?
+1458. What inventory do we have?
+1459. How much C-Stand stock do we have?
+1460. How many C-Stands are available?
+1461. How many Flight Cases are available?
+1462. What is the Flight Case stock?
+1463. What is the C-Stand stock?
+1464. What is the unit for Gaffer Tape?
+1465. What is the unit for C-Stands?
+1466. What is the unit for Flight Cases?
+1467. Is Square Foot a valid inventory unit?
+1468. Is sqft a valid unit?
+1469. What does sqft mean?
+1470. Can equipment use sqft as a unit?
+1471. What is the stock of DEMO-HQ-005?
+1472. What is DEMO-HQ-007?
+1473. What is DEMO-HQ-001?
+1474. Which equipment has code DEMO-HQ-005?
+1475. Which equipment has code DEMO-HQ-007?
+1476. Which equipment has code DEMO-HQ-001?
+1477. How much Gaffer Tape is available?
+1478. How much C-Stand inventory is available?
+1479. How much Flight Case inventory is available?
+1480. Is there Gaffer Tape in stock?
+1481. Is there C-Stand stock?
+1482. Are Flight Cases in stock?
+1483. What is the equipment inventory?
+1484. Show me inventory.
+1485. Show me available equipment.
+1486. Which equipment is available?
+1487. Which equipment is tracked?
+1488. What equipment do we have in HQ?
+1489. What equipment is in the warehouse?
+1490. Is Gaffer Tape equipment?
+1491. Is a C-Stand equipment?
+1492. Is a Flight Case equipment?
+1493. What is the stock quantity of Gaffer Tape?
+1494. What is the stock quantity of C-Stands?
+1495. What is the stock quantity of Flight Cases?
+1496. Which inventory item uses rolls?
+1497. Which inventory item uses units?
+1498. Which inventory item uses sqft?
+1499. What is the quantity of Gaffer Tape in the HQ?
+1500. What is the quantity of C-Stands in the HQ?
+
+## 1551–1700 — Cross-domain questions
+
+1551. Who from the crew is also in the Production department?
+1552. Which production is Kabir working on?
+1553. What role does Kabir have on that production?
+1554. What is Kabir's salary?
+1555. What productions is Rohan assigned to?
+1556. What role does Rohan have there?
+1557. What is Rohan's department?
+1558. Who works with Rohan?
+1559. What productions is Zoya assigned to?
+1560. What role does Zoya have there?
+1561. What is Zoya's department?
+1562. Who works with Zoya?
+1563. Which productions is Priya assigned to?
+1564. What role does Priya have there?
+1565. What is Priya's department?
+1566. Who works with Priya?
+1567. Which production does Kabir work on?
+1568. What's the client for that production?
+1569. What's the venue for that production?
+1570. What's the date for that production?
+1571. What's the contract for that production?
+1572. What's the outstanding for that production?
+1573. What tasks are open on that production?
+1574. What equipment is needed there?
+1575. Who else is working there?
+1576. What production is Rohan working on?
+1577. Who is the client?
+1578. Where is it?
+1579. When is it?
+1580. What is its contract?
+1581. How much has been received?
+1582. How much is outstanding?
+1583. What tasks are pending?
+1584. What equipment is needed?
+1585. Who else is assigned?
+1586. What production is Zoya working on?
+1587. Who is the client?
+1588. Where is it?
+1589. When is it?
+1590. What is its contract?
+1591. How much has been received?
+1592. How much is outstanding?
+1593. What tasks are pending?
+1594. What equipment is needed?
+1595. Who else is assigned?
+1596. Tell me about Kabir and his current productions.
+1597. Tell me about Rohan and his current productions.
+1598. Tell me about Zoya and her current productions.
+1599. Tell me about Priya and her current productions.
+1600. Tell me about Manav and his current productions.
+1601. Which production has Kabir and Rohan?
+1602. Which production has Rohan and Zoya?
+1603. Which production has Kabir and Zoya?
+1604. Which production has Priya and Manav?
+1605. Which production has Sara and Kabir?
+1606. Which production has Rohan and Kabir?
+1607. Who works with Kabir on Sharma Wedding?
+1608. What are their roles?
+1609. What tasks do they have?
+1610. What equipment do they need?
+1611. What is the finance status?
+1612. Who works with Rohan on Sharma Wedding?
+1613. What are their roles?
+1614. What tasks do they have?
+1615. What equipment do they need?
+1616. What is the finance status?
+1617. Who works with Sara on Grand Spring Wedding?
+1618. What are their roles?
+1619. What tasks are pending?
+1620. What equipment is needed?
+1621. What is the finance status?
+1622. Which employee is assigned to a production with an outstanding balance?
+1623. Which employees are on productions with advances?
+1624. Which productions have both tasks and outstanding finance?
+1625. Which productions have crew and outstanding finance?
+1626. Which productions have crew and an advance?
+1627. Which productions have equipment and outstanding finance?
+1628. Which productions have tasks and an advance?
+1629. Which employees are working on productions that still need payment?
+1630. Who is working on Sharma Wedding and what does the client still owe?
+1631. Who is working on Grand Spring Wedding and what does the client still owe?
+1632. Which crew members are on high-priority productions?
+1633. Which employees are working on high-priority events?
+1634. Which employees are working on weddings?
+1635. Which employees are working on receptions?
+1636. Which employees are working on expos?
+1637. Which employees are working on corporate productions?
+1638. What productions does Kabir have this month?
+1639. What productions does Rohan have this month?
+1640. What productions does Zoya have this month?
+1641. What productions does Priya have this month?
+1642. Which employees are assigned to productions in Bengaluru?
+1643. Which employees are assigned to productions in Chandigarh?
+1644. Who works at Royal Orchid?
+1645. Who works at Grand Palace Hall?
+1646. Who works at The Grand Palace?
+1647. What tasks are associated with Rohan's production?
+1648. What finance is associated with Rohan's production?
+1649. What equipment is associated with Rohan's production?
+1650. What crew is associated with Kabir's production?
+1651. What tasks are associated with Kabir's production?
+1652. What finance is associated with Kabir's production?
+1653. What equipment is associated with Kabir's production?
+1654. Which employees are working on productions with camera requirements?
+1655. Which employees are working on productions with audio requirements?
+1656. Which employees are working on productions with LED walls?
+1657. Which production has the most crew?
+1658. Which production has the most tasks?
+1659. Which production has the largest contract?
+1660. Which production has the largest advance?
+1661. Which production has the largest outstanding?
+1662. Tell me everything important about Sharma Wedding.
+1663. Give me a quick summary of Sharma Wedding.
+1664. Give me a quick summary of Grand Spring Wedding.
+1665. Give me a quick summary of Sharma Reception.
+1666. Give me a summary of production 1.
+1667. Give me a summary of production 50.
+1668. Summarize Kabir's work.
+1669. Summarize Rohan's work.
+1670. Summarize Zoya's work.
+1671. Summarize Priya's work.
+1672. Summarize Manav's work.
+1673. Give me Kabir's production and finance context.
+1674. Give me Rohan's production and finance context.
+1675. Give me Zoya's production and finance context.
+1676. Give me Priya's production and finance context.
+1677. What does Kabir need to know about his production?
+1678. What does Rohan need to know about his production?
+1679. What does Zoya need to know about her production?
+1680. What does Priya need to know about her production?
+1681. Which employee is assigned to Sharma Wedding and has an outstanding salary?
+1682. Which production has both pending tasks and outstanding client payment?
+1683. Which production has an advance and pending tasks?
+1684. Which production has an advance and camera requirements?
+1685. Which production has an advance and audio requirements?
+1686. Which production has a contract and no advance?
+1687. Which production has a contract and an advance?
+1688. Which productions have both crew and tasks?
+1689. Which productions have crew, tasks, and finance?
+1690. Which productions have all three: crew, tasks, and equipment?
+1691. Which productions have all four: crew, tasks, equipment, and finance?
+1692. What does the system know about Sharma Wedding?
+1693. What does the system know about Grand Spring Wedding?
+1694. What does the system know about Kabir?
+1695. What does the system know about Rohan?
+1696. What does the system know about Zoya?
+1697. What does the system know about Priya?
+1698. What is connected to Sharma Wedding?
+1699. What is connected to Grand Spring Wedding?
+1700. What is connected to Kabir?
+
+## 1701–1800 — Natural language / Hinglish / easy paraphrases
+
+1701. Sharma wedding ka crew kaun hai?
+1702. Sharma wedding mein kaun kaam kar raha hai?
+1703. Sharma wedding par kaun hai?
+1704. Sharma wedding wale event mein kaun gaya hai?
+1705. Sharma wedding ke event me kon gaya he?
+1706. Sharma wedding me kaun kaam karta hai?
+1707. Sharma wedding kaun handle kar raha hai?
+1708. Sharma wedding ke log kaun hain?
+1709. Sharma wedding ki team batao.
+1710. Sharma wedding ki crew dikhao.
+1711. Mips wala event ka crew kaun hai?
+1712. Mips wale event me kaun hai?
+1713. Mips event mein kaun kaam kar raha hai?
+1714. Mips wale event ka staff kaun hai?
+1715. Mips event ki team batao.
+1716. Sharma wedding ka client kon hai?
+1717. Sharma wedding ka client kaun hai?
+1718. Sharma wedding kiski hai?
+1719. Sharma wedding kis client ki hai?
+1720. Sharma wedding ka venue kya hai?
+1721. Sharma wedding kahan hai?
+1722. Sharma wedding kaha ho rahi hai?
+1723. Sharma wedding kab hai?
+1724. Sharma wedding ki date kya hai?
+1725. Sharma wedding kitne baje hai?
+1726. Sharma wedding ka start time kya hai?
+1727. Sharma wedding ka contract kitna hai?
+1728. Sharma wedding ka advance kitna mila?
+1729. Sharma wedding ka outstanding kitna hai?
+1730. Sharma wedding ka kitna paisa baaki hai?
+1731. Sharma wedding ka paisa kitna aaya?
+1732. Sharma wedding fully paid hai?
+1733. Sharma wedding ke tasks kya hain?
+1734. Sharma wedding ka kya kaam pending hai?
+1735. Sharma wedding ka kaunsa kaam baaki hai?
+1736. Sharma wedding ka equipment kya chahiye?
+1737. Sharma wedding me kitne camera chahiye?
+1738. Sharma wedding me kitni lights chahiye?
+1739. Sharma wedding me audio chahiye?
+1740. Sharma wedding me sound ka kya setup hai?
+1741. Sharma wedding ke notes kya hain?
+1742. Sharma wedding ka pura detail batao.
+1743. Sharma wedding ka summary do.
+1744. Sharma wedding ke finance details do.
+1745. Sharma wedding ki team aur finance batao.
+1746. Sharma wedding ki team aur tasks batao.
+1747. Sharma wedding ka equipment aur crew batao.
+1748. Sharma wedding ka contract aur advance batao.
+1749. Sharma wedding me kaun aur kya kaam kar raha hai?
+1750. Sharma wedding me abhi kya pending hai?
+1751. Grand spring wedding ka crew kaun hai?
+1752. Grand spring wedding mein kaun kaam kar raha hai?
+1753. Grand spring wedding par kaun hai?
+1754. Grand spring wedding ke log kaun hain?
+1755. Grand spring wedding ki team batao.
+1756. Grand spring wedding ka client kaun hai?
+1757. Grand spring wedding kiski hai?
+1758. Grand spring wedding kahan hai?
+1759. Grand spring wedding kab hai?
+1760. Grand spring wedding ka contract kitna hai?
+1761. Grand spring wedding ka advance kitna mila?
+1762. Grand spring wedding ka outstanding kitna hai?
+1763. Grand spring wedding ka paisa kitna aaya?
+1764. Grand spring wedding ka kya kaam pending hai?
+1765. Grand spring wedding ke tasks kya hain?
+1766. Grand spring wedding me kya equipment chahiye?
+1767. Grand spring wedding me LED wall chahiye?
+1768. Grand spring wedding me kitni lights chahiye?
+1769. Grand spring wedding me camera chahiye?
+1770. Grand spring wedding ka summary do.
+1771. Kabir ka role kya hai?
+1772. Kabir kis department mein hai?
+1773. Kabir kaun hai?
+1774. Kabir kaha kaam karta hai?
+1775. Kabir ki salary kya hai?
+1776. Kabir ka employee code kya hai?
+1777. Kabir kab join hua?
+1778. Kabir active hai?
+1779. Kabir ki email kya hai?
+1780. Kabir ka phone kya hai?
+1781. Rohan ka role kya hai?
+1782. Rohan kis department mein hai?
+1783. Rohan kaun hai?
+1784. Rohan kaha kaam karta hai?
+1785. Rohan ki salary kya hai?
+1786. Rohan ka employee code kya hai?
+1787. Rohan kab join hua?
+1788. Rohan active hai?
+1789. Rohan ki email kya hai?
+1790. Rohan ka phone kya hai?
+1791. Zoya ka role kya hai?
+1792. Zoya kis department mein hai?
+1793. Zoya kaun hai?
+1794. Zoya kaha kaam karti hai?
+1795. Zoya ki salary kya hai?
+1796. Zoya ka employee code kya hai?
+1797. Zoya kab join hui?
+1798. Zoya active hai?
+1799. Zoya ki email kya hai?
+1800. Zoya ka phone kya hai?
+
+## 1801–1900 — Context, follow-ups and references
+
+1801. Tell me about Sharma Wedding.
+1802. Who is working on it?
+1803. What is the client?
+1804. Where is it?
+1805. When is it?
+1806. What equipment does it need?
+1807. What tasks are open?
+1808. What is the contract?
+1809. How much advance did we get?
+1810. What's still outstanding?
+1811. Who else is working there?
+1812. What are their roles?
+1813. What equipment do they need?
+1814. What is pending there?
+1815. Is it fully paid?
+1816. Give me the finance details.
+1817. Give me the crew details.
+1818. Give me the task details.
+1819. Give me the equipment details.
+1820. Give me everything important about it.
+1821. What about the reception?
+1822. Who is working there?
+1823. What's the client?
+1824. Where is it?
+1825. What's the date?
+1826. What equipment does it need?
+1827. What tasks are open?
+1828. What's the contract?
+1829. How much advance did we get?
+1830. What's outstanding?
+1831. What about the wedding?
+1832. Who is working on that event?
+1833. What equipment does that event need?
+1834. What tasks are open on that event?
+1835. How much did we receive for that event?
+1836. How much is still due?
+1837. Who is the client?
+1838. Where is that event?
+1839. When is that event?
+1840. What's its contract?
+1841. What about Kabir?
+1842. Which production is he on?
+1843. What role does he have there?
+1844. Who is working with him?
+1845. What tasks does that production have?
+1846. What equipment does that production need?
+1847. What's the finance status?
+1848. How much is outstanding?
+1849. What about Rohan?
+1850. Which production is he on?
+1851. What role does he have there?
+1852. Who is working with him?
+1853. What tasks does that production have?
+1854. What equipment does that production need?
+1855. What's the finance status?
+1856. How much is outstanding?
+1857. What about Zoya?
+1858. Which production is she on?
+1859. What role does she have there?
+1860. Who is working with her?
+1861. What tasks does that production have?
+1862. What equipment does that production need?
+1863. What's the finance status?
+1864. How much is outstanding?
+1865. And Kabir?
+1866. What is his role?
+1867. Which event is he on?
+1868. Who else is there?
+1869. What is pending there?
+1870. What's the money situation?
+1871. And Rohan?
+1872. Which event is he on?
+1873. Who else is there?
+1874. What is pending there?
+1875. What's the money situation?
+1876. And Zoya?
+1877. Which event is she on?
+1878. Who else is there?
+1879. What is pending there?
+1880. What's the money situation?
+1881. What about that event?
+1882. Who is working there?
+1883. What is pending there?
+1884. What equipment is needed there?
+1885. What's the finance status?
+1886. Who is working on that one?
+1887. What tasks are open on that one?
+1888. How much is outstanding on that one?
+1889. What equipment is needed on that one?
+1890. What's the contract for that one?
+1891. What about the second one?
+1892. Who is on the second one?
+1893. What is the second one's client?
+1894. What is the second one's date?
+1895. What is the second one's finance?
+1896. What equipment does the second one need?
+1897. What tasks are open on the second one?
+1898. Who is on the first one?
+1899. What is the first one's finance?
+1900. What equipment does the first one need?
+
+## 1901–2000 — Typos, short queries and robustness
+
+1901. who is sharma weddng?
+1902. sharma weddng crew?
+1903. sharma weddng client?
+1904. sharma weddng venue?
+1905. sharma weddng date?
+1906. sharma weddng finance?
+1907. sharma weddng advance?
+1908. sharma weddng outstanding?
+1909. sharma weddng tasks?
+1910. sharma weddng equipment?
+1911. shamra wedding crew?
+1912. shamra wedding client?
+1913. shamra wedding venue?
+1914. shamra wedding date?
+1915. shamra wedding finance?
+1916. shamra wedding advance?
+1917. shamra wedding outstanding?
+1918. shamra wedding tasks?
+1919. shamra wedding equipment?
+1920. sharma weding crew?
+1921. sharma weding client?
+1922. sharma weding venue?
+1923. sharma weding date?
+1924. sharma weding finance?
+1925. sharma weding tasks?
+1926. sharma weding equipment?
+1927. sharm wedding crew?
+1928. sharm wedding client?
+1929. sharm wedding venue?
+1930. sharm wedding date?
+1931. sharm wedding finance?
+1932. sharm wedding tasks?
+1933. sharma wedng me kaun hai?
+1934. sharma wedng ka client?
+1935. sharma wedng ka venue?
+1936. sharma wedng kab hai?
+1937. sharma wedng ka advance?
+1938. sharma wedng ka outstanding?
+1939. sharma wedng ke tasks?
+1940. sharma wedng ka equipment?
+1941. kabir khan ka role?
+1942. kabir khan kis department me hai?
+1943. kabir khan kaha kaam karta hai?
+1944. kabir khan ki salary?
+1945. kabir khan ki email?
+1946. kabir khan ka phone?
+1947. rohan sharma ka role?
+1948. rohan sharma kis department me hai?
+1949. rohan sharma kaha kaam karta hai?
+1950. rohan sharma ki salary?
+1951. rohan sharma ki email?
+1952. rohan sharma ka phone?
+1953. zoya siddiqui ka role?
+1954. zoya siddiqui kis department me hai?
+1955. zoya siddiqui kaha kaam karti hai?
+1956. zoya siddiqui ki salary?
+1957. zoya siddiqui ki email?
+1958. zoya siddiqui ka phone?
+1959. meera iyer ka role?
+1960. meera iyer kis department me hai?
+1961. meera iyer kaha kaam karti hai?
+1962. meera iyer ki salary?
+1963. meera iyer ki email?
+1964. meera iyer ka phone?
+1965. sana qureshi ka role?
+1966. sana qureshi kis department me hai?
+1967. sana qureshi kaha kaam karti hai?
+1968. sana qureshi ki salary?
+1969. sana qureshi ki email?
+1970. sana qureshi ka phone?
+1971. sharma family ki production?
+1972. sharma family ka event?
+1973. sharma family ka client?
+1974. sharma family ka contract?
+1975. sharma family ka advance?
+1976. sharma family ka outstanding?
+1977. sharma family ke events ka crew?
+1978. sharma family ke events ke tasks?
+1979. sharma family ke events ka equipment?
+1980. sharma family ke productions batao.
+1981. wedding wala event kaun sa hai?
+1982. reception wala event kaun sa hai?
+1983. royal orchid wala event kaun sa hai?
+1984. grand palace wala event kaun sa hai?
+1985. 30 September wala event kaun sa hai?
+1986. October wala event kaun sa hai?
+1987. Chandigarh wala event kaun sa hai?
+1988. Bengaluru wala event kaun sa hai?
+1989. jisme Kabir hai woh production?
+1990. jisme Rohan hai woh event?
+1991. jisme Zoya hai woh production?
+1992. jisme Priya hai woh event?
+1993. Kabir wala event ka client?
+1994. Rohan wala event ka venue?
+1995. Zoya wale event ki date?
+1996. Priya wale production ka finance?
+1997. usme kaun kaam karta hai?
+1998. uska equipment kya hai?
+1999. usme kaunsa task open hai?
+2000. uska finance kitna hai?

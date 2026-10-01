@@ -10,6 +10,7 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.*;
+import com.saproduction.command.eve.cognitive.EveReasoningStep;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -30,6 +31,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class EveService {
 
+  private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(EveService.class);
+
   private final EveModelProvider modelProvider;
   private final EveRetrievalService retrievalService;
   private final EveContextEngine contextEngine;
@@ -40,6 +43,14 @@ public class EveService {
   private final EveCommandGateway commandGateway;
   private final JdbcTemplate jdbc;
   private final ObjectMapper json;
+  @Autowired(required = false)
+  private com.saproduction.command.eve.semantic.EveSemanticResolutionService semanticService;
+  @Autowired(required = false)
+  private com.saproduction.command.eve.cognitive.EveCognitiveRuntime cognitiveRuntime;
+
+  public void setCognitiveRuntime(com.saproduction.command.eve.cognitive.EveCognitiveRuntime cognitiveRuntime) {
+    this.cognitiveRuntime = cognitiveRuntime;
+  }
 
   public EveService(
       EveModelProvider modelProvider,
@@ -111,10 +122,15 @@ public class EveService {
 
     // 1. STARTED
     trace.add(recordTrace(sessionId, userMsgId, seq++, "STARTED", "OK", "Request received", "Processing query: " + request.prompt()));
+    log.info("EVE [{}] CONTEXT_RECEIVED", sessionId);
 
     // Load Session Context
     EveRetrievalRouter.SessionContext sessionContext = contextEngine.getSessionContext(sessionId);
-    String contextSummary = buildSessionContextSummary(sessionId);
+    String contextSummary = buildSessionContextSummary(sessionId, sessionContext);
+
+    if (sessionContext != null && (!"None".equals(sessionContext.toActiveFocusDescription()) || sessionContext.hasPendingClarification())) {
+      log.info("EVE [{}] ACTIVE_CONTEXT_LOADED: {}", sessionId, sessionContext.toContextSummary());
+    }
 
     // 2. INTERPRETING
     trace.add(recordTrace(sessionId, userMsgId, seq++, "INTERPRETING", "OK", "Interpreting intent", "Analyzing query in session context with ModelProvider"));
@@ -122,6 +138,11 @@ public class EveService {
     try {
       interpretation = modelProvider.interpret(
           new EveModelProvider.EveInterpretationRequest(request.prompt(), contextSummary));
+      log.info("EVE [{}] REFERENCE_INTERPRETED: intent={}, spokenEntity={}, continuation={}",
+          sessionId, interpretation.intent(), interpretation.spokenEntity(), interpretation.continuation());
+      var infoNeed = interpretation.toInformationNeed(request.prompt());
+      log.info("EVE [{}] INFORMATION_NEED: op={}, topic={}, concept={}, phrase='{}', pronoun={}",
+          sessionId, infoNeed.operation(), infoNeed.topic(), infoNeed.targetConcept(), infoNeed.targetEntityPhrase(), infoNeed.isPronoun());
     } catch (ApiException e) {
       String status = "MODEL_FAILED";
       if ("EVE_MODEL_UNAVAILABLE".equals(e.code)) {
@@ -159,6 +180,45 @@ public class EveService {
       return handlePaymentProposal(sessionId, userMsgId, request, interpretation, sessionContext, trace, seq);
     }
 
+    // 2B. Cognitive brain loop execution for analytical & complex queries
+    if (cognitiveRuntime != null) {
+      try {
+        var cogResult = cognitiveRuntime.execute(request.prompt(), sessionId, contextSummary, sessionContext, modelProvider);
+        if (cogResult != null && (cogResult.goal() == null || !"GENERAL_LOOKUP".equals(cogResult.goal().goal()))) {
+          for (var rStep : cogResult.reasoningSteps()) {
+            trace.add(recordTrace(sessionId, userMsgId, seq++, rStep.stage(), "OK", rStep.stage(), rStep.summary()));
+          }
+          if (sessionContext != null) {
+            sessionContext.addTurn(request.prompt(), cogResult.answer(), interpretation.intent());
+            sessionContext.setRecentEvidence(cogResult.evidence());
+          }
+          UUID assistantMsgId = saveMessage(sessionId, "ASSISTANT", cogResult.answer());
+          List<String> knowledgeSnippets = knowledgeService != null
+              ? knowledgeService.getRelevantKnowledge(interpretation.intent().name(), request.prompt())
+              : List.of();
+          List<EveDtos.MemoryView> memoryHints = new ArrayList<>();
+          EveDtos.ContextView context = contextEngine.buildContextView(
+              resolveCurrentOperator(),
+              cogResult.referencedEntities(),
+              cogResult.evidence(),
+              knowledgeSnippets,
+              memoryHints);
+
+          return new EveDtos.QueryResponse(
+              sessionId,
+              new EveDtos.MessageView(assistantMsgId, sessionId, "ASSISTANT", cogResult.answer(), Instant.now()),
+              trace,
+              context,
+              cogResult.status(),
+              cogResult.candidates(),
+              null,
+              cogResult.reasoningSteps());
+        }
+      } catch (Exception e) {
+        log.warn("Cognitive runtime execution exception, continuing with standard router: {}", e.getMessage());
+      }
+    }
+
     // 3. RESOLVING & ROUTING
     trace.add(recordTrace(sessionId, userMsgId, seq++, "RESOLVING", "OK", "Resolving references", "Checking entities and session context"));
     trace.add(recordTrace(sessionId, userMsgId, seq++, "ROUTING", "OK", "Routing retrieval", "Dispatching to domain read service: " + interpretation.intent()));
@@ -167,6 +227,9 @@ public class EveService {
     EveRetrievalRouter.RouterResult routerResult = retrievalRouter.routeAndRetrieve(interpretation, sessionContext, request.prompt());
 
     if ("CLARIFICATION_REQUIRED".equals(routerResult.status())) {
+      if (sessionContext != null) {
+        sessionContext.addTurn(request.prompt(), routerResult.answer(), interpretation.intent());
+      }
       trace.add(recordTrace(
           sessionId, userMsgId, seq++, "BLOCKED", "BLOCKED", "Ambiguity detected", routerResult.answer()));
 
@@ -182,6 +245,9 @@ public class EveService {
     }
 
     if ("NOT_FOUND".equals(routerResult.status())) {
+      if (sessionContext != null) {
+        sessionContext.addTurn(request.prompt(), routerResult.answer(), interpretation.intent());
+      }
       trace.add(recordTrace(sessionId, userMsgId, seq++, "BLOCKED", "WARN", "Entity not found", routerResult.answer()));
       UUID assistantMsgId = saveMessage(sessionId, "ASSISTANT", routerResult.answer());
       return new EveDtos.QueryResponse(
@@ -194,10 +260,19 @@ public class EveService {
           null);
     }
 
+    if (!routerResult.referencedEntities().isEmpty()) {
+      log.info("EVE [{}] ENTITY_RESOLVED: {}", sessionId, routerResult.referencedEntities().get(0).name());
+    }
+
+    if (!routerResult.evidence().isEmpty()) {
+      log.info("EVE [{}] CANONICAL_EVIDENCE_RETRIEVED: {} items", sessionId, routerResult.evidence().size());
+    }
+
     trace.add(recordTrace(
         sessionId, userMsgId, seq++, "RETRIEVING", "OK", "Retrieving authoritative state", "Loaded factual state from system of record"));
 
     // 5. ASSEMBLING CONTEXT
+    log.info("EVE [{}] CONTEXT_ENRICHED", sessionId);
     trace.add(recordTrace(
         sessionId, userMsgId, seq++, "ASSEMBLING_CONTEXT", "OK", "Assembling bounded context", "Formulating grounded answer with visible evidence"));
 
@@ -211,26 +286,104 @@ public class EveService {
     }
 
     EveDtos.ContextView context = contextEngine.buildContextView(
-        "Azeem Khan",
+        resolveCurrentOperator(),
         routerResult.referencedEntities(),
         routerResult.evidence(),
         knowledgeSnippets,
         memoryHints);
 
+    // Response composition: Model composes natural answer grounded strictly in authoritative evidence
+    String finalAnswer = routerResult.answer();
+    if (routerResult.status() == null || "COMPLETED".equals(routerResult.status())) {
+      if (modelProvider instanceof EveResponseComposer composer) {
+        try {
+          String composed = composer.composeResponse(
+              new EveResponseComposer.EveResponseCompositionRequest(
+                  request.prompt(),
+                  contextSummary,
+                  interpretation.intent(),
+                  routerResult.answer(),
+                  routerResult.referencedEntities(),
+                  routerResult.evidence(),
+                  knowledgeSnippets));
+          if (composed != null && !composed.isBlank()) {
+            if (!composed.equals(routerResult.answer())) {
+              finalAnswer = composed;
+              trace.add(recordTrace(
+                  sessionId, userMsgId, seq++, "RESPONSE_COMPOSED", "OK", "Response composed by local model", "Synthesized grounded response with local Qwen model"));
+            } else {
+              trace.add(recordTrace(
+                  sessionId, userMsgId, seq++, "RESPONSE_DETERMINISTIC", "OK", "Deterministic response used", "Model composition returned fallback deterministic answer"));
+            }
+          }
+        } catch (ApiException e) {
+          log.warn("Local model composition failed, falling back to deterministic answer: {}", e.getMessage());
+          trace.add(recordTrace(
+              sessionId, userMsgId, seq++, "MODEL_FALLBACK", "WARN", "Model response composition failed: " + e.code, e.getMessage()));
+        } catch (Exception e) {
+          log.warn("Model response composition unexpected failure, falling back: {}", e.getMessage());
+          trace.add(recordTrace(
+              sessionId, userMsgId, seq++, "MODEL_FALLBACK", "WARN", "Model response composition failed", e.getMessage()));
+        }
+      }
+    }
+
     // 6. COMPLETED
     trace.add(recordTrace(
         sessionId, userMsgId, seq++, "COMPLETED", "OK", "Query completed", "Grounded operational state verified from PostgreSQL"));
 
-    UUID assistantMsgId = saveMessage(sessionId, "ASSISTANT", routerResult.answer());
+    UUID assistantMsgId = saveMessage(sessionId, "ASSISTANT", finalAnswer);
+
+    if (sessionContext != null) {
+      sessionContext.addTurn(request.prompt(), finalAnswer, interpretation.intent());
+      sessionContext.setRecentEvidence(routerResult.evidence());
+    }
+
+    List<EveReasoningStep> fallbackReasoning = List.of(
+        EveReasoningStep.of(1, "UNDERSTANDING", "Interpreted operational query: " + interpretation.intent()),
+        EveReasoningStep.of(2, "RETRIEVAL", "Loaded authoritative records from PostgreSQL ledger."),
+        EveReasoningStep.of(3, "VERIFICATION", "Verified factual state against system of record."),
+        EveReasoningStep.of(4, "ANSWER", finalAnswer)
+    );
 
     return new EveDtos.QueryResponse(
         sessionId,
-        new EveDtos.MessageView(assistantMsgId, sessionId, "ASSISTANT", routerResult.answer(), Instant.now()),
+        new EveDtos.MessageView(assistantMsgId, sessionId, "ASSISTANT", finalAnswer, Instant.now()),
         trace,
         context,
         routerResult.status() != null ? routerResult.status() : "COMPLETED",
         routerResult.candidates() != null ? routerResult.candidates() : List.of(),
-        null);
+        null,
+        fallbackReasoning);
+  }
+
+  public EveDtos.EveStatusView getStatus() {
+    String semanticDetails = "";
+    if (semanticService != null && semanticService.isEnabled()) {
+      boolean emb = semanticService.getEmbeddingProvider() != null && semanticService.getEmbeddingProvider().isAvailable();
+      boolean rerank = semanticService.getRerankerProvider() != null && semanticService.getRerankerProvider().isAvailable();
+      semanticDetails = String.format(" | Embedding: %s (%s) | Reranker: %s (%s)",
+          emb ? "READY" : "UNAVAILABLE",
+          semanticService.getEmbeddingProvider() != null ? semanticService.getEmbeddingProvider().getModelName() : "none",
+          rerank ? "READY" : "UNAVAILABLE",
+          semanticService.getRerankerProvider() != null ? semanticService.getRerankerProvider().getModelName() : "none");
+    }
+
+    if (modelProvider instanceof LocalQwenModelProvider localQwen) {
+      EveDtos.EveStatusView base = localQwen.getStatusView();
+      return new EveDtos.EveStatusView(
+          base.modelProvider(),
+          base.status(),
+          base.modelName(),
+          base.modelVersion(),
+          (base.details() != null ? base.details() : "") + semanticDetails);
+    }
+    return new EveDtos.EveStatusView(
+        "TEST",
+        "READY",
+        "TestModelProvider",
+        "1.0",
+        "Deterministic test model provider active" + semanticDetails);
   }
 
   private EveDtos.QueryResponse handlePaymentProposal(
@@ -429,7 +582,7 @@ public class EveService {
     UUID assistantMsgId = saveMessage(sessionId, "ASSISTANT", answer);
 
     EveDtos.ContextView context = contextEngine.buildContextView(
-        "Azeem Khan",
+        resolveCurrentOperator(),
         List.of(new EveDtos.EntityReference(empId, "EMPLOYEE", empName, "")),
         List.of(
             new EveDtos.EvidenceItem("FINANCE", "Earned", "₹" + earned.toPlainString()),
@@ -506,7 +659,7 @@ public class EveService {
 
     int seq = getNextTraceSeq(sessionId);
     EveDtos.EvePlan plan = getPlan(planId);
-    EveExecutionContext context = commandGateway.createContext(sessionId, planId, version, storedHash, "Azeem Khan");
+    EveExecutionContext context = commandGateway.createContext(sessionId, planId, version, storedHash, resolveCurrentOperator());
 
     // 1. REVALIDATING
     recordTrace(sessionId, null, seq++, "REVALIDATING", "OK", "Revalidating canonical preconditions", "Re-checking fresh state from PostgreSQL");
@@ -901,17 +1054,23 @@ public class EveService {
         sessionId);
   }
 
-  private String buildSessionContextSummary(UUID sessionId) {
+  private String buildSessionContextSummary(UUID sessionId, EveRetrievalRouter.SessionContext sessionContext) {
+    StringBuilder sb = new StringBuilder();
+    if (sessionContext != null) {
+      String ctxStr = sessionContext.toContextSummary();
+      if (!ctxStr.isBlank()) {
+        sb.append(ctxStr).append(" ");
+      }
+    }
     try {
       List<String> recent = jdbc.query(
           "SELECT role, content FROM eve_messages WHERE session_id = ? ORDER BY created_at DESC LIMIT 3",
           (rs, rowNum) -> rs.getString("role") + ": " + rs.getString("content"),
           sessionId);
       Collections.reverse(recent);
-      return String.join(" | ", recent);
-    } catch (Exception ignored) {
-      return "";
-    }
+      sb.append(String.join(" | ", recent));
+    } catch (Exception ignored) {}
+    return sb.toString().trim();
   }
 
   private String summarizeTitle(String prompt) {
@@ -919,5 +1078,16 @@ public class EveService {
       return prompt;
     }
     return prompt.substring(0, 32) + "...";
+  }
+
+  private String resolveCurrentOperator() {
+    try {
+      org.springframework.security.core.Authentication auth =
+          org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+      if (auth != null && auth.getName() != null && !auth.getName().isBlank() && !"anonymousUser".equals(auth.getName())) {
+        return auth.getName();
+      }
+    } catch (Exception ignored) {}
+    return "Operator";
   }
 }

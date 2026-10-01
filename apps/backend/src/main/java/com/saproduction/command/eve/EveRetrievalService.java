@@ -28,12 +28,21 @@ public class EveRetrievalService {
   private final EmployeeService employeeService;
   private final EveMemoryService memoryService;
   private final ProductionRepository productionRepo;
+  private final com.saproduction.command.eve.semantic.EveSemanticResolutionService semanticService;
 
   public EveRetrievalService(
       EmployeeRepository employeeRepo,
       EmployeeService employeeService,
       EveMemoryService memoryService) {
-    this(employeeRepo, employeeService, memoryService, null);
+    this(employeeRepo, employeeService, memoryService, null, null);
+  }
+
+  public EveRetrievalService(
+      EmployeeRepository employeeRepo,
+      EmployeeService employeeService,
+      EveMemoryService memoryService,
+      ProductionRepository productionRepo) {
+    this(employeeRepo, employeeService, memoryService, productionRepo, null);
   }
 
   @Autowired
@@ -41,11 +50,13 @@ public class EveRetrievalService {
       EmployeeRepository employeeRepo,
       EmployeeService employeeService,
       @Autowired(required = false) EveMemoryService memoryService,
-      @Autowired(required = false) ProductionRepository productionRepo) {
+      @Autowired(required = false) ProductionRepository productionRepo,
+      @Autowired(required = false) com.saproduction.command.eve.semantic.EveSemanticResolutionService semanticService) {
     this.employeeRepo = employeeRepo;
     this.employeeService = employeeService;
     this.memoryService = memoryService;
     this.productionRepo = productionRepo;
+    this.semanticService = semanticService;
   }
 
   public enum MatchMethod {
@@ -54,7 +65,9 @@ public class EveRetrievalService {
     EXACT_NAME,
     BOUNDED_SEARCH,
     MEMORY_HINT,
-    MODEL_SELECTION
+    MODEL_SELECTION,
+    SEMANTIC_MATCH,
+    SEMANTIC_RERANKED
   }
 
   public enum ResolutionStatus {
@@ -117,7 +130,11 @@ public class EveRetrievalService {
   }
 
   public ResolutionResult resolveEmployee(String spokenValue) {
-    if (spokenValue == null || spokenValue.isBlank()) {
+    return resolveEmployee(spokenValue, null);
+  }
+
+  public ResolutionResult resolveEmployee(String spokenValue, EveRetrievalRouter.SessionContext sessionContext) {
+    if (spokenValue == null || spokenValue.isBlank() || EveRetrievalRouter.isPronoun(spokenValue)) {
       return ResolutionResult.notFound(spokenValue);
     }
 
@@ -139,6 +156,9 @@ public class EveRetrievalService {
     if (byCode.isPresent()) {
       return ResolutionResult.resolved(toCandidate(byCode.get()), MatchMethod.EXACT_CODE, trimmed);
     }
+    if (trimmed.matches("(?i)^[a-z]{2,5}-\\d{3,6}$")) {
+      return ResolutionResult.notFound(trimmed);
+    }
 
     // 3. Normalized Exact Display Name or First Name (Canonical DB lookup)
     List<EmployeeDtos.View> allActive = employeeService.list(null, null);
@@ -153,6 +173,14 @@ public class EveRetrievalService {
       return ResolutionResult.ambiguous(
           exactMatches.stream().map(this::toCandidate).toList(),
           trimmed);
+    }
+
+    // 3B. Semantic Resolution Stage (Vector similarity + Reranker)
+    if (semanticService != null && semanticService.isEnabled()) {
+      ResolutionResult semRes = semanticService.resolveEmployee(spokenValue, sessionContext);
+      if (semRes.status() != ResolutionStatus.NOT_FOUND) {
+        return semRes;
+      }
     }
 
     // 4. Bounded Canonical DB Search -> Form Canonical Candidate Set
@@ -191,6 +219,33 @@ public class EveRetrievalService {
           trimmed);
     }
 
+    // 4C. Bounded Canonical DB Token Search for Employee
+    String[] tokens = trimmed.toLowerCase(Locale.ROOT).split("\\s+");
+    Map<EmployeeDtos.View, Integer> empMatchCounts = new HashMap<>();
+    for (String token : tokens) {
+      String t = token.replaceAll("[^a-zA-Z0-9]", "");
+      if (t.length() >= 3 && !isStopWord(t)) {
+        for (EmployeeDtos.View e : allActive) {
+          if (matchesTokenWord(e.displayName(), t)) {
+            empMatchCounts.put(e, empMatchCounts.getOrDefault(e, 0) + 1);
+          }
+        }
+      }
+    }
+    if (!empMatchCounts.isEmpty()) {
+      int maxMatches = Collections.max(empMatchCounts.values());
+      List<EmployeeDtos.View> bestMatches = empMatchCounts.entrySet().stream()
+          .filter(e -> e.getValue() == maxMatches)
+          .map(Map.Entry::getKey)
+          .toList();
+      if (bestMatches.size() == 1) {
+        return ResolutionResult.resolved(toCandidate(bestMatches.get(0)), MatchMethod.BOUNDED_SEARCH, trimmed);
+      }
+      return ResolutionResult.ambiguous(
+          bestMatches.stream().map(this::toCandidate).toList(),
+          trimmed);
+    }
+
     // 5. Canonical DB search yielded 0 matches for this spoken term.
     // Memory can suggest a candidate, BUT memory is strictly a hint:
     if (memoryService != null) {
@@ -223,7 +278,11 @@ public class EveRetrievalService {
   }
 
   public ResolutionResult resolveProduction(String spokenValue) {
-    if (spokenValue == null || spokenValue.isBlank() || productionRepo == null) {
+    return resolveProduction(spokenValue, null);
+  }
+
+  public ResolutionResult resolveProduction(String spokenValue, EveRetrievalRouter.SessionContext sessionContext) {
+    if (spokenValue == null || spokenValue.isBlank() || productionRepo == null || EveRetrievalRouter.isPronoun(spokenValue)) {
       return ResolutionResult.notFound(spokenValue);
     }
 
@@ -241,7 +300,9 @@ public class EveRetrievalService {
       // Not a UUID
     }
 
-    List<Production> allProds = productionRepo.findAll();
+    List<Production> allProds = productionRepo.findAll().stream()
+        .filter(p -> p.status != Production.Status.CANCELLED)
+        .toList();
 
     // 2. Exact Title Match
     List<Production> exactMatches = allProds.stream()
@@ -254,6 +315,14 @@ public class EveRetrievalService {
       return ResolutionResult.ambiguous(
           exactMatches.stream().map(this::toCandidate).toList(),
           trimmed);
+    }
+
+    // 2B. Semantic Resolution Stage (Vector similarity + Reranker)
+    if (semanticService != null && semanticService.isEnabled()) {
+      ResolutionResult semRes = semanticService.resolveProduction(spokenValue, sessionContext);
+      if (semRes.status() != ResolutionStatus.NOT_FOUND) {
+        return semRes;
+      }
     }
 
     // 3. Bounded Canonical DB Search (title or client containing query)
@@ -288,6 +357,33 @@ public class EveRetrievalService {
           trimmed);
     }
 
+    // 3B. Bounded Canonical DB Token Search (significant tokens, e.g. "mips" from "culturl evnt mips")
+    String[] tokens = lower.split("\\s+");
+    Map<Production, Integer> matchCounts = new HashMap<>();
+    for (String token : tokens) {
+      String t = token.replaceAll("[^a-zA-Z0-9]", "");
+      if (t.length() >= 4 && !isStopWord(t)) {
+        for (Production p : allProds) {
+          if (matchesTokenWord(p.title, t) || (p.clientName != null && matchesTokenWord(p.clientName, t))) {
+            matchCounts.put(p, matchCounts.getOrDefault(p, 0) + 1);
+          }
+        }
+      }
+    }
+    if (!matchCounts.isEmpty()) {
+      int maxMatches = Collections.max(matchCounts.values());
+      List<Production> bestMatches = matchCounts.entrySet().stream()
+          .filter(e -> e.getValue() == maxMatches)
+          .map(Map.Entry::getKey)
+          .toList();
+      if (bestMatches.size() == 1) {
+        return ResolutionResult.resolved(toCandidate(bestMatches.get(0)), MatchMethod.BOUNDED_SEARCH, trimmed);
+      }
+      return ResolutionResult.ambiguous(
+          bestMatches.stream().map(this::toCandidate).toList(),
+          trimmed);
+    }
+
     // 4. Memory hint for alias when canonical search yielded 0 matches
     if (memoryService != null) {
       Optional<EveDtos.MemoryView> mem = memoryService.recall(trimmed);
@@ -315,20 +411,20 @@ public class EveRetrievalService {
     }
     String hint = normalizeWhitespace(selectionHint.trim()).toLowerCase(Locale.ROOT);
 
-    // Support index-based ordinal hints ("first", "1st", "1", "second", "2nd", "2", "the second one")
-    if (hint.equals("first") || hint.equals("1st") || hint.equals("1") || hint.contains("first")) {
+    // Support index-based ordinal hints ("first", "1st", "1", "pehla", "second", "2nd", "2", "dusra", "doosra", "the second one", "second wala")
+    if (hint.equals("first") || hint.equals("1st") || hint.equals("1") || hint.contains("first") || hint.contains("1st") || hint.contains("pehla") || hint.contains("pehle")) {
       return Optional.of(candidates.get(0));
     }
-    if ((hint.equals("second") || hint.equals("2nd") || hint.equals("2") || hint.contains("second")) && candidates.size() > 1) {
+    if ((hint.equals("second") || hint.equals("2nd") || hint.equals("2") || hint.contains("second") || hint.contains("2nd") || hint.contains("dusra") || hint.contains("doosra")) && candidates.size() > 1) {
       return Optional.of(candidates.get(1));
     }
-    if ((hint.equals("third") || hint.equals("3rd") || hint.equals("3") || hint.contains("third")) && candidates.size() > 2) {
+    if ((hint.equals("third") || hint.equals("3rd") || hint.equals("3") || hint.contains("third") || hint.contains("3rd") || hint.contains("teesra") || hint.contains("tisra")) && candidates.size() > 2) {
       return Optional.of(candidates.get(2));
     }
 
     return candidates.stream()
         .filter(c -> c.id().toString().equalsIgnoreCase(hint)
-            || c.code().toLowerCase(Locale.ROOT).equalsIgnoreCase(hint)
+            || (c.code() != null && c.code().toLowerCase(Locale.ROOT).equalsIgnoreCase(hint))
             || normalizeWhitespace(c.displayName()).toLowerCase(Locale.ROOT).equalsIgnoreCase(hint)
             || normalizeWhitespace(c.displayName()).toLowerCase(Locale.ROOT).contains(hint)
             || (c.detail() != null && c.detail().toLowerCase(Locale.ROOT).contains(hint)))
@@ -345,6 +441,62 @@ public class EveRetrievalService {
 
   private String normalizeWhitespace(String str) {
     return str.replaceAll("\\s+", " ").trim();
+  }
+
+  private boolean isStopWord(String word) {
+    if (word == null) return true;
+    String w = word.toLowerCase(Locale.ROOT);
+    return w.equals("event") || w.equals("production") || w.equals("details")
+        || w.equals("client") || w.equals("customer") || w.equals("crew")
+        || w.equals("tasks") || w.equals("task") || w.equals("equipment")
+        || w.equals("about") || w.equals("tell") || w.equals("show")
+        || w.equals("wala") || w.equals("wale") || w.equals("wali")
+        || w.equals("kiska") || w.equals("kaun") || w.equals("ka")
+        || w.equals("ki") || w.equals("ke") || w.equals("me")
+        || w.equals("mein") || w.equals("ko") || w.equals("hai") || w.equals("tha")
+        || w.equals("and") || w.equals("the") || w.equals("for") || w.equals("with")
+        || w.equals("from") || w.equals("this") || w.equals("that") || w.equals("these")
+        || w.equals("those") || w.equals("what") || w.equals("when") || w.equals("where")
+        || w.equals("which") || w.equals("who") || w.equals("how") || w.equals("pay")
+        || w.equals("give") || w.equals("check") || w.equals("view") || w.equals("get")
+        || w.equals("aur") || w.equals("kya") || w.equals("kab") || w.equals("kahan")
+        || w.equals("finance") || w.equals("contract") || w.equals("advance") || w.equals("outstanding")
+        || w.equals("venue") || w.equals("date") || w.equals("salary") || w.equals("role")
+        || w.equals("department") || w.equals("profile") || w.equals("phone") || w.equals("email")
+        || w.equals("ignore") || w.equals("rules") || w.equals("instructions") || w.equals("previous");
+  }
+
+  private boolean matchesTokenWord(String text, String token) {
+    if (text == null || token == null) return false;
+    String[] words = text.toLowerCase(Locale.ROOT).split("[\\s\\p{Punct}]+");
+    for (String w : words) {
+      if (w.equalsIgnoreCase(token) || (w.startsWith(token) && token.length() >= 4)) {
+        return true;
+      }
+      if (Math.min(w.length(), token.length()) >= 5 && editDistance(w, token) <= 1) {
+        return true;
+      }
+      if (Math.min(w.length(), token.length()) >= 6 && editDistance(w, token) <= 2) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private int editDistance(String a, String b) {
+    if (a == null || b == null) return Integer.MAX_VALUE;
+    int[][] dp = new int[a.length() + 1][b.length() + 1];
+    for (int i = 0; i <= a.length(); i++) dp[i][0] = i;
+    for (int j = 0; j <= b.length(); j++) dp[0][j] = j;
+    for (int i = 1; i <= a.length(); i++) {
+      for (int j = 1; j <= b.length(); j++) {
+        int cost = (a.charAt(i - 1) == b.charAt(j - 1)) ? 0 : 1;
+        dp[i][j] = Math.min(
+            Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1),
+            dp[i - 1][j - 1] + cost);
+      }
+    }
+    return dp[a.length()][b.length()];
   }
 
   public Candidate toCandidate(Employee e) {

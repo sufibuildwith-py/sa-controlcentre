@@ -10,9 +10,12 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/productions")
 public class ProductionController {
   private final ProductionService service;
+  private final ProductionOnboardingService onboardingService;
 
-  public ProductionController(ProductionService service) {
+  public ProductionController(
+      ProductionService service, ProductionOnboardingService onboardingService) {
     this.service = service;
+    this.onboardingService = onboardingService;
   }
 
   @GetMapping
@@ -27,8 +30,8 @@ public class ProductionController {
 
   @PostMapping
   public ApiEnvelope<ProductionService.View> create(
-      @Valid @RequestBody ProductionService.CreateInput input) {
-    return ApiEnvelope.of(service.create(input));
+      @Valid @RequestBody ProductionOnboardingRequest input) {
+    return ApiEnvelope.of(onboardingService.onboard(input));
   }
 
   @GetMapping("/{id}")

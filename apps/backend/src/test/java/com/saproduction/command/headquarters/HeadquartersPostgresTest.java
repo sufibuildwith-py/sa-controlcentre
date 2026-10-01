@@ -376,4 +376,64 @@ class HeadquartersPostgresTest {
     assertThat(lines2).hasSize(1);
     assertThat((BigDecimal) lines2.getFirst().get("quantity")).isEqualByComparingTo("3");
   }
+
+  @Test
+  void squareFootCanonicalUnit_createdAndExposedInConfigAndUsableForEquipment() {
+    // A. Migration creates Square Foot
+    var rows = jdbc.queryForList(
+        "SELECT id, name, symbol, decimal_allowed, active FROM hq_units WHERE organization_id = ? AND symbol = 'sqft'",
+        HeadquartersService.ORGANIZATION);
+    assertThat(rows).hasSize(1);
+    var row = rows.getFirst();
+    assertThat(row.get("name")).isEqualTo("Square Foot");
+    assertThat(row.get("symbol")).isEqualTo("sqft");
+    assertThat((Boolean) row.get("decimal_allowed")).isTrue();
+    assertThat((Boolean) row.get("active")).isTrue();
+    UUID sqftUnitId = (UUID) row.get("id");
+
+    // B. Config exposes Square Foot
+    var config = service.config();
+    @SuppressWarnings("unchecked")
+    var units = (List<Map<String, Object>>) config.get("units");
+    var sqftUnitInConfig = units.stream().filter(u -> "sqft".equals(u.get("symbol"))).findFirst();
+    assertThat(sqftUnitInConfig).isPresent();
+    assertThat(sqftUnitInConfig.get().get("name")).isEqualTo("Square Foot");
+    assertThat(sqftUnitInConfig.get().get("decimalAllowed")).isEqualTo(true);
+
+    // C. Equipment creation accepts Square Foot UUID
+    var eqResult = service.createEquipment(new EquipmentInput(
+        "LED Wall Stage Flooring " + UUID.randomUUID().toString().substring(0, 6),
+        "EQ-SQFT-" + UUID.randomUUID().toString().substring(0, 6),
+        "High durability stage flooring tiles measured in square feet",
+        null,
+        sqftUnitId,
+        "QUANTITY",
+        new BigDecimal("10.500"),
+        location,
+        "SA_OWNED"
+    ));
+    @SuppressWarnings("unchecked")
+    var eqItem = (Map<String, Object>) eqResult.get("item");
+    UUID createdEqId = (UUID) eqItem.get("id");
+
+    UUID persistedUnitId = jdbc.queryForObject(
+        "SELECT unit_id FROM hq_equipment WHERE id = ?", UUID.class, createdEqId);
+    assertThat(persistedUnitId).isEqualTo(sqftUnitId);
+
+    // D. Equipment read returns the correct unit
+    var readEquipment = service.equipment(createdEqId);
+    @SuppressWarnings("unchecked")
+    var readItem = (Map<String, Object>) readEquipment.get("item");
+    assertThat(readItem.get("unit")).isEqualTo("Square Foot");
+    assertThat(readItem.get("symbol")).isEqualTo("sqft");
+
+    // E. Duplicate migration safety: check no duplicate sqft row
+    assertThat(jdbc.queryForObject(
+        "SELECT count(*) FROM hq_units WHERE organization_id = ? AND name = 'Square Foot'",
+        Long.class, HeadquartersService.ORGANIZATION)).isEqualTo(1L);
+
+    // F. Existing units remain intact
+    var pieceUnit = (UUID) service.unit(new UnitInput("Piece " + UUID.randomUUID().toString().substring(0, 4), "pc", false)).get("id");
+    assertThat(pieceUnit).isNotNull();
+  }
 }

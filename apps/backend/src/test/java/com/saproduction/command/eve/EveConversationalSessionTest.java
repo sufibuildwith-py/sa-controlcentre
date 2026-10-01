@@ -12,6 +12,7 @@ import com.saproduction.command.production.ProductionMemberRepository;
 import com.saproduction.command.production.ProductionRepository;
 import com.saproduction.command.production.ProductionService;
 import com.saproduction.command.employee.EmployeeService;
+import com.saproduction.command.work.WorkTask;
 import com.saproduction.command.work.WorkTaskService;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -173,5 +174,306 @@ class EveConversationalSessionTest {
     verify(jdbc, never()).update(startsWith("UPDATE employees"));
     verify(jdbc, never()).update(startsWith("UPDATE finance"));
     verify(jdbc, never()).update(startsWith("UPDATE productions"));
+  }
+
+  @Test
+  @DisplayName("5-Turn conversational flow: hey -> MIPS client -> uska equipment -> uska task -> thanks")
+  void executesFiveTurnConversationalFlow_withGreeting_andAntecedentCarryForward() {
+    UUID mipsId = UUID.randomUUID();
+    var mipsCandidate = new EveRetrievalService.Candidate(
+        mipsId, "PRODUCTION", "Cultural Event MIPS", "MIPS-01", "MIPS Venue");
+
+    when(retrievalService.resolveProduction("Cultural Event MIPS"))
+        .thenReturn(EveRetrievalService.ResolutionResult.resolved(mipsCandidate, EveRetrievalService.MatchMethod.EXACT_NAME, "Cultural Event MIPS"));
+
+    ProductionService.EquipmentView eq = new ProductionService.EquipmentView(
+        UUID.randomUUID(), UUID.randomUUID(), "Line Array Speakers", "SPK-01", new BigDecimal("6"), "pcs", "RESERVED");
+    ProductionService.View mipsView = new ProductionService.View(
+        mipsId, "Cultural Event MIPS", "Nandhini srivastava", "Cultural festival", LocalDate.now(), null, null, "MIPS Venue", null,
+        Production.Status.PRODUCTION, Production.Priority.NORMAL, 50, null, List.of(), 0, List.of(eq), Instant.now(), Instant.now());
+    when(productionService.get(mipsId)).thenReturn(mipsView);
+
+    WorkTaskService.View task = new WorkTaskService.View(
+        UUID.randomUUID(), mipsId, "Cultural Event MIPS", null, "Stage sound check", "Perform EQ balance",
+        UUID.randomUUID(), "Rehan Ali", WorkTask.Status.IN_PROGRESS, WorkTask.Priority.HIGH, null, null, null, 50, false, List.of(), Instant.now(), Instant.now());
+    when(taskService.list(null, mipsId, null, null, null, null, null))
+        .thenReturn(List.of(task));
+
+    UUID flowSessionId = UUID.randomUUID();
+
+    // Turn 1: "hey" -> EVE greets without invoking retrieval
+    var turn1 = eveService.query(new EveDtos.QueryRequest("hey", flowSessionId));
+    assertThat(turn1.status()).isEqualTo("COMPLETED");
+    assertThat(turn1.message().content()).contains("Hello! I am EVE");
+
+    // Turn 2: "cultural event MIPS ka client kon hai?" -> Answers Nandhini srivastava, sets MIPS antecedent
+    var turn2 = eveService.query(new EveDtos.QueryRequest("cultural event MIPS ka client kon hai?", flowSessionId));
+    assertThat(turn2.status()).isEqualTo("COMPLETED");
+    assertThat(turn2.message().content()).contains("Nandhini srivastava");
+
+    // Turn 3: "Aur uska equipment?" -> Resolves MIPS equipment via antecedent
+    var turn3 = eveService.query(new EveDtos.QueryRequest("Aur uska equipment?", flowSessionId));
+    assertThat(turn3.status()).isEqualTo("COMPLETED");
+    assertThat(turn3.message().content()).contains("Cultural Event MIPS has 1 reserved equipment item: 6x Line Array Speakers");
+
+    // Turn 4: "uska kaunsa task open hai?" -> Resolves open tasks for MIPS via antecedent
+    var turn4 = eveService.query(new EveDtos.QueryRequest("uska kaunsa task open hai?", flowSessionId));
+    assertThat(turn4.status()).isEqualTo("COMPLETED");
+    assertThat(turn4.message().content()).contains("Stage sound check");
+    assertThat(turn4.message().content()).doesNotContain("25 open tasks");
+
+    // Turn 5: "thanks" -> Courteous signoff without retrieval
+    var turn5 = eveService.query(new EveDtos.QueryRequest("thanks", flowSessionId));
+    assertThat(turn5.status()).isEqualTo("COMPLETED");
+    assertThat(turn5.message().content()).contains("You're welcome!");
+
+    // STRICT INVARIANT: Pronoun tokens "uska" / "usme" must NEVER be passed as canonical search queries
+    verify(retrievalService, never()).resolveProduction(argThat(EveRetrievalRouter::isPronoun));
+    verify(retrievalService, never()).resolveEmployee(argThat(EveRetrievalRouter::isPronoun));
+  }
+
+  @Test
+  @DisplayName("Scenario B: MIPS client -> 'usme kaunsa task open hai?' resolves production tasks")
+  void executesScenarioB_withUsmeTaskQuery() {
+    UUID mipsId = UUID.randomUUID();
+    var mipsCandidate = new EveRetrievalService.Candidate(
+        mipsId, "PRODUCTION", "Cultural Event MIPS", "MIPS-01", "MIPS Venue");
+
+    when(retrievalService.resolveProduction("Cultural Event MIPS"))
+        .thenReturn(EveRetrievalService.ResolutionResult.resolved(mipsCandidate, EveRetrievalService.MatchMethod.EXACT_NAME, "Cultural Event MIPS"));
+
+    ProductionService.View mipsView = new ProductionService.View(
+        mipsId, "Cultural Event MIPS", "Nandhini srivastava", "Cultural festival", LocalDate.now(), null, null, "MIPS Venue", null,
+        Production.Status.PRODUCTION, Production.Priority.NORMAL, 50, null, List.of(), 0, List.of(), Instant.now(), Instant.now());
+    when(productionService.get(mipsId)).thenReturn(mipsView);
+
+    WorkTaskService.View task = new WorkTaskService.View(
+        UUID.randomUUID(), mipsId, "Cultural Event MIPS", null, "Stage sound check", "Perform EQ balance",
+        UUID.randomUUID(), "Rehan Ali", WorkTask.Status.IN_PROGRESS, WorkTask.Priority.HIGH, null, null, null, 50, false, List.of(), Instant.now(), Instant.now());
+    when(taskService.list(null, mipsId, null, null, null, null, null))
+        .thenReturn(List.of(task));
+
+    UUID sessionId = UUID.randomUUID();
+
+    var turn1 = eveService.query(new EveDtos.QueryRequest("Cultural Event MIPS ka client kaun hai?", sessionId));
+    assertThat(turn1.status()).isEqualTo("COMPLETED");
+    assertThat(turn1.message().content()).contains("Nandhini srivastava");
+
+    var turn2 = eveService.query(new EveDtos.QueryRequest("usme kaunsa task open hai?", sessionId));
+    assertThat(turn2.status()).isEqualTo("COMPLETED");
+    assertThat(turn2.message().content()).contains("Stage sound check");
+    assertThat(turn2.message().content()).doesNotContain("open tasks in the system");
+
+    verify(retrievalService, never()).resolveProduction(argThat(EveRetrievalRouter::isPronoun));
+  }
+
+  @Test
+  @DisplayName("Scenario D: Employee antecedent carry-forward to production tasks ('Kabir ka production kaunsa hai?' -> 'usme kaunsa task open hai?')")
+  void executesScenarioD_withEmployeeAntecedentCarryForward_toProductionTasks() {
+    UUID kabirId = UUID.randomUUID();
+    UUID mipsId = UUID.randomUUID();
+
+    var kabirCandidate = new EveRetrievalService.Candidate(
+        kabirId, "EMPLOYEE", "Kabir Singh", "SA-006", "Photographer");
+    var mipsCandidate = new EveRetrievalService.Candidate(
+        mipsId, "PRODUCTION", "Cultural Event MIPS", "MIPS-01", "MIPS Venue");
+
+    when(retrievalService.resolveEmployee("Kabir"))
+        .thenReturn(EveRetrievalService.ResolutionResult.resolved(kabirCandidate, EveRetrievalService.MatchMethod.EXACT_NAME, "Kabir"));
+
+    ProductionService.MemberView member = new ProductionService.MemberView(
+        UUID.randomUUID(), kabirId, "Kabir Singh", "Photographer", true, ProductionMember.Status.CONFIRMED, false, null);
+    ProductionService.View mipsView = new ProductionService.View(
+        mipsId, "Cultural Event MIPS", "Nandhini srivastava", "Cultural festival", LocalDate.of(2026, 3, 31), null, null, "MIPS Venue", null,
+        Production.Status.PRODUCTION, Production.Priority.NORMAL, 50, null, List.of(member), 0, List.of(), Instant.now(), Instant.now());
+    when(productionService.list(null, null, null, null, null))
+        .thenReturn(List.of(mipsView));
+    when(productionService.get(mipsId)).thenReturn(mipsView);
+
+    WorkTaskService.View task = new WorkTaskService.View(
+        UUID.randomUUID(), mipsId, "Cultural Event MIPS", null, "Conduct a Meeting with the Board", "Coordinate board logistics",
+        kabirId, "Kabir Singh", WorkTask.Status.TODO, WorkTask.Priority.HIGH, null, null, null, 0, false, List.of(), Instant.now(), Instant.now());
+    when(taskService.list(null, mipsId, null, null, null, null, null))
+        .thenReturn(List.of(task));
+
+    UUID sessionId = UUID.randomUUID();
+
+    // Turn 1: "Kabir ka production kaunsa hai?"
+    var turn1 = eveService.query(new EveDtos.QueryRequest("Kabir ka production kaunsa hai?", sessionId));
+    assertThat(turn1.status()).isEqualTo("COMPLETED");
+    assertThat(turn1.message().content()).contains("Kabir Singh is currently assigned to Cultural Event MIPS");
+
+    // Turn 2: "usme kaunsa task open hai?"
+    var turn2 = eveService.query(new EveDtos.QueryRequest("usme kaunsa task open hai?", sessionId));
+    assertThat(turn2.status()).isEqualTo("COMPLETED");
+    assertThat(turn2.message().content()).contains("Conduct a Meeting with the Board");
+    assertThat(turn2.message().content()).doesNotContain("open tasks in the system");
+
+    verify(retrievalService, never()).resolveProduction(argThat(EveRetrievalRouter::isPronoun));
+  }
+
+  @Test
+  @DisplayName("Fresh session with pronoun task query: 'uska kaunsa task open hai?' without antecedent returns CLARIFICATION_REQUIRED")
+  void freshSession_withPronounTaskQuery_returnsClarificationRequired() {
+    UUID freshSessionId = UUID.randomUUID();
+
+    var response = eveService.query(new EveDtos.QueryRequest("uska kaunsa task open hai?", freshSessionId));
+
+    assertThat(response.status()).isEqualTo("CLARIFICATION_REQUIRED");
+    assertThat(response.message().content()).contains("Kis production ya event");
+    assertThat(response.message().content()).doesNotContain("open tasks in the system");
+
+    verify(retrievalService, never()).resolveProduction(argThat(EveRetrievalRouter::isPronoun));
+  }
+
+  @Test
+  @DisplayName("Fresh session with pronoun query: 'Aur uska equipment?' without antecedent returns CLARIFICATION_REQUIRED")
+  void freshSession_withPronounQuery_returnsClarificationRequired_withoutDatabaseLookup() {
+    UUID freshSessionId = UUID.randomUUID();
+
+    var response = eveService.query(new EveDtos.QueryRequest("Aur uska equipment?", freshSessionId));
+
+    assertThat(response.status()).isEqualTo("CLARIFICATION_REQUIRED");
+    assertThat(response.message().content()).contains("Kis production ya event");
+    assertThat(response.message().content()).doesNotContain("matching \"uska\"");
+
+    verify(retrievalService, never()).resolveProduction(argThat(EveRetrievalRouter::isPronoun));
+    verify(retrievalService, never()).resolveEmployee(argThat(EveRetrievalRouter::isPronoun));
+  }
+
+  @Test
+  @DisplayName("Context Intelligence: Fresh session 'Aur uska equipment?' -> 'Mips wala event' resolves equipment, then 'usme kitne log' resolves crew")
+  void executesContextClarificationFollowUp_withEntitySearchPhraseCleaning() {
+    UUID mipsId = UUID.randomUUID();
+    var mipsCandidate = new EveRetrievalService.Candidate(
+        mipsId, "PRODUCTION", "Cultural Event MIPS", "MIPS-01", "MIPS Venue");
+
+    when(retrievalService.resolveProduction("Mips"))
+        .thenReturn(EveRetrievalService.ResolutionResult.resolved(mipsCandidate, EveRetrievalService.MatchMethod.BOUNDED_SEARCH, "Mips"));
+    when(retrievalService.resolveProduction("Cultural Event MIPS"))
+        .thenReturn(EveRetrievalService.ResolutionResult.resolved(mipsCandidate, EveRetrievalService.MatchMethod.EXACT_NAME, "Cultural Event MIPS"));
+
+    ProductionService.EquipmentView eq = new ProductionService.EquipmentView(
+        UUID.randomUUID(), UUID.randomUUID(), "Meyer Sound PA System", "HQ-PA-01", new BigDecimal("2"), "sets", "RESERVED");
+    ProductionService.MemberView member1 = new ProductionService.MemberView(
+        UUID.randomUUID(), UUID.randomUUID(), "Rehan Ali", "FOH Engineer", true, ProductionMember.Status.CONFIRMED, false, null);
+    ProductionService.MemberView member2 = new ProductionService.MemberView(
+        UUID.randomUUID(), UUID.randomUUID(), "Kabir Singh", "Photographer", true, ProductionMember.Status.CONFIRMED, false, null);
+
+    ProductionService.View mipsView = new ProductionService.View(
+        mipsId, "Cultural Event MIPS", "Nandhini srivastava", "Cultural festival", LocalDate.of(2026, 3, 31), null, null, "MIPS Venue", null,
+        Production.Status.PRODUCTION, Production.Priority.NORMAL, 50, null, List.of(member1, member2), 0, List.of(eq), Instant.now(), Instant.now());
+    when(productionService.get(mipsId)).thenReturn(mipsView);
+
+    UUID testSessionId = UUID.randomUUID();
+
+    // Turn 1: "Aur uska equipment?" without antecedent -> returns CLARIFICATION_REQUIRED
+    var turn1 = eveService.query(new EveDtos.QueryRequest("Aur uska equipment?", testSessionId));
+    assertThat(turn1.status()).isEqualTo("CLARIFICATION_REQUIRED");
+    assertThat(turn1.message().content()).contains("Kis production ya event");
+
+    // Turn 2: "Mips wala event" -> resolves "Mips" to Cultural Event MIPS and returns its equipment
+    var turn2 = eveService.query(new EveDtos.QueryRequest("Mips wala event", testSessionId));
+    assertThat(turn2.status()).isEqualTo("COMPLETED");
+    assertThat(turn2.message().content()).contains("Cultural Event MIPS");
+    assertThat(turn2.message().content()).contains("Meyer Sound PA System");
+
+    // Turn 3: "aur usme kitne log kaam kar rahe hain?" -> continues focus on Cultural Event MIPS and returns crew
+    var turn3 = eveService.query(new EveDtos.QueryRequest("aur usme kitne log kaam kar rahe hain?", testSessionId));
+    assertThat(turn3.status()).isEqualTo("COMPLETED");
+    assertThat(turn3.message().content()).contains("Cultural Event MIPS has 2 assigned crew members");
+    assertThat(turn3.message().content()).contains("Rehan Ali");
+    assertThat(turn3.message().content()).contains("Kabir Singh");
+
+    verify(retrievalService, never()).resolveProduction(argThat(EveRetrievalRouter::isPronoun));
+  }
+
+  @Test
+  @DisplayName("Context Intelligence: Multi-turn topic switching MIPS -> Kabir Singh finance -> Kabir assigned production -> crew")
+  void executesMultiTurnTopicSwitching_seamlessly() {
+    UUID kabirId = UUID.randomUUID();
+    UUID mipsId = UUID.randomUUID();
+
+    var kabirCandidate = new EveRetrievalService.Candidate(
+        kabirId, "EMPLOYEE", "Kabir Singh", "SA-006", "Photographer");
+    var mipsCandidate = new EveRetrievalService.Candidate(
+        mipsId, "PRODUCTION", "Cultural Event MIPS", "MIPS-01", "MIPS Venue");
+
+    when(retrievalService.resolveProduction("Cultural Event MIPS"))
+        .thenReturn(EveRetrievalService.ResolutionResult.resolved(mipsCandidate, EveRetrievalService.MatchMethod.EXACT_NAME, "Cultural Event MIPS"));
+    when(retrievalService.resolveEmployee("Kabir Singh"))
+        .thenReturn(EveRetrievalService.ResolutionResult.resolved(kabirCandidate, EveRetrievalService.MatchMethod.EXACT_NAME, "Kabir Singh"));
+    when(retrievalService.resolveEmployee("Kabir"))
+        .thenReturn(EveRetrievalService.ResolutionResult.resolved(kabirCandidate, EveRetrievalService.MatchMethod.EXACT_NAME, "Kabir"));
+
+    ProductionService.MemberView member = new ProductionService.MemberView(
+        UUID.randomUUID(), kabirId, "Kabir Singh", "Photographer", true, ProductionMember.Status.CONFIRMED, false, null);
+    ProductionService.View mipsView = new ProductionService.View(
+        mipsId, "Cultural Event MIPS", "Nandhini srivastava", "Cultural festival", LocalDate.of(2026, 3, 31), null, null, "MIPS Venue", null,
+        Production.Status.PRODUCTION, Production.Priority.NORMAL, 50, null, List.of(member), 0, List.of(), Instant.now(), Instant.now());
+    when(productionService.get(mipsId)).thenReturn(mipsView);
+    when(productionService.list(null, null, null, null, null)).thenReturn(List.of(mipsView));
+
+    when(financeReads.employee(kabirId))
+        .thenReturn(Map.of(
+            "earned", new BigDecimal("50000.00"),
+            "paid", new BigDecimal("20000.00"),
+            "outstanding", new BigDecimal("30000.00")));
+
+    UUID topicSessionId = UUID.randomUUID();
+
+    // Turn 1: Ask about MIPS client
+    var turn1 = eveService.query(new EveDtos.QueryRequest("Cultural Event MIPS ka client kaun hai?", topicSessionId));
+    assertThat(turn1.status()).isEqualTo("COMPLETED");
+    assertThat(turn1.message().content()).contains("Nandhini srivastava");
+
+    // Turn 2: Explicit topic switch to Kabir Singh finance
+    var turn2 = eveService.query(new EveDtos.QueryRequest("Achha Kabir Singh ko kitna dena hai?", topicSessionId));
+    assertThat(turn2.status()).isEqualTo("COMPLETED");
+    assertThat(turn2.message().content()).contains("Kabir Singh");
+    assertThat(turn2.message().content()).contains("30,000");
+
+    // Turn 3: Contextual switch to Kabir's production
+    var turn3 = eveService.query(new EveDtos.QueryRequest("Uska production kaunsa hai?", topicSessionId));
+    assertThat(turn3.status()).isEqualTo("COMPLETED");
+    assertThat(turn3.message().content()).contains("Cultural Event MIPS");
+
+    // Turn 4: Contextual inquiry into crew of that production
+    var turn4 = eveService.query(new EveDtos.QueryRequest("Usme kaun kaam kar raha hai?", topicSessionId));
+    assertThat(turn4.status()).isEqualTo("COMPLETED");
+    assertThat(turn4.message().content()).contains("Cultural Event MIPS has 1 assigned crew member");
+    assertThat(turn4.message().content()).contains("Kabir Singh");
+  }
+
+  @Test
+  @DisplayName("Context Intelligence: Ambiguous candidate disambiguation ('LED wale event' -> candidate selection 'haan second wala')")
+  void executesCandidateDisambiguationSelection() {
+    UUID prod1Id = UUID.randomUUID();
+    UUID prod2Id = UUID.randomUUID();
+
+    var cand1 = new EveRetrievalService.Candidate(prod1Id, "PRODUCTION", "LED Fashion Gala", "PROD-LED-1", "Hotel Hyatt");
+    var cand2 = new EveRetrievalService.Candidate(prod2Id, "PRODUCTION", "LED Rock Concert", "PROD-LED-2", "Indira Stadium");
+
+    when(retrievalService.resolveProduction("LED"))
+        .thenReturn(EveRetrievalService.ResolutionResult.ambiguous(List.of(cand1, cand2), "LED"));
+    when(retrievalService.selectFromCandidates(anyList(), anyString()))
+        .thenReturn(Optional.of(cand2));
+
+    ProductionService.View prod2View = new ProductionService.View(
+        prod2Id, "LED Rock Concert", "Star Entertainment", null, LocalDate.now(), null, null, "Indira Stadium", null,
+        Production.Status.PRODUCTION, Production.Priority.HIGH, 75, null, List.of(), 0, List.of(), Instant.now(), Instant.now());
+    when(productionService.get(prod2Id)).thenReturn(prod2View);
+
+    UUID ambigSessionId = UUID.randomUUID();
+
+    // Turn 1: Ambiguous query returns CLARIFICATION_REQUIRED with candidates
+    var turn1 = eveService.query(new EveDtos.QueryRequest("LED wale event ke details", ambigSessionId));
+    assertThat(turn1.status()).isEqualTo("CLARIFICATION_REQUIRED");
+    assertThat(turn1.candidates()).hasSize(2);
+
+    // Turn 2: Disambiguation selection "haan second wala"
+    var turn2 = eveService.query(new EveDtos.QueryRequest("haan second wala", ambigSessionId));
+    assertThat(turn2.status()).isEqualTo("COMPLETED");
+    assertThat(turn2.message().content()).contains("LED Rock Concert");
   }
 }

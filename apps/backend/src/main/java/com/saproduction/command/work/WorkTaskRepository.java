@@ -9,4 +9,6 @@ public interface WorkTaskRepository
       UUID id, java.util.Collection<WorkTask.Status> statuses);
 
   long countByProductionIdAndStatusNotIn(UUID id, java.util.Collection<WorkTask.Status> statuses);
+
+  java.util.List<WorkTask> findAllByProductionId(UUID productionId);
 }

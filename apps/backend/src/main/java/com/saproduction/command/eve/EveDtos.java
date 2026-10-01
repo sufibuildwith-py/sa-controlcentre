@@ -7,6 +7,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import com.saproduction.command.eve.cognitive.EveReasoningStep;
 
 /**
  * Authoritative typed contracts for the EVE lifecycle.
@@ -231,7 +232,8 @@ public final class EveDtos {
       ContextView context,
       String status,
       List<CandidateView> candidates,
-      EvePlan plan) {
+      EvePlan plan,
+      List<EveReasoningStep> reasoning) {
     public QueryResponse(
         UUID sessionId,
         MessageView message,
@@ -239,7 +241,18 @@ public final class EveDtos {
         ContextView context,
         String status,
         List<CandidateView> candidates) {
-      this(sessionId, message, trace, context, status, candidates, null);
+      this(sessionId, message, trace, context, status, candidates, null, List.of());
+    }
+
+    public QueryResponse(
+        UUID sessionId,
+        MessageView message,
+        List<TraceEventView> trace,
+        ContextView context,
+        String status,
+        List<CandidateView> candidates,
+        EvePlan plan) {
+      this(sessionId, message, trace, context, status, candidates, plan, List.of());
     }
   }
 
@@ -320,4 +333,73 @@ public final class EveDtos {
       List<TraceEventView> trace,
       List<EvePlanAction> actions,
       MessageView message) {}
+
+  // -------------------------------------------------------------
+  // Phase 4 Continuous Intelligence & Proactive Suggestions
+  // -------------------------------------------------------------
+
+  public record SignalView(
+      UUID id,
+      String signalType,
+      String sourceDomain,
+      String canonicalEntityType,
+      UUID canonicalEntityId,
+      Integer canonicalVersion,
+      String actorId,
+      String correlationId,
+      Map<String, Object> metadata,
+      String status,
+      Instant occurredAt,
+      Instant processedAt,
+      String failureReason) {}
+
+  public record EmitSignalRequest(
+      @NotBlank(message = "Signal type is required") String signalType,
+      @NotBlank(message = "Source domain is required") String sourceDomain,
+      @NotBlank(message = "Canonical entity type is required") String canonicalEntityType,
+      @NotNull(message = "Canonical entity ID is required") UUID canonicalEntityId,
+      Integer canonicalVersion,
+      String correlationId,
+      Map<String, Object> metadata) {}
+
+  public record SuggestionEvidenceItem(
+      String domain,
+      String entityType,
+      UUID entityId,
+      String label,
+      String value,
+      Instant observedAt) {}
+
+  public record SuggestionView(
+      UUID id,
+      String type,
+      String status,
+      String priority,
+      String title,
+      String summary,
+      UUID sourceSignalId,
+      String targetDomain,
+      String canonicalEntityType,
+      UUID canonicalEntityId,
+      String canonicalEntityName,
+      List<SuggestionEvidenceItem> evidence,
+      String dedupeKey,
+      Instant createdAt,
+      Instant updatedAt,
+      Instant expiresAt,
+      Instant dismissedAt,
+      Instant resolvedAt,
+      String dismissedBy,
+      Map<String, Object> metadata) {}
+
+  public record DismissSuggestionRequest(String reason) {}
+
+  public record ResolveSuggestionRequest(String note) {}
+
+  public record EveStatusView(
+      String modelProvider,
+      String status,
+      String modelName,
+      String modelVersion,
+      String details) {}
 }

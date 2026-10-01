@@ -10,5 +10,7 @@ public interface ProductionMemberRepository extends JpaRepository<ProductionMemb
 
   Optional<ProductionMember> findByProductionIdAndEmployeeId(UUID productionId, UUID employeeId);
 
+  List<ProductionMember> findByEmployeeId(UUID employeeId);
+
   long countByEmployeeIdAndAssignmentStatusNot(UUID employeeId, ProductionMember.Status status);
 }

@@ -29,3 +29,6 @@ demo-artifacts/finance-workbook.xlsx
 build/
 .idea/
 *.iml
+# Local EVE models and runtime binaries
+eve/models/*.gguf
+eve/runtime/

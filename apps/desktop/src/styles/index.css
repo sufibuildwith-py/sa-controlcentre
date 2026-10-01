@@ -83,6 +83,54 @@ textarea:focus-visible,
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+select {
+  color-scheme: light;
+  background-color: var(--surface-soft);
+  color: var(--text-1);
+}
+select option,
+select optgroup {
+  background-color: var(--surface-raised);
+  color: var(--text-1);
+}
+select option:disabled {
+  color: var(--text-3);
+}
+[data-theme="charcoal"] select,
+.dark select {
+  color-scheme: dark;
+  background-color: var(--surface-soft);
+  color: var(--text-1);
+}
+[data-theme="charcoal"] select option,
+[data-theme="charcoal"] select optgroup,
+.dark select option,
+.dark select optgroup {
+  background-color: var(--surface-raised);
+  color: var(--text-1);
+}
+[data-theme="charcoal"] select option:checked,
+.dark select option:checked {
+  background-color: var(--surface-soft);
+  color: var(--text-1);
+}
+[data-theme="charcoal"] select option:disabled,
+.dark select option:disabled {
+  color: var(--text-3);
+}
+.form-field select,
+.hq-form select,
+.intake-inline-add select {
+  color-scheme: inherit;
+}
+[data-theme="charcoal"] .form-field select,
+[data-theme="charcoal"] .hq-form select,
+[data-theme="charcoal"] .intake-inline-add select,
+.dark .form-field select,
+.dark .hq-form select,
+.dark .intake-inline-add select {
+  color-scheme: dark;
+}
 .sr-only {
   position: absolute;
   width: 1px;

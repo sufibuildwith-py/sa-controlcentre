@@ -61,6 +61,43 @@ app:
     organization-public-id: ${NAVIGATOR_ORGANIZATION_PUBLIC_ID:6be51f4b-e5bd-4e91-8d60-4e41a72ad86f}
     service-key: ${NAVIGATOR_SERVICE_KEY:}
     simulator-enabled: ${NAVIGATOR_SIMULATOR_ENABLED:false}
+  eve:
+    model-provider: ${EVE_MODEL_PROVIDER:TEST}
+    local:
+      model-path: ${EVE_MODEL_PATH:${EVE_LOCAL_MODEL_PATH:eve/models/Qwen3-4B-Thinking-2507.Q4_K_M.gguf}}
+      binary-path: ${EVE_LOCAL_INFERENCE_PATH:eve/runtime/llama-server/llama-server.exe}
+      server-url: ${EVE_LOCAL_MODEL_URL:http://127.0.0.1:8090}
+      port: ${EVE_MODEL_PORT:${EVE_LOCAL_MODEL_PORT:8090}}
+      threads: ${EVE_LOCAL_THREADS:6}
+      ctx-size: ${EVE_LOCAL_CTX_SIZE:4096}
+      gpu-layers: ${EVE_LOCAL_GPU_LAYERS:0}
+      reasoning-budget: ${EVE_REASONING_BUDGET:1024}
+    semantic:
+      enabled: ${EVE_SEMANTIC_ENABLED:true}
+      provider: ${EVE_SEMANTIC_PROVIDER:TEST}
+      embedding:
+        model-path: ${EVE_EMBEDDING_MODEL_PATH:eve/models/Qwen3-Embedding-0.6B-Q8_0.gguf}
+        binary-path: ${EVE_EMBEDDING_BINARY_PATH:eve/runtime/llama-server/llama-server.exe}
+        server-url: ${EVE_EMBEDDING_URL:http://127.0.0.1:8087}
+        port: ${EVE_EMBEDDING_PORT:8087}
+        threads: ${EVE_EMBEDDING_THREADS:4}
+        ctx-size: ${EVE_EMBEDDING_CTX_SIZE:2048}
+        gpu-layers: ${EVE_EMBEDDING_GPU_LAYERS:0}
+        dimensions: ${EVE_EMBEDDING_DIMENSIONS:1024}
+        timeout-ms: ${EVE_EMBEDDING_TIMEOUT_MS:4000}
+      reranker:
+        model-path: ${EVE_RERANKER_MODEL_PATH:eve/models/Qwen3-Reranker-0.6B-Q8_0.gguf}
+        binary-path: ${EVE_RERANKER_BINARY_PATH:eve/runtime/llama-server/llama-server.exe}
+        server-url: ${EVE_RERANKER_URL:http://127.0.0.1:8088}
+        port: ${EVE_RERANKER_PORT:8088}
+        threads: ${EVE_RERANKER_THREADS:4}
+        ctx-size: ${EVE_RERANKER_CTX_SIZE:2048}
+        gpu-layers: ${EVE_RERANKER_GPU_LAYERS:0}
+        timeout-ms: ${EVE_RERANKER_TIMEOUT_MS:4000}
+      resolver:
+        min-score: ${EVE_SEMANTIC_MIN_SCORE:0.35}
+        min-margin: ${EVE_SEMANTIC_MIN_MARGIN:0.08}
+        max-candidates: ${EVE_SEMANTIC_MAX_CANDIDATES:20}
 logging:
   pattern:
     level: "%5p [traceId=%X{traceId:-}]"

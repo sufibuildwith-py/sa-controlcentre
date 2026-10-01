@@ -35,7 +35,7 @@ afterEach(() => {
   cleanup();
   Object.values(hq).forEach((x) => x.mockReset());
 });
-function setup(items: unknown[] = []) {
+function setup(items: unknown[] = [], config?: unknown) {
   hq.overview.mockResolvedValue({
     controlled: 50,
     available: 30,
@@ -62,7 +62,9 @@ function setup(items: unknown[] = []) {
       createdAt: "2026-09-23T10:00:00Z",
     },
   ]);
-  hq.config.mockResolvedValue({ categories: [], units: [], locations: [] });
+  hq.config.mockResolvedValue(
+    config ?? { categories: [], units: [], locations: [] },
+  );
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
@@ -92,4 +94,42 @@ describe("Headquarters command surface", () => {
       screen.getByRole("button", { name: "Add equipment" }),
     ).toBeInTheDocument();
   });
+  it("allows selecting Square Foot (sqft) unit and creates equipment with unitId", async () => {
+    hq.createEquipment.mockResolvedValue({ id: "eq-1" });
+    setup([], {
+      categories: [],
+      units: [
+        {
+          id: "unit-sqft",
+          name: "Square Foot",
+          symbol: "sqft",
+          decimalAllowed: true,
+        },
+      ],
+      locations: [],
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Equipment" }));
+    expect(await screen.findByRole("heading", { name: "Add equipment" })).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("Equipment name"), "Stage Backdrop Truss Cover");
+
+    const unitSelect = screen.getByLabelText("Unit");
+    expect(unitSelect).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Square Foot (sqft)" })).toBeInTheDocument();
+
+    await user.selectOptions(unitSelect, "unit-sqft");
+    expect((unitSelect as HTMLSelectElement).value).toBe("unit-sqft");
+
+    await user.click(screen.getByRole("button", { name: "Create equipment" }));
+
+    expect(hq.createEquipment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "Stage Backdrop Truss Cover",
+        unitId: "unit-sqft",
+      }),
+    );
+  });
 });
+

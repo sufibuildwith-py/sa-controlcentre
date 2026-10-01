@@ -1,13 +1,21 @@
 package com.saproduction.command.eve;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.saproduction.command.audit.AuditService;
 import com.saproduction.command.employee.Employee;
 import com.saproduction.command.employee.EmployeeRepository;
+import com.saproduction.command.finance.FinanceCommands;
+import com.saproduction.command.finance.FinancePostingService;
+import com.saproduction.command.finance.FinanceReadService;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -190,6 +198,7 @@ class EvePostgresIntegrationTest {
     if (initialAz2Pos == null) initialAz2Pos = BigDecimal.ZERO;
 
     int initialTxCount = jdbc.queryForObject("SELECT count(*) FROM finance_transactions", Integer.class);
+    int initialAllocCount = jdbc.queryForObject("SELECT count(*) FROM finance_employee_payment_allocations", Integer.class);
 
     // 3. Step 1: Mamu asks EVE: "Sunil ko 3000 de do"
     EveDtos.QueryResponse proposalResp = eveService.query(
@@ -206,7 +215,9 @@ class EvePostgresIntegrationTest {
     // CRITICAL INVARIANT: Proposing a plan must NOT mutate PostgreSQL business tables
     assertThat(jdbc.queryForObject("SELECT count(*) FROM finance_transactions", Integer.class)).isEqualTo(initialTxCount);
     assertThat(jdbc.queryForObject(
-        "SELECT count(*) FROM finance_employee_payment_allocations", Integer.class)).isEqualTo(0);
+        "SELECT count(*) FROM finance_employee_payment_allocations WHERE obligation_id = ?", Integer.class, obligationId)).isEqualTo(0);
+    assertThat(jdbc.queryForObject(
+        "SELECT count(*) FROM finance_employee_payment_allocations", Integer.class)).isEqualTo(initialAllocCount);
 
     // Verify plan is persisted in eve_plans and eve_plan_actions
     Integer planRows = jdbc.queryForObject(
@@ -426,10 +437,19 @@ class EvePostgresIntegrationTest {
     assertThat(allocatedP2.compareTo(new BigDecimal("1500.00"))).isZero();
   }
 
+  @Autowired EveSignalService signalService;
+  @Autowired EveSuggestionService suggestionService;
+  @Autowired EveObserverService observerService;
+  @Autowired FinancePostingService financePostingService;
+  @Autowired FinanceReadService financeReadService;
+  @Autowired AuditService auditService;
+  @Autowired PlatformTransactionManager transactionManager;
+
   @Test
   void verifiesAllEveTablesConstraintsIndexesExistInFreshPostgres() {
     List<String> expectedTables = List.of(
-        "eve_sessions", "eve_messages", "eve_trace_events", "eve_memory", "eve_plans", "eve_plan_actions");
+        "eve_sessions", "eve_messages", "eve_trace_events", "eve_memory", "eve_plans", "eve_plan_actions",
+        "eve_signals", "eve_suggestions");
     for (String table : expectedTables) {
       Integer count = jdbc.queryForObject(
           "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = ?",
@@ -451,7 +471,8 @@ class EvePostgresIntegrationTest {
         "eve_messages_session_id_fkey",
         "eve_trace_events_session_id_fkey",
         "eve_plans_session_id_fkey",
-        "eve_plan_actions_plan_id_fkey");
+        "eve_plan_actions_plan_id_fkey",
+        "eve_suggestions_source_signal_id_fkey");
 
     // Check indexes
     List<String> indexes = jdbc.queryForList(
@@ -466,6 +487,328 @@ class EvePostgresIntegrationTest {
         "eve_plans_status_idx",
         "eve_plan_actions_plan_idx",
         "eve_plan_actions_idempotency_idx",
-        "eve_plan_actions_canonical_idx");
+        "eve_plan_actions_canonical_idx",
+        "eve_signals_type_idx",
+        "eve_signals_entity_idx",
+        "eve_signals_occurred_idx",
+        "eve_suggestions_status_idx",
+        "eve_suggestions_entity_idx",
+        "eve_suggestions_dedupe_idx",
+        "eve_suggestions_type_idx",
+        "uq_eve_active_suggestion_dedupe");
+  }
+
+  @Test
+  void verifiesContinuousIntelligenceSignalAndSuggestionLifecycleInPostgres() {
+    UUID empId = UUID.randomUUID();
+    // 1. Emit typed signal
+    EveDtos.SignalView signal = signalService.emit(new EveDtos.EmitSignalRequest(
+        EveSignalTypes.EMPLOYEE_PAYMENT_POSTED,
+        "FINANCE",
+        "EMPLOYEE",
+        empId,
+        1,
+        "corr-pg-test-1",
+        Map.of("note", "Postgres integration test signal")
+    ));
+
+    assertThat(signal).isNotNull();
+    assertThat(signal.status()).isEqualTo("EVALUATED");
+
+    // Verify row persisted in real PostgreSQL eve_signals table
+    Integer count = jdbc.queryForObject(
+        "SELECT count(*) FROM eve_signals WHERE id = ?", Integer.class, signal.id());
+    assertThat(count).isEqualTo(1);
+
+    // 2. Direct suggestion insertion and partial unique index validation
+    String dedupeKey = "OUTSTANDING_EMPLOYEE_PAYMENT:" + empId;
+    UUID s1Id = UUID.randomUUID();
+    jdbc.update("""
+        INSERT INTO eve_suggestions (
+          id, type, status, priority, title, summary, source_signal_id, target_domain,
+          canonical_entity_type, canonical_entity_id, canonical_entity_name, evidence, dedupe_key
+        ) VALUES (?, 'OUTSTANDING_EMPLOYEE_PAYMENT', 'ACTIVE', 'HIGH', 'Test Title', 'Test Summary',
+          ?, 'FINANCE', 'EMPLOYEE', ?, 'Test Emp', '[]'::jsonb, ?)
+        """, s1Id, signal.id(), empId, dedupeKey);
+
+    // Attempting to insert a second ACTIVE suggestion with the exact same dedupe_key MUST violate uq_eve_active_suggestion_dedupe
+    assertThatThrownBy(() -> {
+      jdbc.update("""
+          INSERT INTO eve_suggestions (
+            id, type, status, priority, title, summary, source_signal_id, target_domain,
+            canonical_entity_type, canonical_entity_id, canonical_entity_name, evidence, dedupe_key
+          ) VALUES (?, 'OUTSTANDING_EMPLOYEE_PAYMENT', 'ACTIVE', 'HIGH', 'Duplicate', 'Duplicate',
+            ?, 'FINANCE', 'EMPLOYEE', ?, 'Test Emp', '[]'::jsonb, ?)
+          """, UUID.randomUUID(), signal.id(), empId, dedupeKey);
+    }).isInstanceOf(Exception.class);
+
+    // 3. Dismiss suggestion via service
+    EveDtos.SuggestionView dismissed = suggestionService.dismissSuggestion(s1Id, "Reviewed");
+    assertThat(dismissed.status()).isEqualTo("DISMISSED");
+
+    // 4. Now that previous suggestion is DISMISSED, inserting new ACTIVE with same dedupe_key succeeds
+    UUID s2Id = UUID.randomUUID();
+    jdbc.update("""
+        INSERT INTO eve_suggestions (
+          id, type, status, priority, title, summary, source_signal_id, target_domain,
+          canonical_entity_type, canonical_entity_id, canonical_entity_name, evidence, dedupe_key
+        ) VALUES (?, 'OUTSTANDING_EMPLOYEE_PAYMENT', 'ACTIVE', 'HIGH', 'Test Title 2', 'Test Summary 2',
+          ?, 'FINANCE', 'EMPLOYEE', ?, 'Test Emp', '[]'::jsonb, ?)
+        """, s2Id, signal.id(), empId, dedupeKey);
+
+    // 5. Resolve suggestion
+    EveDtos.SuggestionView resolved = suggestionService.resolveSuggestion(s2Id, "Paid in full");
+    assertThat(resolved.status()).isEqualTo("RESOLVED");
+  }
+
+  private Employee createTestEmployee(String suffix) {
+    Employee emp = new Employee();
+    emp.employeeCode = "SA-" + suffix + "-" + UUID.randomUUID().toString().substring(0, 6);
+    emp.firstName = "Test";
+    emp.lastName = "Worker-" + suffix;
+    emp.displayName = "Test Worker " + suffix;
+    emp.roleTitle = "Technician";
+    emp.department = "Production";
+    emp.employmentType = "FULL_TIME";
+    emp.joiningDate = LocalDate.now();
+    emp.baseSalaryMinor = 5000000L;
+    emp.salaryCurrency = "INR";
+    emp.status = Employee.Status.ACTIVE;
+    emp.phone = "+91987654" + (int)(Math.random() * 9000 + 1000);
+    return employeeRepo.saveAndFlush(emp);
+  }
+
+  @Test
+  void realCanonicalMutation_automaticallyProducesEveSignalAndSuggestion_withoutManualEveCall() {
+    Employee emp = createTestEmployee("P4AUTO");
+
+    // Pure canonical mutation via FinancePostingService.earning - ZERO manual EVE endpoint call!
+    financePostingService.earning(new FinanceCommands.Earning(
+        UUID.randomUUID(), emp.id, null, new BigDecimal("5500.00"), LocalDate.now(), "Stage lighting installation"));
+
+    // 1. Verify signal automatically created in PostgreSQL eve_signals table via AFTER_COMMIT
+    Integer signalCount = jdbc.queryForObject(
+        "SELECT count(*) FROM eve_signals WHERE canonical_entity_id = ? AND signal_type = 'EMPLOYEE_EARNING_CREATED'",
+        Integer.class, emp.id);
+    assertThat(signalCount).isGreaterThanOrEqualTo(1);
+
+    // 2. Verify active suggestion automatically created in PostgreSQL eve_suggestions table
+    List<Map<String, Object>> suggestions = jdbc.queryForList(
+        "SELECT id, type, status, priority, title, summary, evidence::text as evidence_text FROM eve_suggestions WHERE canonical_entity_id = ? AND status = 'ACTIVE'",
+        emp.id);
+    assertThat(suggestions).hasSize(1);
+    var s = suggestions.getFirst();
+    assertThat(s.get("type")).isEqualTo("OUTSTANDING_EMPLOYEE_PAYMENT");
+    assertThat(s.get("priority")).isEqualTo("HIGH");
+    assertThat((String) s.get("evidence_text")).contains("5500.00");
+  }
+
+  @Test
+  void canonicalMutationRollback_producesZeroSignalsAndZeroSuggestions() {
+    TransactionTemplate txTemplate = new TransactionTemplate(transactionManager);
+    Employee emp = createTestEmployee("P4ROLLBACK");
+
+    assertThatThrownBy(() -> {
+      txTemplate.execute(status -> {
+        // Attempt a financial posting inside a transaction that fails
+        financePostingService.earning(new FinanceCommands.Earning(
+            UUID.randomUUID(), emp.id, null, new BigDecimal("7000.00"), LocalDate.now(), "Uncommitted Earning"));
+        status.setRollbackOnly();
+        throw new RuntimeException("Simulated transaction failure forcing rollback");
+      });
+    }).isInstanceOf(RuntimeException.class);
+
+    // Assert: AFTER_COMMIT was NOT triggered, transaction rolled back
+    // ZERO records in eve_signals and ZERO records in eve_suggestions for this employee
+    Integer signals = jdbc.queryForObject("SELECT count(*) FROM eve_signals WHERE canonical_entity_id = ?", Integer.class, emp.id);
+    Integer suggestions = jdbc.queryForObject("SELECT count(*) FROM eve_suggestions WHERE canonical_entity_id = ?", Integer.class, emp.id);
+    assertThat(signals).isZero();
+    assertThat(suggestions).isZero();
+  }
+
+  @Test
+  void realCanonicalMutation_automaticallyResolvesActiveSuggestion_withoutManualEveCall() {
+    Employee emp = createTestEmployee("P4RESOLVE");
+
+    // 1. Create initial earning -> produces active suggestion
+    financePostingService.earning(new FinanceCommands.Earning(
+        UUID.randomUUID(), emp.id, null, new BigDecimal("3500.00"), LocalDate.now(), "Initial Audio Rigging"));
+
+    Integer activeBefore = jdbc.queryForObject(
+        "SELECT count(*) FROM eve_suggestions WHERE canonical_entity_id = ? AND status = 'ACTIVE'",
+        Integer.class, emp.id);
+    assertThat(activeBefore).isEqualTo(1);
+
+    // 2. Now post full employee payment mutation through canonical FinancePostingService
+    financePostingService.employeePayment(new FinanceCommands.EmployeePayment(
+        UUID.randomUUID(), emp.id, new BigDecimal("3500.00"), LocalDate.now(), "Full settlement", "AZ-2"));
+
+    // 3. Verify suggestion automatically transitioned to RESOLVED with resolved_at populated
+    Integer activeAfter = jdbc.queryForObject(
+        "SELECT count(*) FROM eve_suggestions WHERE canonical_entity_id = ? AND status = 'ACTIVE'",
+        Integer.class, emp.id);
+    assertThat(activeAfter).isZero();
+
+    List<Map<String, Object>> resolvedList = jdbc.queryForList(
+        "SELECT status, resolved_at FROM eve_suggestions WHERE canonical_entity_id = ? AND status = 'RESOLVED'",
+        emp.id);
+    assertThat(resolvedList).hasSize(1);
+    assertThat(resolvedList.getFirst().get("resolved_at")).isNotNull();
+  }
+
+  @Test
+  void staleEvidence_updatesInPlaceWhenCanonicalStateDrifts() {
+    Employee emp = createTestEmployee("P4STALE");
+
+    // 1. Initial earning ₹2,000 (MEDIUM priority)
+    financePostingService.earning(new FinanceCommands.Earning(
+        UUID.randomUUID(), emp.id, null, new BigDecimal("2000.00"), LocalDate.now(), "Day 1 Shift"));
+
+    var s1 = jdbc.queryForMap(
+        "SELECT id, priority, evidence::text as evidence_text FROM eve_suggestions WHERE canonical_entity_id = ? AND status = 'ACTIVE'",
+        emp.id);
+    assertThat(s1.get("priority")).isEqualTo("MEDIUM");
+    assertThat((String) s1.get("evidence_text")).contains("2000.00");
+    UUID initialSuggestionId = (UUID) s1.get("id");
+
+    // 2. Additional earning ₹4,000 (total ₹6,000 -> HIGH priority)
+    financePostingService.earning(new FinanceCommands.Earning(
+        UUID.randomUUID(), emp.id, null, new BigDecimal("4000.00"), LocalDate.now(), "Day 2 Shift"));
+
+    // 3. Verify exactly ONE active suggestion remains (same ID updated in place)
+    List<Map<String, Object>> activeSuggestions = jdbc.queryForList(
+        "SELECT id, priority, evidence::text as evidence_text FROM eve_suggestions WHERE canonical_entity_id = ? AND status = 'ACTIVE'",
+        emp.id);
+    assertThat(activeSuggestions).hasSize(1);
+    var s2 = activeSuggestions.getFirst();
+    assertThat(s2.get("id")).isEqualTo(initialSuggestionId);
+    assertThat(s2.get("priority")).isEqualTo("HIGH");
+    assertThat((String) s2.get("evidence_text")).contains("6000.00");
+    assertThat((String) s2.get("evidence_text")).doesNotContain("2000.00");
+  }
+
+  @Test
+  void cooldown_suppressesImmediateRepeat_andAllowsAfterExpiryInPostgres() {
+    Employee emp = createTestEmployee("P4COOL");
+    financePostingService.earning(new FinanceCommands.Earning(
+        UUID.randomUUID(), emp.id, null, new BigDecimal("2500.00"), LocalDate.now(), "Consulting Work"));
+
+    UUID suggId = jdbc.queryForObject(
+        "SELECT id FROM eve_suggestions WHERE canonical_entity_id = ? AND status = 'ACTIVE'",
+        UUID.class, emp.id);
+
+    // Dismiss suggestion -> 24h cooldown active
+    suggestionService.dismissSuggestion(suggId, "Not paying now");
+
+    // Immediate repeat evaluation
+    observerService.evaluateEmployeePayable(emp.id, null);
+    Integer activeDuringCooldown = jdbc.queryForObject(
+        "SELECT count(*) FROM eve_suggestions WHERE canonical_entity_id = ? AND status = 'ACTIVE'",
+        Integer.class, emp.id);
+    assertThat(activeDuringCooldown).isZero(); // Suppressed!
+
+    // Fast-forward dismissed_at to 25 hours ago
+    jdbc.update("UPDATE eve_suggestions SET dismissed_at = now() - interval '25 hours' WHERE id = ?", suggId);
+
+    // Next evaluation or mutation -> Cooldown expired!
+    observerService.evaluateEmployeePayable(emp.id, null);
+    Integer activeAfterCooldown = jdbc.queryForObject(
+        "SELECT count(*) FROM eve_suggestions WHERE canonical_entity_id = ? AND status = 'ACTIVE'",
+        Integer.class, emp.id);
+    assertThat(activeAfterCooldown).isEqualTo(1); // Created again!
+  }
+
+  @Test
+  void spoofedSignalPayload_cannotFabricateBusinessTruth_inPostgres() {
+    Employee emp = createTestEmployee("P4SPOOF");
+    // Real balance in PostgreSQL is 0
+
+    // Attempt spoofed signal with fake metadata claiming huge balance
+    signalService.emit(new EveDtos.EmitSignalRequest(
+        EveSignalTypes.EMPLOYEE_EARNING_CREATED,
+        "FINANCE",
+        "EMPLOYEE",
+        emp.id,
+        1,
+        "spoof-" + UUID.randomUUID(),
+        Map.of("fake_amount", 999999999, "fake_status", "URGENT")
+    ));
+
+    // Observer must check PostgreSQL canonical truth (FinanceReadService), see 0 balance, and create ZERO suggestions
+    Integer count = jdbc.queryForObject(
+        "SELECT count(*) FROM eve_suggestions WHERE canonical_entity_id = ? AND status = 'ACTIVE'",
+        Integer.class, emp.id);
+    assertThat(count).isZero();
+  }
+
+  @Test
+  void verifiesSharmaWeddingRealPostgresFlow_andAmbiguityClarification() {
+    // 1. Seed real employee in PostgreSQL
+    Employee crewEmp = new Employee();
+    crewEmp.employeeCode = "SA-CREW-99";
+    crewEmp.firstName = "Rahul";
+    crewEmp.lastName = "Verma";
+    crewEmp.displayName = "Rahul Verma";
+    crewEmp.roleTitle = "Lead Audio Engineer";
+    crewEmp.department = "Sound";
+    crewEmp.employmentType = "FULL_TIME";
+    crewEmp.joiningDate = LocalDate.now();
+    crewEmp.baseSalaryMinor = 4500000L;
+    crewEmp.salaryCurrency = "INR";
+    crewEmp.status = Employee.Status.ACTIVE;
+    crewEmp.phone = "+919876543299";
+    crewEmp = employeeRepo.saveAndFlush(crewEmp);
+
+    // 2. Seed real production in PostgreSQL: "Sharma Wedding"
+    UUID weddingId = UUID.randomUUID();
+    jdbc.update(
+        "INSERT INTO productions (id, title, client_name, description, event_date, start_time, end_time, venue_name, status, priority, progress_percent) " +
+        "VALUES (?, 'Sharma Wedding', 'Sharma Family', 'Grand wedding ceremony', CURRENT_DATE + 3, '10:00:00', '18:00:00', 'Jaipur Palace', 'PRODUCTION', 'HIGH', 50)",
+        weddingId);
+
+    // 3. Seed real crew member in production_members table in PostgreSQL
+    UUID memberId = UUID.randomUUID();
+    jdbc.update(
+        "INSERT INTO production_members (id, production_id, employee_id, production_role, attendance_required, assignment_status, conflict_overridden) " +
+        "VALUES (?, ?, ?, 'Lead Audio Engineer', true, 'CONFIRMED', false)",
+        memberId, weddingId, crewEmp.id);
+
+    // 4. Exercise Turn 1: "crew for sharma wedding"
+    EveDtos.QueryResponse turn1 = eveService.query(new EveDtos.QueryRequest("crew for sharma wedding", null));
+    assertThat(turn1.status()).isEqualTo("COMPLETED");
+    assertThat(turn1.message().content()).contains("Sharma Wedding");
+    assertThat(turn1.message().content()).contains("Rahul Verma (Lead Audio Engineer)");
+    assertThat(turn1.message().content()).doesNotContain("Royal");
+    assertThat(turn1.trace()).isNotEmpty();
+
+    // 5. Exercise Turn 2: "shamra wedding ke event me kon gaya he" in the same session
+    EveDtos.QueryResponse turn2 = eveService.query(new EveDtos.QueryRequest("shamra wedding ke event me kon gaya he", turn1.sessionId()));
+    assertThat(turn2.status()).isEqualTo("COMPLETED");
+    assertThat(turn2.message().content()).contains("Sharma Wedding");
+    assertThat(turn2.message().content()).contains("Rahul Verma (Lead Audio Engineer)");
+    assertThat(turn2.message().content()).doesNotContain("I couldn't find relevant records");
+
+    // 6. Test Ambiguity & Clarification Invariant:
+    // Seed a second production with "Sharma" in the title
+    UUID receptionId = UUID.randomUUID();
+    jdbc.update(
+        "INSERT INTO productions (id, title, client_name, description, event_date, start_time, end_time, venue_name, status, priority, progress_percent) " +
+        "VALUES (?, 'Sharma Sangeet & Reception', 'Sharma Family', 'Sangeet party', CURRENT_DATE + 2, '18:00:00', '23:00:00', 'Udaipur Resort', 'PLANNING', 'NORMAL', 20)",
+        receptionId);
+
+    // Now query with ambiguous prompt: "crew for sharma"
+    EveDtos.QueryResponse ambigResp = eveService.query(new EveDtos.QueryRequest("crew for sharma", null));
+    assertThat(ambigResp.status()).isEqualTo("CLARIFICATION_REQUIRED");
+    assertThat(ambigResp.message().content()).contains("I found multiple matching productions");
+    assertThat(ambigResp.candidates()).hasSize(2);
+    assertThat(ambigResp.candidates().stream().map(EveDtos.CandidateView::displayName))
+        .contains("Sharma Wedding", "Sharma Sangeet & Reception");
+
+    // Disambiguation turn: User specifies "wedding wala"
+    EveDtos.QueryResponse disambigTurn = eveService.query(
+        new EveDtos.QueryRequest("wedding wala", ambigResp.sessionId()));
+    assertThat(disambigTurn.status()).isEqualTo("COMPLETED");
+    assertThat(disambigTurn.message().content()).contains("Sharma Wedding");
+    assertThat(disambigTurn.message().content()).contains("Rahul Verma (Lead Audio Engineer)");
   }
 }

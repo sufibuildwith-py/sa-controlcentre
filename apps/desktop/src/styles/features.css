@@ -808,3 +808,13 @@
   gap: 8px;
   align-items: center;
 }
+.intake-inline-add select,
+.intake-inline-add input {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-soft);
+  color: var(--text-1);
+  padding: 8px 11px;
+  font-size: 13px;
+}
+

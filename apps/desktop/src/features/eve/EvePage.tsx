@@ -5,6 +5,7 @@ import {
   AlertCircle,
   ArrowRight,
   Bot,
+  Brain,
   CheckCircle2,
   Clock,
   CornerDownLeft,
@@ -25,12 +26,14 @@ import {
 } from "../../components/ui/sa";
 import { eveApi } from "./eve.api";
 import { EvePlanCard } from "./components/EvePlanCard";
+import { EveSuggestionsPanel } from "./components/EveSuggestionsPanel";
 import type {
   EveCandidate,
   EveContext,
   EveMessage,
   EvePlan,
   EveQueryResponse,
+  EveReasoningStep,
   EveTraceEvent,
   PlanExecutionResponse,
 } from "./eve.types";
@@ -54,6 +57,7 @@ export function EvePage() {
   const [context, setContext] = useState<EveContext | null>(null);
   const [candidates, setCandidates] = useState<EveCandidate[]>([]);
   const [activePlan, setActivePlan] = useState<EvePlan | null>(null);
+  const [reasoning, setReasoning] = useState<EveReasoningStep[]>([]);
   const [status, setStatus] = useState<string>("READY");
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -63,6 +67,37 @@ export function EvePage() {
     queryKey: ["eve", "sessions"],
     queryFn: () => eveApi.listSessions(),
     staleTime: 30000,
+  });
+
+  const suggestionsQuery = useQuery({
+    queryKey: ["eve", "suggestions"],
+    queryFn: () => eveApi.listSuggestions("ACTIVE"),
+    staleTime: 10000,
+    refetchInterval: 15000,
+  });
+
+  const statusQuery = useQuery({
+    queryKey: ["eve", "status"],
+    queryFn: () => eveApi.getStatus(),
+    staleTime: 5000,
+    refetchInterval: (query) => {
+      const s = query.state.data?.status;
+      return s === "INITIALIZING" ? 2000 : 15000;
+    },
+  });
+
+  const dismissMutation = useMutation({
+    mutationFn: (id: string) => eveApi.dismissSuggestion(id),
+    onSuccess: () => {
+      suggestionsQuery.refetch();
+    },
+  });
+
+  const evaluateMutation = useMutation({
+    mutationFn: () => eveApi.evaluateSuggestions(),
+    onSuccess: () => {
+      suggestionsQuery.refetch();
+    },
   });
 
   const queryMutation = useMutation({
@@ -78,6 +113,7 @@ export function EvePage() {
       if (data.plan) {
         setActivePlan(data.plan);
       }
+      setReasoning(data.reasoning ?? []);
       setStatus(data.status);
       setPrompt("");
       sessionQuery.refetch();
@@ -167,6 +203,7 @@ export function EvePage() {
       setContext(null);
       setCandidates([]);
       setActivePlan(null);
+      setReasoning([]);
       setStatus("READY");
       sessionQuery.refetch();
     } catch {
@@ -176,6 +213,7 @@ export function EvePage() {
       setContext(null);
       setCandidates([]);
       setActivePlan(null);
+      setReasoning([]);
       setStatus("READY");
     }
   };
@@ -187,11 +225,13 @@ export function EvePage() {
     }
     setActiveSessionId(sessionId);
     setActivePlan(null);
+    setReasoning([]);
     try {
       const sess = await eveApi.getSession(sessionId);
       setMessages(sess.messages ?? []);
       setTrace([]);
       setCandidates([]);
+      setReasoning([]);
       setStatus("READY");
       const plans = await eveApi.listPlansForSession(sessionId);
       const pendingPlan = plans.find((p) => p.status === "PROPOSED") || plans[0] || null;
@@ -236,10 +276,44 @@ export function EvePage() {
 
   return (
     <div className="eve-workspace flex flex-col gap-6 p-6">
-      <WorkspaceHeader
-        title="Eve"
-        subtitle="Operational Intelligence Layer · Grounded Multi-Domain Operations · Phase 2"
-      />
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <WorkspaceHeader
+          title="Eve"
+          subtitle="Operational Intelligence Layer · Grounded Multi-Domain Operations"
+        />
+        {statusQuery.data && (
+          <div
+            data-testid="eve-status-badge"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-medium bg-[var(--surface-soft)] border-[var(--border)] shadow-sm self-start sm:self-auto"
+          >
+            {statusQuery.data.status === "INITIALIZING" && (
+              <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                <span>EVE is starting its local intelligence...</span>
+              </div>
+            )}
+            {statusQuery.data.status === "READY" && (
+              <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span className="font-semibold">
+                  Local Intelligence ({statusQuery.data.modelName || "Qwen3-4B-Thinking-2507"})
+                </span>
+                {statusQuery.data.modelVersion && (
+                  <span className="text-[10px] text-[var(--text-3)] font-mono">
+                    · {statusQuery.data.modelVersion}
+                  </span>
+                )}
+              </div>
+            )}
+            {statusQuery.data.status === "UNAVAILABLE" && (
+              <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400">
+                <span className="w-2 h-2 rounded-full bg-rose-500" />
+                <span>EVE&apos;s local model isn&apos;t available right now</span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Main Grid Console */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -284,6 +358,18 @@ export function EvePage() {
                 </button>
               </div>
             </div>
+
+            {/* Continuous Intelligence Suggestions */}
+            <EveSuggestionsPanel
+              suggestions={suggestionsQuery.data ?? []}
+              loading={suggestionsQuery.isFetching || evaluateMutation.isPending}
+              onDismiss={(id) => dismissMutation.mutate(id)}
+              onInvestigate={(investigatePrompt) => {
+                setPrompt(investigatePrompt);
+                textareaRef.current?.focus();
+              }}
+              onRefresh={() => evaluateMutation.mutate()}
+            />
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-3">
               <div className="relative">
@@ -360,7 +446,7 @@ export function EvePage() {
                     <div className="flex items-center gap-2">
                       {msg.role === "USER" ? (
                         <div className="w-5 h-5 rounded-full bg-[var(--surface-raised)] border border-[var(--border)] flex items-center justify-center text-[10px] font-bold text-[var(--text-1)]">
-                          M
+                          Y
                         </div>
                       ) : (
                         <div className="w-5 h-5 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
@@ -368,7 +454,7 @@ export function EvePage() {
                         </div>
                       )}
                       <span className="text-xs font-semibold text-[var(--text-2)]">
-                        {msg.role === "USER" ? "Mamu" : "Eve"}
+                        {msg.role === "USER" ? "You" : "Eve"}
                       </span>
                       <span className="text-[10px] text-[var(--text-3)] font-mono ml-auto">
                         {new Date(msg.createdAt).toLocaleTimeString([], {
@@ -605,6 +691,73 @@ export function EvePage() {
               <p className="text-xs text-[var(--text-3)] italic py-2">
                 Context envelope will populate automatically with verified PostgreSQL records when a query resolves.
               </p>
+            )}
+          </SABentoCard>
+
+          {/* Cognitive Reasoning Trace */}
+          <SABentoCard className="p-5 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Brain className="w-4 h-4 text-purple-500" />
+                <h3 className="text-xs uppercase tracking-wider font-semibold text-[var(--text-3)]">
+                  Cognitive Reasoning Trace
+                </h3>
+              </div>
+              <span className="text-[10px] text-[var(--text-3)] font-mono">
+                Bounded Cognitive Steps
+              </span>
+            </div>
+
+            {reasoning.length === 0 ? (
+              <p className="text-xs text-[var(--text-3)] italic py-2">
+                Operational reasoning trace will appear here when cognitive runtime executes multi-step analysis.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-2.5 max-h-[350px] overflow-y-auto pr-1">
+                {reasoning.map((step) => (
+                  <div
+                    key={`${step.sequence}-${step.stage}`}
+                    className="flex items-start gap-2.5 p-2.5 rounded-lg bg-[var(--surface-soft)] border border-[var(--border-soft)] text-xs"
+                  >
+                    <span className="text-[10px] font-mono text-[var(--text-3)] px-1.5 py-0.5 rounded bg-[var(--surface)] border border-[var(--border)]">
+                      #{step.sequence}
+                    </span>
+                    <div className="flex flex-col flex-1 gap-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-[var(--text-1)] text-[11px] font-mono">
+                          {step.stage}
+                        </span>
+                        <span
+                          className={`text-[9px] font-bold px-1.5 py-0.5 rounded font-mono ${
+                            step.status === "COMPLETED"
+                              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                              : step.status === "IN_PROGRESS"
+                              ? "bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20"
+                              : step.status === "SKIPPED"
+                              ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                              : "bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20"
+                          }`}
+                        >
+                          {step.status}
+                        </span>
+                      </div>
+                      <span className="text-[var(--text-2)] text-[11px] leading-relaxed font-sans">
+                        {step.summary}
+                      </span>
+                      {step.relatedTool && (
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-[9px] font-mono text-[var(--text-3)] uppercase">
+                            Tool:
+                          </span>
+                          <span className="text-[10px] font-mono text-purple-600 dark:text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded border border-purple-500/20">
+                            {step.relatedTool}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </SABentoCard>
         </div>

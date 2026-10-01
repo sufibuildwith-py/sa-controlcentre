@@ -477,4 +477,203 @@ class EveRetrievalRouterTest {
     assertThat(result.answer()).contains("Cultural Event MIPS has 1 assigned crew member");
     assertThat(result.answer()).contains("Farhan Akhtar (Director)");
   }
+
+  @Test
+  void readsEmployeeFinance_multiTurnPronounAfterProductionWithMultipleCrew_returnsClarificationRequired() {
+    UUID prodId = UUID.randomUUID();
+    var prodCandidate = new EveRetrievalService.Candidate(prodId, "PRODUCTION", "Royal Wedding", "ROYAL", "Royal Palace");
+    var context = new EveRetrievalRouter.SessionContext();
+    context.setLastReferencedProduction(prodCandidate);
+
+    UUID emp1Id = UUID.randomUUID();
+    UUID emp2Id = UUID.randomUUID();
+    var member1 = new ProductionService.MemberView(
+        UUID.randomUUID(), emp1Id, "Farhan Akhtar", "Lead Photographer", true, ProductionMember.Status.CONFIRMED, false, null);
+    var member2 = new ProductionService.MemberView(
+        UUID.randomUUID(), emp2Id, "Sarah Jenkins", "Cinematographer", true, ProductionMember.Status.CONFIRMED, false, null);
+    var prodView = new ProductionService.View(
+        prodId, "Royal Wedding", "Client Royal", "Wedding",
+        LocalDate.of(2026, 10, 15), null, null, "Royal Palace", null,
+        Production.Status.PLANNING, Production.Priority.HIGH, 0, null,
+        List.of(member1, member2), 0, List.of(), Instant.now(), Instant.now());
+    when(productionService.get(prodId)).thenReturn(prodView);
+
+    var cand1 = new EveRetrievalService.Candidate(emp1Id, "EMPLOYEE", "Farhan Akhtar", "EMP-001", "Photographer");
+    var cand2 = new EveRetrievalService.Candidate(emp2Id, "EMPLOYEE", "Sarah Jenkins", "EMP-002", "Cinematographer");
+    when(retrievalService.resolveEmployee("Farhan Akhtar")).thenReturn(
+        EveRetrievalService.ResolutionResult.resolved(cand1, EveRetrievalService.MatchMethod.EXACT_NAME, "Farhan Akhtar"));
+    when(retrievalService.resolveEmployee("Sarah Jenkins")).thenReturn(
+        EveRetrievalService.ResolutionResult.resolved(cand2, EveRetrievalService.MatchMethod.EXACT_NAME, "Sarah Jenkins"));
+
+    var result = router.routeAndRetrieve(
+        EveModelProvider.EveInterpretation.of(EveModelProvider.Intent.READ_EMPLOYEE_FINANCE, "EMPLOYEE", "him", true),
+        context,
+        "How much do we still owe him?");
+
+    assertThat(result.status()).isEqualTo("CLARIFICATION_REQUIRED");
+    assertThat(result.candidates()).hasSize(2);
+    assertThat(result.candidates()).extracting(EveDtos.CandidateView::displayName)
+        .containsExactlyInAnyOrder("Farhan Akhtar", "Sarah Jenkins");
+    assertThat(context.hasPendingCandidates()).isTrue();
+  }
+
+  @Test
+  void readsEmployeeFinance_multiTurnPronounAfterProductionWithSingleCrew_resolvesAutomatically() {
+    UUID prodId = UUID.randomUUID();
+    var prodCandidate = new EveRetrievalService.Candidate(prodId, "PRODUCTION", "Royal Wedding", "ROYAL", "Royal Palace");
+    var context = new EveRetrievalRouter.SessionContext();
+    context.setLastReferencedProduction(prodCandidate);
+
+    UUID empId = UUID.randomUUID();
+    var member = new ProductionService.MemberView(
+        UUID.randomUUID(), empId, "Farhan Akhtar", "Lead Photographer", true, ProductionMember.Status.CONFIRMED, false, null);
+    var prodView = new ProductionService.View(
+        prodId, "Royal Wedding", "Client Royal", "Wedding",
+        LocalDate.of(2026, 10, 15), null, null, "Royal Palace", null,
+        Production.Status.PLANNING, Production.Priority.HIGH, 0, null,
+        List.of(member), 0, List.of(), Instant.now(), Instant.now());
+    when(productionService.get(prodId)).thenReturn(prodView);
+
+    var empCandidate = new EveRetrievalService.Candidate(empId, "EMPLOYEE", "Farhan Akhtar", "EMP-001", "Photographer");
+    when(retrievalService.resolveEmployee("Farhan Akhtar")).thenReturn(
+        EveRetrievalService.ResolutionResult.resolved(empCandidate, EveRetrievalService.MatchMethod.EXACT_NAME, "Farhan Akhtar"));
+    when(financeReads.employee(empId)).thenReturn(Map.of(
+        "earned", new BigDecimal("5000"),
+        "paid", new BigDecimal("2000"),
+        "outstanding", new BigDecimal("3000")));
+
+    var result = router.routeAndRetrieve(
+        EveModelProvider.EveInterpretation.of(EveModelProvider.Intent.READ_EMPLOYEE_FINANCE, "EMPLOYEE", "him", true),
+        context,
+        "How much do we still owe him?");
+
+    assertThat(result.status()).isEqualTo("COMPLETED");
+    assertThat(result.answer()).contains("Farhan Akhtar");
+    assertThat(result.answer()).contains("3,000");
+    assertThat(context.getLastReferencedEmployee()).isEqualTo(empCandidate);
+  }
+
+  @Test
+  void greeting_returnsCompleted_withoutAnyRetrievalInvocation() {
+    String[] greetings = {"hey", "hi", "hello", "thanks", "thank you", "kya haal hai", "hey eve"};
+
+    for (String g : greetings) {
+      var result = router.routeAndRetrieve(
+          EveModelProvider.EveInterpretation.of(EveModelProvider.Intent.GREETING, null, null),
+          new EveRetrievalRouter.SessionContext(),
+          g);
+
+      assertThat(result.status()).isEqualTo("COMPLETED");
+      assertThat(result.answer()).isNotEmpty();
+      assertThat(result.referencedEntities()).isEmpty();
+    }
+
+    // STRICT INVARIANT: Greetings must NEVER query canonical retrieval!
+    verify(retrievalService, never()).resolveProduction(anyString());
+    verify(retrievalService, never()).resolveEmployee(anyString());
+  }
+
+  @Test
+  void pronounEquipmentQuery_withNoAntecedent_returnsClarificationRequired_andNeverQueriesDatabaseForPronoun() {
+    var context = new EveRetrievalRouter.SessionContext();
+
+    var result = router.routeAndRetrieve(
+        EveModelProvider.EveInterpretation.of(EveModelProvider.Intent.READ_PRODUCTION_EQUIPMENT, "PRODUCTION", "uska", true),
+        context,
+        "Aur uska equipment?");
+
+    assertThat(result.status()).isEqualTo("CLARIFICATION_REQUIRED");
+    assertThat(result.answer()).contains("Kis production ya event");
+    assertThat(result.answer()).doesNotContain("matching \"uska\"");
+
+    // STRICT INVARIANT: Pronoun token "uska" must NEVER be queried in canonical retrieval!
+    verify(retrievalService, never()).resolveProduction(argThat(EveRetrievalRouter::isPronoun));
+    verify(retrievalService, never()).resolveEmployee(argThat(EveRetrievalRouter::isPronoun));
+  }
+
+  @Test
+  void pronounEquipmentQuery_withProductionAntecedent_resolvesEquipmentCorrectly() {
+    UUID prodId = UUID.randomUUID();
+    var prodCandidate = new EveRetrievalService.Candidate(prodId, "PRODUCTION", "Cultural Event MIPS", "MIPS", "Venue");
+    var context = new EveRetrievalRouter.SessionContext();
+    context.setLastReferencedProduction(prodCandidate);
+
+    ProductionService.EquipmentView eq = new ProductionService.EquipmentView(
+        UUID.randomUUID(), UUID.randomUUID(), "Audio Mixer 32ch", "MIX-01", new BigDecimal("1"), "unit", "RESERVED");
+    ProductionService.View view = new ProductionService.View(
+        prodId, "Cultural Event MIPS", "Nandhini", null, LocalDate.now(), null, null, "Venue", null,
+        Production.Status.PRODUCTION, Production.Priority.NORMAL, 50, null, List.of(), 0, List.of(eq), Instant.now(), Instant.now());
+    when(productionService.get(prodId)).thenReturn(view);
+
+    var result = router.routeAndRetrieve(
+        EveModelProvider.EveInterpretation.of(EveModelProvider.Intent.READ_PRODUCTION_EQUIPMENT, "PRODUCTION", "uska", true),
+        context,
+        "Aur uska equipment?");
+
+    assertThat(result.status()).isEqualTo("COMPLETED");
+    assertThat(result.answer()).contains("Cultural Event MIPS has 1 reserved equipment item");
+    assertThat(result.answer()).contains("Audio Mixer 32ch");
+    verify(retrievalService, never()).resolveProduction(argThat(EveRetrievalRouter::isPronoun));
+  }
+
+  @Test
+  void pronounEquipmentQuery_withEmployeeAntecedentAssignedToSingleProduction_resolvesCrossDomain() {
+    UUID empId = UUID.randomUUID();
+    UUID prodId = UUID.randomUUID();
+    var empCandidate = new EveRetrievalService.Candidate(empId, "EMPLOYEE", "Kabir Khan", "SA-02", "Cinematographer");
+    var context = new EveRetrievalRouter.SessionContext();
+    context.setLastReferencedEmployee(empCandidate);
+
+    ProductionService.MemberView member = new ProductionService.MemberView(
+        UUID.randomUUID(), empId, "Kabir Khan", "Cinematographer", true, ProductionMember.Status.CONFIRMED, false, null);
+    ProductionService.EquipmentView eq = new ProductionService.EquipmentView(
+        UUID.randomUUID(), UUID.randomUUID(), "Sony FX6 Camera Kit", "CAM-01", new BigDecimal("2"), "pcs", "RESERVED");
+    ProductionService.View view = new ProductionService.View(
+        prodId, "Royal Wedding", "Client Royal", null, LocalDate.now(), null, null, "Grand Palace", null,
+        Production.Status.PRODUCTION, Production.Priority.NORMAL, 50, null, List.of(member), 0, List.of(eq), Instant.now(), Instant.now());
+
+    when(productionService.list(null, null, null, null, null)).thenReturn(List.of(view));
+    when(productionService.get(prodId)).thenReturn(view);
+
+    var result = router.routeAndRetrieve(
+        EveModelProvider.EveInterpretation.of(EveModelProvider.Intent.READ_PRODUCTION_EQUIPMENT, "PRODUCTION", "uska", true),
+        context,
+        "Aur uska equipment?");
+
+    assertThat(result.status()).isEqualTo("COMPLETED");
+    assertThat(result.answer()).contains("Royal Wedding");
+    assertThat(result.answer()).contains("Sony FX6 Camera Kit");
+    assertThat(context.getLastReferencedProduction()).isNotNull();
+    assertThat(context.getLastReferencedProduction().displayName()).isEqualTo("Royal Wedding");
+    verify(retrievalService, never()).resolveProduction(argThat(EveRetrievalRouter::isPronoun));
+  }
+
+  @Test
+  void pronounEquipmentQuery_withEmployeeAntecedentAssignedToMultipleProductions_returnsClarificationRequired() {
+    UUID empId = UUID.randomUUID();
+    var empCandidate = new EveRetrievalService.Candidate(empId, "EMPLOYEE", "Kabir Khan", "SA-02", "Cinematographer");
+    var context = new EveRetrievalRouter.SessionContext();
+    context.setLastReferencedEmployee(empCandidate);
+
+    ProductionService.MemberView member = new ProductionService.MemberView(
+        UUID.randomUUID(), empId, "Kabir Khan", "Cinematographer", true, ProductionMember.Status.CONFIRMED, false, null);
+    ProductionService.View prod1 = new ProductionService.View(
+        UUID.randomUUID(), "Royal Wedding", "Client A", null, LocalDate.now(), null, null, "Venue A", null,
+        Production.Status.PRODUCTION, Production.Priority.NORMAL, 50, null, List.of(member), 0, List.of(), Instant.now(), Instant.now());
+    ProductionService.View prod2 = new ProductionService.View(
+        UUID.randomUUID(), "Corporate Summit", "Client B", null, LocalDate.now(), null, null, "Venue B", null,
+        Production.Status.PRODUCTION, Production.Priority.NORMAL, 50, null, List.of(member), 0, List.of(), Instant.now(), Instant.now());
+
+    when(productionService.list(null, null, null, null, null)).thenReturn(List.of(prod1, prod2));
+
+    var result = router.routeAndRetrieve(
+        EveModelProvider.EveInterpretation.of(EveModelProvider.Intent.READ_PRODUCTION_EQUIPMENT, "PRODUCTION", "uska", true),
+        context,
+        "Aur uska equipment?");
+
+    assertThat(result.status()).isEqualTo("CLARIFICATION_REQUIRED");
+    assertThat(result.answer()).contains("Kabir Khan is assigned to 2 productions");
+    assertThat(result.candidates()).hasSize(2);
+    verify(retrievalService, never()).resolveProduction(argThat(EveRetrievalRouter::isPronoun));
+  }
 }

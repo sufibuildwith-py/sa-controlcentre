@@ -150,7 +150,7 @@ public class EveCommandGateway {
         planId,
         version,
         planHash,
-        operator != null ? operator : "Azeem Khan",
+        operator != null ? operator : "Operator",
         financePostingService,
         financeReadService,
         jdbc,

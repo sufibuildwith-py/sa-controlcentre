@@ -67,7 +67,7 @@ public class EveContextEngine {
       List<String> knowledgeSnippets,
       List<EveDtos.EveMemory> memoryHints) {
 
-    String safeOperator = operatorName != null && !operatorName.isBlank() ? operatorName : "Azeem Khan";
+    String safeOperator = operatorName != null && !operatorName.isBlank() ? operatorName : "Operator";
     String safeRoute = currentRoute != null && !currentRoute.isBlank() ? currentRoute : "/eve";
     LocalDate today = LocalDate.now(ZoneId.of(timezone));
 
@@ -147,7 +147,7 @@ public class EveContextEngine {
       List<String> knowledgeSnippets,
       List<EveDtos.MemoryView> memoryHints) {
 
-    String safeOwner = ownerName != null && !ownerName.isBlank() ? ownerName : "Azeem Khan";
+    String safeOwner = ownerName != null && !ownerName.isBlank() ? ownerName : "Operator";
     LocalDate today = LocalDate.now(ZoneId.of(timezone));
 
     List<EveDtos.EntityReference> boundedEntities = new ArrayList<>();

@@ -250,4 +250,19 @@ class TestModelProviderTest {
     assertThat(crewFollowUp.intent()).isEqualTo(EveModelProvider.Intent.READ_PRODUCTION_CREW);
     assertThat(crewFollowUp.followUp()).isTrue();
   }
+
+  @Test
+  void interpretsConversationalGreetings() {
+    String[] greetings = {
+      "hey", "hi", "hello", "heyy", "hii", "thanks", "thank you",
+      "kya haal hai", "kaise ho", "good morning", "hey eve", "thanks eve"
+    };
+
+    for (String g : greetings) {
+      var r = provider.interpret(new EveModelProvider.EveInterpretationRequest(g, null));
+      assertThat(r.intent())
+          .as("Failed greeting interpretation for: " + g)
+          .isEqualTo(EveModelProvider.Intent.GREETING);
+    }
+  }
 }
