@@ -188,6 +188,11 @@ class LocalQwenCognitiveBrainIntegrationTest {
         .thenReturn(EveRetrievalService.ResolutionResult.resolved(sharmaCandidate, EveRetrievalService.MatchMethod.EXACT_NAME, "sharma wedding"));
 
     // 3. Crew
+    ProductionMember kabirMember = new ProductionMember();
+    kabirMember.id = UUID.randomUUID();
+    kabirMember.productionId = sharmaWedding.id;
+    kabirMember.employeeId = kabir.id;
+    when(memberRepo.findAllByProductionIdOrderByCreatedAt(sharmaWedding.id)).thenReturn(List.of(kabirMember));
     when(memberRepo.existsByProductionIdAndEmployeeId(sharmaWedding.id, kabir.id)).thenReturn(true);
     when(memberRepo.existsByProductionIdAndEmployeeId(aroraWedding.id, kabir.id)).thenReturn(false);
     when(memberRepo.existsByProductionIdAndEmployeeId(techSummit.id, kabir.id)).thenReturn(false);
@@ -309,5 +314,115 @@ class LocalQwenCognitiveBrainIntegrationTest {
     assertThat(interpretation.intent()).isEqualTo(EveModelProvider.Intent.PROPOSE_EMPLOYEE_PAYMENT);
     assertThat(interpretation.spokenEntity()).containsIgnoringCase("Kabir");
     assertThat(interpretation.amountMinor()).isEqualTo(300000L); // 3000 in minor units (paisa)
+  }
+
+  @Test
+  @DisplayName("Real Qwen Test 7: 'kya mujhe sharma wedding wale production me 4 logo ko bhejna chahoue?' -> Real Qwen Inference Proof")
+  void test7_RealQwen_CrewAllocationDecision() {
+    System.out.println("\n>>> TEST 7: 'kya mujhe sharma wedding wale production me 4 logo ko bhejna chahoue?'");
+    qwenProvider.resetInvocationStats();
+    long start = System.currentTimeMillis();
+
+    var resp = cognitiveRuntime.execute("kya mujhe sharma wedding wale production me 4 logo ko bhejna chahoue?", sessionId, "", null, qwenProvider);
+    long latency = System.currentTimeMillis() - start;
+
+    System.out.printf("Test 7 Latency: %d ms | Status: %s\nAnswer: %s\n", latency, resp.status(), resp.answer());
+    System.out.println("Evidence: " + resp.evidence());
+    System.out.printf("Real Model Invocations: %d | Model Latency: %d ms\n",
+        qwenProvider.getModelInvocationCount(), qwenProvider.getLastInvocationLatencyMs());
+
+    // 1. PROVE REAL QWEN INFERENCE EXECUTED
+    assertThat(qwenProvider.getModelInvocationCount())
+        .as("Real Qwen model must have been invoked through llama-server")
+        .isGreaterThan(0);
+    assertThat(qwenProvider.getLastInvocationLatencyMs())
+        .as("Model invocation latency must be genuine neural network inference time (> 500ms)")
+        .isGreaterThan(500L);
+    assertThat(qwenProvider.getStatusView().modelName())
+        .as("Active loaded model must be Qwen3-4B-Thinking-2507")
+        .isEqualTo("Qwen3-4B-Thinking-2507");
+
+    // 2. PROVE STRUCTURED COGNITIVE INTERPRETATION FROM MODEL
+    assertThat(resp.goal()).isNotNull();
+    System.out.printf("Structured Cognitive Goal: %s | Operation: %s | Constraints: %s\n",
+        resp.goal().goal(), resp.goal().operation(), resp.goal().constraints());
+    assertThat(resp.goal().operation())
+        .as("Model operation must be DECISION_SUPPORT")
+        .isEqualTo(EveOperation.DECISION_SUPPORT);
+
+    // 3. PROVE NO INVESTMENT / ZERO ₹50,000 LEAKAGE
+    assertThat(resp.status()).isEqualTo("COMPLETED");
+    assertThat(resp.answer()).contains("Sharma Wedding");
+    assertThat(resp.answer()).contains("1 crew member");
+    assertThat(resp.answer()).contains("3 open task");
+    assertThat(resp.answer()).doesNotContain("50,000");
+    assertThat(resp.answer()).doesNotContain("50000");
+    assertThat(resp.answer()).doesNotContainIgnoringCase("invest");
+    assertThat(resp.answer()).doesNotContainIgnoringCase("outstanding");
+    assertThat(resp.answer()).doesNotContain("180,000");
+    assertThat(resp.answer()).doesNotContainIgnoringCase("cash flow");
+
+    // 4. PROVE AUTHORITATIVE EVIDENCE GROUNDING
+    assertThat(resp.evidence()).anyMatch(e -> "CREW".equalsIgnoreCase(e.domain()));
+    assertThat(resp.evidence()).anyMatch(e -> "WORK_TASK".equalsIgnoreCase(e.domain()));
+    assertThat(resp.evidence()).anyMatch(e -> "SYSTEM".equalsIgnoreCase(e.domain()) && e.label().contains("Staffing Requirement"));
+  }
+
+  @Test
+  @DisplayName("Real Qwen Test 8: Context Contamination Isolation (Prior ₹50,000 investment does not leak)")
+  void test8_RealQwen_ContextIsolation_NoContamination() {
+    System.out.println("\n>>> TEST 8: Context Isolation Test");
+
+    // Turn 1: Investment question about another wedding
+    var ctx = new EveRetrievalRouter.SessionContext();
+    ctx.addTurn("kya mujhe 50000 Arora Wedding me invest karna chahiye?",
+        "Arora Wedding has contracted value 500,000...",
+        EveModelProvider.Intent.GENERAL_QUERY);
+
+    qwenProvider.resetInvocationStats();
+    var resp = cognitiveRuntime.execute(
+        "kya mujhe sharma wedding wale production me 4 logo ko bhejna chahiye?",
+        sessionId,
+        "[Prior turn: User asked about investing 50,000 in Arora Wedding]",
+        ctx,
+        qwenProvider);
+
+    assertThat(qwenProvider.getModelInvocationCount()).isGreaterThan(0);
+    assertThat(resp.answer()).doesNotContain("50,000");
+    assertThat(resp.answer()).doesNotContain("50000");
+    assertThat(resp.answer()).doesNotContainIgnoringCase("invest");
+    assertThat(resp.answer()).contains("Sharma Wedding");
+    assertThat(resp.evidence()).anyMatch(e -> "CREW".equalsIgnoreCase(e.domain()));
+  }
+
+  @Test
+  @DisplayName("Real Qwen Test 9: Investment vs Crew Allocation Separation")
+  void test9_RealQwen_InvestmentSeparation() {
+    System.out.println("\n>>> TEST 9: Investment separation test");
+
+    // Test explicit investment question
+    qwenProvider.resetInvocationStats();
+    var respInvest = cognitiveRuntime.execute(
+        "kya mujhe Sharma Wedding me 50000 invest karna chahiye?",
+        sessionId, "", null, qwenProvider);
+
+    assertThat(qwenProvider.getModelInvocationCount()).isGreaterThan(0);
+    assertThat(respInvest.goal()).isNotNull();
+    assertThat(respInvest.goal().operation()).isEqualTo(EveOperation.DECISION_SUPPORT);
+    // Explicit investment query must inspect finance position
+    assertThat(respInvest.evidence()).anyMatch(e -> "FINANCE".equalsIgnoreCase(e.domain()));
+
+    // Test crew allocation question immediately after
+    qwenProvider.resetInvocationStats();
+    var respCrew = cognitiveRuntime.execute(
+        "kya mujhe Sharma Wedding me 4 log bhejne chahiye?",
+        sessionId, "", null, qwenProvider);
+
+    assertThat(qwenProvider.getModelInvocationCount()).isGreaterThan(0);
+    assertThat(respCrew.goal()).isNotNull();
+    assertThat(respCrew.goal().operation()).isEqualTo(EveOperation.DECISION_SUPPORT);
+    assertThat(respCrew.evidence()).anyMatch(e -> "CREW".equalsIgnoreCase(e.domain()));
+    assertThat(respCrew.answer()).doesNotContain("50,000");
+    assertThat(respCrew.answer()).doesNotContainIgnoringCase("invest");
   }
 }

@@ -146,14 +146,14 @@ public class TestModelProvider implements EveModelProvider, EveResponseComposer 
       String rawEntity = mShort.group(1).trim();
       String lowerRaw = rawEntity.toLowerCase(Locale.ROOT);
       if (!lowerRaw.contains("associated") && !lowerRaw.contains("which") && !lowerRaw.contains("kiske")) {
-        boolean isPronoun = !lowerRaw.contains("mips") && (EveRetrievalRouter.isPronoun(rawEntity)
+        boolean isPronoun = (EveRetrievalRouter.isPronoun(rawEntity)
             || lowerRaw.matches("(?i)^(?:us|is|that|this)\\s+(?:event|production)(?:\\s+ka|\\s+ke|\\s+ki)?.*")
             || lowerRaw.matches("(?i)^(?:uska|uski|uske|iska|iski|iske|unka|unki|unke).*"));
         String entity = isPronoun ? "uska" : toTitleCase(cleanEntity(rawEntity));
         boolean followUp = isPronoun;
         String slot = mShort.group(2).toLowerCase(Locale.ROOT);
         if ((slot.equals("kaun hai") || slot.equals("kon hai")) && (lowerRaw.contains("client") || lowerRaw.contains("customer"))) {
-          boolean isClientPronoun = !lowerRaw.contains("mips") && (EveRetrievalRouter.isPronoun(rawEntity)
+          boolean isClientPronoun = (EveRetrievalRouter.isPronoun(rawEntity)
               || lowerRaw.matches("(?i)^(?:us|is|that|this)\\s+(?:event|production)(?:\\s+ka|\\s+ke|\\s+ki)?.*")
               || lowerRaw.matches("(?i)^(?:uska|uski|uske|iska|iski|iske|unka|unki|unke).*"));
           String cleanProd = isClientPronoun ? "uska" : toTitleCase(cleanEntity(rawEntity.replaceAll("(?i)\\b(client|customer)\\b", "").trim()));
@@ -371,7 +371,7 @@ public class TestModelProvider implements EveModelProvider, EveResponseComposer 
     if (isClientQuery) {
       String spoken = null;
       boolean followUp = false;
-      boolean isPronounFollowUp = !lower.contains("mips") && (EveRetrievalRouter.isPronoun(lower)
+      boolean isPronounFollowUp = (EveRetrievalRouter.isPronoun(lower)
           || lower.matches("(?i)^(?:is|us)\\s+event(?:\\s+ka|\\s+ke|\\s+ki)?\\s+(?:client|customer|party).*")
           || lower.matches("(?i)^(?:iska|uska)\\s+(?:client|customer|party).*")
           || lower.startsWith("iska client") || lower.startsWith("uska client")
@@ -541,12 +541,12 @@ public class TestModelProvider implements EveModelProvider, EveResponseComposer 
 
     // 14. Headquarters / Equipment inventory & stock availability queries
     // E.g.: "hamare paas kitna Gaffer Tape hai?", "Stand kitna available hai?", "tape ka stock?", "how much gaffer tape do we have in stock?"
-    boolean hasEquipmentKeyword = lower.contains("gaffer tape") || lower.contains("tape") || lower.contains("c-stand")
-        || (lower.contains("stand") && !lower.contains("outstanding")) || lower.contains("flight case")
-        || (lower.contains("case") && !lower.contains("client")) || lower.contains("led light")
-        || lower.contains("light panel") || lower.contains("camera package") || lower.contains("camera") || lower.contains("audio kit")
+    boolean hasEquipmentKeyword = lower.contains("tape") || (lower.contains("stand") && !lower.contains("outstanding"))
+        || (lower.contains("case") && !lower.contains("client")) || lower.contains("light")
+        || lower.contains("camera") || lower.contains("audio") || lower.contains("mic")
         || lower.contains("battery") || lower.contains("batteries") || lower.contains("equipment") || lower.contains("gear")
-        || lower.contains("prop") || lower.contains("props") || lower.contains("stock") || lower.contains("inventory");
+        || lower.contains("prop") || lower.contains("props") || lower.contains("stock") || lower.contains("inventory")
+        || lower.contains("speaker") || lower.contains("cable") || lower.contains("projector");
 
     boolean isExplicitHqEquipmentStockQuery = (lower.contains("hamare paas") || lower.contains("hamare pass")
         || lower.contains("do we have") || lower.contains("in stock") || lower.contains("inventory count"))

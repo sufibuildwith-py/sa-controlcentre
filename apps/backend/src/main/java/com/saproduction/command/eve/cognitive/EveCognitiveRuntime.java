@@ -83,7 +83,7 @@ public class EveCognitiveRuntime {
         productionMemberRepo,
         workTaskRepo,
         employeeRepo,
-        new EveDecisionSupportService(productionRepo, null, retrievalService),
+        new EveDecisionSupportService(productionRepo, null, retrievalService, productionMemberRepo, workTaskRepo),
         new EveGeneralReasoningService(),
         new EveCapabilityRegistry());
   }
@@ -148,22 +148,24 @@ public class EveCognitiveRuntime {
       }
     }
 
-    // 0B. EXTERNAL CAPABILITY BOUNDARY: WEATHER
+    // 0B. EXTERNAL CAPABILITY BOUNDARY (Weather, Stocks/Markets, Flights, Sports)
     String lowerPrompt = prompt.trim().toLowerCase(Locale.ROOT);
-    if (lowerPrompt.contains("mausam") || lowerPrompt.contains("weather") || lowerPrompt.contains("forecast") || lowerPrompt.contains("barish") || lowerPrompt.contains("rain")) {
-      var weatherRes = generalReasoningService.handleExternalWeather(prompt, language, reasoningSteps, stepSeq);
+    Optional<String> extCategory = detectExternalCapabilityCategory(lowerPrompt);
+    if (extCategory.isPresent()) {
+      String cat = extCategory.get();
+      var extRes = generalReasoningService.handleExternalCapability(prompt, cat, language, reasoningSteps, stepSeq);
       return new CognitiveResult(
-          weatherRes.outcome().name(),
-          weatherRes.answer(),
-          List.of(new EveDtos.EvidenceItem("CAPABILITY", "External Service", "weather (unsupported in offline mode)")),
+          extRes.outcome().name(),
+          extRes.answer(),
+          List.of(new EveDtos.EvidenceItem("CAPABILITY", "External Service", cat.toLowerCase(Locale.ROOT) + " (unsupported in offline mode)")),
           List.of(),
-          weatherRes.reasoningSteps(),
+          extRes.reasoningSteps(),
           List.of(),
           null);
     }
 
-    // 0C. GENERAL RECOMMENDATION: LUNCH / CATERING
-    if (lowerPrompt.contains("lunch") || lowerPrompt.contains("khana") || lowerPrompt.contains("menu") || lowerPrompt.contains("paneer") || lowerPrompt.contains("serve")) {
+    // 0C. GENERAL RECOMMENDATION: CATERING / WORKFLOW / LOGISTICS
+    if (isGeneralRecommendationQuery(lowerPrompt)) {
       var recRes = generalReasoningService.handleGeneralRecommendation(prompt, language, reasoningSteps, stepSeq);
       return new CognitiveResult(
           recRes.outcome().name(),
@@ -177,7 +179,8 @@ public class EveCognitiveRuntime {
 
     // 0D. CANDIDATE SET DISAMBIGUATION / ORDINAL SELECTION ("wahi second wala", "2nd wala", "dusra wala")
     boolean isOrdinal = lowerPrompt.contains("second") || lowerPrompt.contains("2nd") || lowerPrompt.contains("dusra")
-        || lowerPrompt.contains("doosra") || lowerPrompt.contains("first") || lowerPrompt.contains("1st") || lowerPrompt.contains("pehla");
+        || lowerPrompt.contains("doosra") || lowerPrompt.contains("first") || lowerPrompt.contains("1st") || lowerPrompt.contains("pehla")
+        || lowerPrompt.contains("third") || lowerPrompt.contains("3rd") || lowerPrompt.contains("teesra");
     if (isOrdinal && (lowerPrompt.contains("wala") || lowerPrompt.contains("wahi") || lowerPrompt.contains("item") || lowerPrompt.contains("one") || lowerPrompt.length() < 30)) {
       if (routerContext == null || !routerContext.hasPendingCandidates()) {
         reasoningSteps.add(EveReasoningStep.of(stepSeq++, "DISAMBIGUATION_CHECK", "Ordinal selection received but no candidate set active in session."));
@@ -187,32 +190,11 @@ public class EveCognitiveRuntime {
         } else if (language == EveLanguageDetector.UserLanguage.HINDI) {
           ans = "आप किस सूची के आइटम की बात कर रहे हैं? हमारे पास अभी कोई सक्रिय विकल्प सूची नहीं है।";
         } else {
-          ans = "Kaunsi list ki second item ki baat kar rahe ho? Hamari conversation me abhi koi candidate list active nahi hai.";
+          ans = "Kaunsi list ki candidate item ki baat kar rahe ho? Hamari conversation me abhi koi candidate list active nahi hai.";
         }
         reasoningSteps.add(EveReasoningStep.of(stepSeq, "ANSWER", ans));
         return new CognitiveResult("CLARIFICATION_REQUIRED", ans, List.of(), List.of(), reasoningSteps, List.of(), null);
       }
-    }
-
-    // 0E. DECISION SUPPORT / PROFIT INQUIRY ("50000 sharma wedding me invest...", "MIPS ka profit kitna hoga?")
-    boolean isDecision = lowerPrompt.contains("invest") || lowerPrompt.contains("kya mujhe") || lowerPrompt.contains("should i")
-        || lowerPrompt.contains("profit") || lowerPrompt.contains("fayda") || lowerPrompt.contains("margin");
-    if (isDecision) {
-      String metric = (lowerPrompt.contains("profit") || lowerPrompt.contains("margin")) ? "PROFIT" : "INVESTMENT";
-      Long amountMinor = null;
-      if (lowerPrompt.contains("50000") || lowerPrompt.contains("50,000") || lowerPrompt.contains("50k")) {
-        amountMinor = 5000000L;
-      }
-      String targetPhrase = extractProductionName(lowerPrompt);
-      var decRes = decisionSupportService.evaluate(prompt, targetPhrase, metric, amountMinor, language, reasoningSteps, stepSeq);
-      return new CognitiveResult(
-          decRes.outcome().name(),
-          decRes.answer(),
-          decRes.evidence(),
-          decRes.referencedEntities(),
-          decRes.reasoningSteps(),
-          List.of(),
-          null);
     }
 
     // 1. UNDERSTANDING & GOAL FORMULATION
@@ -265,6 +247,13 @@ public class EveCognitiveRuntime {
       return new CognitiveResult("SYSTEM_UNAVAILABLE", "Execution budget exceeded.", allEvidence, allEntities, reasoningSteps, List.of(), goal);
     }
 
+    // 2B. DECISION SUPPORT & RECOMMENDATION
+    if (goal.operation() == EveOperation.DECISION_SUPPORT
+        || "DECISION_SUPPORT".equalsIgnoreCase(goal.goal())
+        || goal.operation() == EveOperation.RECOMMEND) {
+      return executeDecisionSupport(prompt, goal, language, routerContext, sessionContext, reasoningSteps, stepSeq);
+    }
+
     // A. COUNT PRODUCTIONS (e.g. "next week kitne events hai")
     if (goal.operation() == EveOperation.COUNT && "PRODUCTION".equalsIgnoreCase(goal.entityType())) {
       return executeCountProductions(goal, dateRange, reasoningSteps, stepSeq);
@@ -297,6 +286,61 @@ public class EveCognitiveRuntime {
 
     // F. DEFAULT BOUNDED TOOL DISPATCH
     return executeStandardToolGoal(goal, reasoningSteps, stepSeq);
+  }
+
+  private CognitiveResult executeDecisionSupport(
+      String prompt,
+      EveGoal goal,
+      EveLanguageDetector.UserLanguage language,
+      EveRetrievalRouter.SessionContext routerContext,
+      String sessionContext,
+      List<EveReasoningStep> reasoningSteps,
+      int stepSeq) {
+
+    String metric = "OPERATIONAL";
+    if (goal.constraints() != null && goal.constraints().get("decisionMetric") != null) {
+      metric = String.valueOf(goal.constraints().get("decisionMetric")).toUpperCase(Locale.ROOT);
+    } else {
+      String lower = prompt.toLowerCase(Locale.ROOT);
+      if (lower.contains("profit") || lower.contains("margin") || lower.contains("fayda") || lower.contains("munafa")) {
+        metric = "PROFIT";
+      } else if (lower.contains("invest") || lower.contains("capital") || lower.contains("paisa lagana") || lower.contains("paise lagana")) {
+        metric = "INVESTMENT";
+      } else if (lower.contains("crew") || lower.contains("logo") || lower.contains("log") || lower.contains("people")
+          || lower.contains("person") || lower.contains("members") || lower.contains("staff") || lower.contains("bande")
+          || lower.contains("bhejna") || lower.contains("send") || lower.contains("assign") || lower.contains("depute")) {
+        metric = "CREW_ALLOCATION";
+      }
+    }
+
+    Long amountMinor = null;
+    if (goal.constraints() != null && goal.constraints().get("amountMinor") != null) {
+      Object amtObj = goal.constraints().get("amountMinor");
+      if (amtObj instanceof Number num) {
+        amountMinor = num.longValue();
+      }
+    }
+    if (amountMinor == null) {
+      amountMinor = extractAmountMinor(prompt.toLowerCase(Locale.ROOT));
+    }
+
+    String targetPhrase = null;
+    if (goal.entityReferences() != null && !goal.entityReferences().isEmpty()) {
+      targetPhrase = goal.entityReferences().get(0);
+    }
+    if (targetPhrase == null || targetPhrase.isBlank()) {
+      targetPhrase = extractProductionName(prompt.toLowerCase(Locale.ROOT), routerContext, sessionContext);
+    }
+
+    var decRes = decisionSupportService.evaluate(prompt, targetPhrase, metric, amountMinor, language, reasoningSteps, stepSeq);
+    return new CognitiveResult(
+        decRes.outcome().name(),
+        decRes.answer(),
+        decRes.evidence(),
+        decRes.referencedEntities(),
+        decRes.reasoningSteps(),
+        List.of(),
+        goal);
   }
 
   private CognitiveResult executeCountProductions(
@@ -424,8 +468,8 @@ public class EveCognitiveRuntime {
     UUID targetEmpId = null;
     String targetEmpName = crewTarget;
     if (crewTarget != null && !crewTarget.isBlank()) {
-      var empRes = retrievalService.resolveEmployee(crewTarget);
-      if (empRes.resolved() != null) {
+      var empRes = retrievalService != null ? retrievalService.resolveEmployee(crewTarget) : null;
+      if (empRes != null && empRes.resolved() != null) {
         targetEmpId = empRes.resolved().id();
         targetEmpName = empRes.resolved().displayName();
         reasoningSteps.add(EveReasoningStep.of(
@@ -764,6 +808,28 @@ public class EveCognitiveRuntime {
     boolean isTask = lower.contains("task") || lower.contains("tasks") || lower.contains("pending task") || lower.contains("pending kaam") || lower.contains("kaam");
     boolean isMost = lower.contains("most") || lower.contains("highest") || lower.contains("sabse jyada") || lower.contains("sabse zyada");
 
+    // Profit / Margin / Financial Forecast inquiry (e.g. "MIPS event ka profit kitna hoga?")
+    if (lower.contains("profit") || lower.contains("margin") || lower.contains("munafa") || lower.contains("fayda")) {
+      String targetPhrase = extractProductionName(lower, routerContext, sessionContext);
+      reasoningSteps.add(EveReasoningStep.of(
+          stepSeq,
+          "GOAL_INTERPRETATION",
+          String.format("Identified profit inquiry for %s.", targetPhrase != null ? targetPhrase : "production")));
+      return new EveGoal(
+          "DECISION_SUPPORT",
+          EveOperation.DECISION_SUPPORT,
+          "PRODUCTION",
+          targetPhrase != null ? List.of(targetPhrase) : List.of(),
+          Map.of("decisionMetric", "PROFIT"),
+          null,
+          null,
+          "Financial records and profit forecast",
+          "Verification against authoritative billing and disbursements",
+          0.95,
+          false,
+          null);
+    }
+
     // "which production has the most pending tasks?" / "Jo event sabse zyada pending kaam wala hai..."
     if (isMost && (isTask || lower.contains("pending"))) {
       reasoningSteps.add(EveReasoningStep.of(
@@ -839,25 +905,27 @@ public class EveCognitiveRuntime {
     }
 
     // Count crew in production (e.g. "Sharma wedding me kitne log kaam kar rahe hain?")
-    if (isCount && isCrew && (lower.contains("wedding") || lower.contains("event") || lower.contains("sharma") || lower.contains("reception") || lower.contains("summit"))) {
-      String prodName = extractProductionName(lower);
-      reasoningSteps.add(EveReasoningStep.of(
-          stepSeq,
-          "GOAL_INTERPRETATION",
-          String.format("Identified crew count query for production \"%s\".", prodName)));
-      return new EveGoal(
-          "COUNT_PRODUCTION_CREW",
-          EveOperation.COUNT,
-          "CREW",
-          List.of(prodName),
-          Map.of("productionTitle", prodName),
-          null,
-          null,
-          "Crew members assigned to " + prodName,
-          "Total crew count computed from production_members ledger",
-          0.95,
-          false,
-          null);
+    if (isCount && isCrew) {
+      String prodName = extractProductionNameForCrewCount(lower, routerContext);
+      if (prodName != null) {
+        reasoningSteps.add(EveReasoningStep.of(
+            stepSeq,
+            "GOAL_INTERPRETATION",
+            String.format("Identified crew count query for production \"%s\".", prodName)));
+        return new EveGoal(
+            "COUNT_PRODUCTION_CREW",
+            EveOperation.COUNT,
+            "CREW",
+            List.of(prodName),
+            Map.of("productionTitle", prodName),
+            null,
+            null,
+            "Crew members assigned to " + prodName,
+            "Total crew count computed from production_members ledger",
+            0.95,
+            false,
+            null);
+      }
     }
 
     // Count productions in time range (e.g. "next week kitne events hai")
@@ -906,6 +974,53 @@ public class EveCognitiveRuntime {
           null);
     }
 
+    // Decision Support / Operational & Staffing Recommendations (e.g. "kya mujhe sharma wedding me 4 log bhejna chahiye?", "MIPS event ka profit kitna hoga?")
+    boolean isDecision = lower.contains("invest") || lower.contains("kya mujhe") || lower.contains("should i")
+        || lower.contains("kya hume") || lower.contains("should we")
+        || lower.contains("profit") || lower.contains("fayda") || lower.contains("margin")
+        || lower.contains("sahi rahega") || lower.contains("enough") || lower.contains("chahiye");
+    if (isDecision && (isProduction || lower.contains("wedding") || lower.contains("event") || lower.contains("expo")
+        || lower.contains("invest") || lower.contains("profit") || lower.contains("margin") || lower.contains("crew") || lower.contains("log") || lower.contains("bande")
+        || lower.contains("people") || lower.contains("staff") || lower.contains("assign") || lower.contains("bhejna") || lower.contains("send"))) {
+      String metric = "OPERATIONAL";
+      if (lower.contains("profit") || lower.contains("margin") || lower.contains("fayda") || lower.contains("munafa")) {
+        metric = "PROFIT";
+      } else if (lower.contains("invest") || lower.contains("capital") || lower.contains("paisa lagana") || lower.contains("paise lagana")) {
+        metric = "INVESTMENT";
+      } else if (lower.contains("crew") || lower.contains("logo") || lower.contains("log") || lower.contains("people")
+          || lower.contains("person") || lower.contains("members") || lower.contains("staff") || lower.contains("bande")
+          || lower.contains("bhejna") || lower.contains("send") || lower.contains("assign") || lower.contains("depute")) {
+        metric = "CREW_ALLOCATION";
+      }
+      String targetPhrase = extractProductionName(lower, routerContext, sessionContext);
+      Long amountMinor = extractAmountMinor(lower);
+
+      Map<String, Object> constraints = new HashMap<>();
+      constraints.put("decisionMetric", metric);
+      if (amountMinor != null) {
+        constraints.put("amountMinor", amountMinor);
+      }
+
+      reasoningSteps.add(EveReasoningStep.of(
+          stepSeq,
+          "GOAL_INTERPRETATION",
+          String.format("Identified decision support goal: metric=%s, target=%s.", metric, targetPhrase != null ? targetPhrase : "unspecified")));
+
+      return new EveGoal(
+          "DECISION_SUPPORT",
+          EveOperation.DECISION_SUPPORT,
+          "PRODUCTION",
+          targetPhrase != null ? List.of(targetPhrase) : List.of(),
+          constraints,
+          null,
+          null,
+          "Authoritative domain facts for operational decision support",
+          "Objective evidence verified from canonical ledgers",
+          0.95,
+          false,
+          null);
+    }
+
     // Single production or employee lookup fallback
     return new EveGoal(
         "GENERAL_LOOKUP",
@@ -922,23 +1037,174 @@ public class EveCognitiveRuntime {
         null);
   }
 
-  private String extractCrewName(String lower) {
-    String[] commonNames = {"kabir", "rohan", "zoya", "aisha", "sara", "aarav", "imran", "neha", "priya", "mohit", "manav"};
-    for (String name : commonNames) {
-      if (lower.contains(name)) {
-        return name.substring(0, 1).toUpperCase(Locale.ROOT) + name.substring(1);
+  private Optional<String> detectExternalCapabilityCategory(String lower) {
+    if (lower.contains("mausam") || lower.contains("weather") || lower.contains("forecast")
+        || lower.contains("barish") || lower.contains("rain") || lower.contains("temperature") || lower.contains("tapman")) {
+      return Optional.of("WEATHER");
+    }
+    if (lower.contains("share price") || lower.contains("stock price") || lower.contains("sensex")
+        || lower.contains("nifty") || lower.contains("crypto") || lower.contains("forex") || lower.contains("bitcoin")) {
+      return Optional.of("FINANCE_MARKET");
+    }
+    if (lower.contains("flight status") || lower.contains("flight") || lower.contains("pnr") || lower.contains("live traffic")) {
+      if (!lower.contains("flight case") && !lower.contains("case")) {
+        return Optional.of("TRAVEL_TRANSIT");
+      }
+    }
+    if (lower.contains("cricket score") || lower.contains("match score") || lower.contains("live score")) {
+      return Optional.of("LIVE_SPORTS");
+    }
+    return Optional.empty();
+  }
+
+  private boolean isGeneralRecommendationQuery(String lower) {
+    boolean isFood = lower.contains("lunch") || lower.contains("khana") || lower.contains("menu")
+        || lower.contains("meal") || lower.contains("serve") || lower.contains("dinner")
+        || lower.contains("breakfast") || lower.contains("food") || lower.contains("catering");
+    boolean isSuggest = lower.contains("recommend") || lower.contains("suggestion") || lower.contains("suggest")
+        || lower.contains("kya mangaayein") || lower.contains("kya order kare") || lower.contains("kya serve karein")
+        || lower.contains("kya banwaye");
+    boolean isOperationalAdvice = lower.contains("kaise distribute") || lower.contains("kaise manage")
+        || lower.contains("kaise handle") || lower.contains("kaise plan")
+        || lower.contains("how should we") || lower.contains("how to distribute") || lower.contains("best way to");
+    return isFood || ((isSuggest || isOperationalAdvice) && !lower.contains("event") && !lower.contains("production") && !lower.contains("invest"));
+  }
+
+  private Long extractAmountMinor(String lower) {
+    var p = java.util.regex.Pattern.compile("(?i)\\b(\\d{1,7})\\s*(k|thousand|lakh|lac)?\\b");
+    var m = p.matcher(lower);
+    while (m.find()) {
+      long val = Long.parseLong(m.group(1));
+      String mult = m.group(2);
+      if (mult != null) {
+        mult = mult.toLowerCase(Locale.ROOT);
+        if (mult.equals("k") || mult.equals("thousand")) {
+          val *= 1000L;
+        } else if (mult.equals("lakh") || mult.equals("lac")) {
+          val *= 100000L;
+        }
+      }
+      if (val >= 100) {
+        return val * 100L;
       }
     }
     return null;
   }
 
-  private String extractProductionName(String lower) {
-    if (lower.contains("sharma wedding")) return "Sharma Wedding";
-    if (lower.contains("sharma reception")) return "Sharma Reception";
-    if (lower.contains("arora")) return "Arora Corporate Summit";
-    if (lower.contains("kapoor product")) return "Kapoor Product Launch";
-    if (lower.contains("mehta")) return "Mehta Family Wedding";
-    if (lower.contains("technova")) return "TechNova Annual Meet";
-    return "Sharma Wedding";
+  private String extractProductionName(String lower, EveRetrievalRouter.SessionContext routerContext, String sessionContext) {
+    if (routerContext != null && routerContext.getLastReferencedProduction() != null) {
+      if (lower.contains("usme") || lower.contains("uska") || lower.contains("us event") || lower.contains("that event") || lower.contains("this event")) {
+        return routerContext.getLastReferencedProduction().displayName();
+      }
+    }
+
+    var p1 = java.util.regex.Pattern.compile("(?i)(?:invest(?:ing)?\\s+(?:in\\s+)?|kya\\s+mujhe\\s+(?:\\d+[kK]?\\s+)?)(.+?)(?:\\s+(?:wale|wali|ke|ka|ki)?\\s+(?:event|production)|\\s+me|\\s+mein|\\s+invest|$)");
+    var m1 = p1.matcher(lower);
+    if (m1.find()) {
+      String cand = cleanEntityPhrase(m1.group(1));
+      if (!cand.isBlank()) return toTitleCase(cand);
+    }
+
+    var p2 = java.util.regex.Pattern.compile("(?i)^(.+?)(?:\\s+(?:wale|wali|ke|ka|ki)?\\s+(?:event|production)|\\s+me|\\s+mein|\\s+ka\\s+profit|\\s+profit)");
+    var m2 = p2.matcher(lower);
+    if (m2.find()) {
+      String cand = cleanEntityPhrase(m2.group(1));
+      if (!cand.isBlank()) return toTitleCase(cand);
+    }
+
+    if (productionRepo != null) {
+      for (var p : productionRepo.findAll()) {
+        if (p.title != null && lower.contains(p.title.toLowerCase(Locale.ROOT))) {
+          return p.title;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  private String extractCrewName(String lower) {
+    var p = java.util.regex.Pattern.compile("(?i)(?:jisme|involving|with|featuring)\\s+([a-zA-Z\\u0900-\\u097F]+?)(?:\\s+(?:hai|ho|aur|and|is|kaam|tasks?|pending|me|mein|ke|ki|ka|tha|the)\\b|$)");
+    var m = p.matcher(lower);
+    if (m.find()) {
+      String cand = m.group(1).trim();
+      if (!cand.equalsIgnoreCase("open") && !cand.equalsIgnoreCase("pending") && !cand.equalsIgnoreCase("task") && !cand.equalsIgnoreCase("event")) {
+        return toTitleCase(cand);
+      }
+    }
+
+    if (employeeRepo != null) {
+      for (var emp : employeeRepo.findAll()) {
+        String empName = emp.displayName != null ? emp.displayName : emp.firstName;
+        if (empName != null && !empName.isBlank() && lower.contains(empName.toLowerCase(Locale.ROOT))) {
+          return empName;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  private String extractProductionNameForCrewCount(String lower, EveRetrievalRouter.SessionContext routerContext) {
+    if (routerContext != null && routerContext.getLastReferencedProduction() != null) {
+      if (lower.contains("usme") || lower.contains("iska") || lower.contains("uska") || lower.contains("there")) {
+        return routerContext.getLastReferencedProduction().displayName();
+      }
+    }
+
+    var p1 = java.util.regex.Pattern.compile("(?i)^(.+?)(?:\\s+(?:wale|wali|ke|ka|ki)?\\s+(?:event|production))?\\s+me\\s+kitne\\s+(?:log|crew|members|people|staff)");
+    var m1 = p1.matcher(lower);
+    if (m1.find()) {
+      String cand = cleanEntityPhrase(m1.group(1));
+      if (!cand.isBlank()) return toTitleCase(cand);
+    }
+
+    var p2 = java.util.regex.Pattern.compile("(?i)(?:how many (?:crew|people|members|staff) (?:are )?(?:working )?(?:on|in|for)|crew count (?:for|on|in))\\s+(.+?)(?:\\?|$|\\.)");
+    var m2 = p2.matcher(lower);
+    if (m2.find()) {
+      String cand = cleanEntityPhrase(m2.group(1));
+      if (!cand.isBlank()) return toTitleCase(cand);
+    }
+
+    if (productionRepo != null) {
+      for (var p : productionRepo.findAll()) {
+        if (p.title != null && lower.contains(p.title.toLowerCase(Locale.ROOT))) {
+          return p.title;
+        }
+      }
+    }
+
+    if (lower.contains("me kitne") || lower.contains("mein kitne")) {
+      int idx = lower.contains("me kitne") ? lower.indexOf("me kitne") : lower.indexOf("mein kitne");
+      String sub = cleanEntityPhrase(lower.substring(0, idx));
+      if (!sub.isBlank()) return toTitleCase(sub);
+    }
+
+    return null;
+  }
+
+  private String cleanEntityPhrase(String s) {
+    if (s == null) return "";
+    return s.replaceAll("(?i)\\b(kya mujhe|should i|invest in|invest|aur|and|the|event|production|wale|wali|ke|ka|ki)\\b", " ")
+        .replaceAll("[^a-zA-Z0-9\\s'-]", " ")
+        .trim()
+        .replaceAll("\\s+", " ");
+  }
+
+  private String toTitleCase(String s) {
+    if (s == null || s.isBlank()) return "";
+    String[] parts = s.split("\\s+");
+    StringBuilder sb = new StringBuilder();
+    for (int i = 0; i < parts.length; i++) {
+      if (i > 0) sb.append(" ");
+      String p = parts[i];
+      if (!p.isEmpty()) {
+        sb.append(Character.toUpperCase(p.charAt(0)));
+        if (p.length() > 1) {
+          sb.append(p.substring(1).toLowerCase(Locale.ROOT));
+        }
+      }
+    }
+    return sb.toString();
   }
 }

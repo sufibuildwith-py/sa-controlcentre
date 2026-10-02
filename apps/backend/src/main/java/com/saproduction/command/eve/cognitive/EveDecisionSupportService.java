@@ -32,15 +32,28 @@ public class EveDecisionSupportService {
   private final ProductionRepository productionRepo;
   private final FinanceReadService financeReads;
   private final EveRetrievalService retrievalService;
+  private final com.saproduction.command.production.ProductionMemberRepository memberRepo;
+  private final com.saproduction.command.work.WorkTaskRepository taskRepo;
 
   @Autowired
   public EveDecisionSupportService(
       @Autowired(required = false) ProductionRepository productionRepo,
       @Autowired(required = false) FinanceReadService financeReads,
-      EveRetrievalService retrievalService) {
+      EveRetrievalService retrievalService,
+      @Autowired(required = false) com.saproduction.command.production.ProductionMemberRepository memberRepo,
+      @Autowired(required = false) com.saproduction.command.work.WorkTaskRepository taskRepo) {
     this.productionRepo = productionRepo;
     this.financeReads = financeReads;
     this.retrievalService = retrievalService;
+    this.memberRepo = memberRepo;
+    this.taskRepo = taskRepo;
+  }
+
+  public EveDecisionSupportService(
+      ProductionRepository productionRepo,
+      FinanceReadService financeReads,
+      EveRetrievalService retrievalService) {
+    this(productionRepo, financeReads, retrievalService, null, null);
   }
 
   public record DecisionSupportResult(
@@ -97,13 +110,119 @@ public class EveDecisionSupportService {
       return handleProfitInquiry(targetProd, language, entities, evidence, steps, seq);
     }
 
-    // 3. Investment Decision (e.g. "kya mujhe 50000 sharma wedding wale event me invest karne chahiye?")
-    if (prompt.toLowerCase(Locale.ROOT).contains("invest") || prompt.toLowerCase(Locale.ROOT).contains("kya mujhe") || prompt.toLowerCase(Locale.ROOT).contains("should i")) {
+    // 3. Crew / Staffing Allocation Decision (e.g. "kya mujhe sharma wedding me 4 logo ko bhejna chahiye?", "should I assign 5 crew members?")
+    if ("CREW_ALLOCATION".equalsIgnoreCase(requestedMetric)) {
+      Integer requestedCount = extractRequestedCount(prompt);
+      return handleCrewAllocationDecision(targetProd, requestedCount, language, entities, evidence, steps, seq);
+    }
+
+    // 4. Financial Investment Decision (ONLY when investment/capital is explicitly mentioned)
+    if ("INVESTMENT".equalsIgnoreCase(requestedMetric) || prompt.toLowerCase(Locale.ROOT).contains("invest") || prompt.toLowerCase(Locale.ROOT).contains("capital")) {
       return handleInvestmentDecision(targetProd, mentionedAmountMinor, language, entities, evidence, steps, seq);
     }
 
-    // 4. General Decision Support
+    // 5. General Decision Support
     return handleGeneralDecision(targetProd, language, entities, evidence, steps, seq);
+  }
+
+  private Integer extractRequestedCount(String prompt) {
+    if (prompt == null) return null;
+    var p = java.util.regex.Pattern.compile("(?i)\\b(\\d+)\\s*(?:logo|log|people|person|members?|crew|staff|bande)\\b");
+    var m = p.matcher(prompt);
+    if (m.find()) {
+      try {
+        return Integer.parseInt(m.group(1));
+      } catch (NumberFormatException ignored) {}
+    }
+    return null;
+  }
+
+  private DecisionSupportResult handleCrewAllocationDecision(
+      Production prod,
+      Integer requestedCount,
+      EveLanguageDetector.UserLanguage language,
+      List<EveDtos.EntityReference> entities,
+      List<EveDtos.EvidenceItem> evidence,
+      List<EveReasoningStep> steps,
+      int seq) {
+
+    if (prod == null) {
+      String msg = language == EveLanguageDetector.UserLanguage.ENGLISH
+          ? "I couldn't identify the production for this crew decision. Please specify the event name."
+          : "Main event ka naam confirm nahi kar paayi. Kripya event ka naam batayein.";
+      return new DecisionSupportResult(msg, EveOutcome.CLARIFICATION_REQUIRED, entities, evidence, steps);
+    }
+
+    int currentCrewCount = 0;
+    if (memberRepo != null) {
+      try {
+        currentCrewCount = memberRepo.findAllByProductionIdOrderByCreatedAt(prod.id).size();
+      } catch (Exception ignored) {}
+    }
+
+    long openTasks = 0;
+    if (taskRepo != null) {
+      try {
+        openTasks = taskRepo.countByProductionIdAndStatusNotIn(prod.id, List.of(com.saproduction.command.work.WorkTask.Status.DONE, com.saproduction.command.work.WorkTask.Status.CANCELLED));
+      } catch (Exception ignored) {}
+    }
+
+    steps.add(EveReasoningStep.tool(
+        seq++,
+        "RETRIEVAL",
+        String.format("Retrieved assigned crew (%d members) and open tasks (%d tasks) for production: %s",
+            currentCrewCount, openTasks, prod.title),
+        "ProductionMemberRepository / WorkTaskRepository"));
+
+    evidence.add(new EveDtos.EvidenceItem("PRODUCTION", "Status", String.valueOf(prod.status)));
+    if (prod.eventDate != null) {
+      evidence.add(new EveDtos.EvidenceItem("PRODUCTION", "Event Date", prod.eventDate.toString()));
+    }
+    evidence.add(new EveDtos.EvidenceItem("CREW", "Current Assigned Members", String.valueOf(currentCrewCount)));
+    evidence.add(new EveDtos.EvidenceItem("WORK_TASK", "Pending Tasks", String.valueOf(openTasks)));
+    evidence.add(new EveDtos.EvidenceItem("SYSTEM", "Staffing Requirement Quota", "Not authoritatively defined in SA Command"));
+
+    steps.add(EveReasoningStep.of(
+        seq++,
+        "EVIDENCE_EVALUATION",
+        String.format("Authoritative data shows %d assigned crew member(s) and %d open task(s). Fixed staffing requirement quota is unrecorded.",
+            currentCrewCount, openTasks)));
+
+    String dateStr = prod.eventDate != null ? prod.eventDate.toString() : "scheduled date";
+    String answer;
+    if (language == EveLanguageDetector.UserLanguage.ENGLISH) {
+      if (requestedCount != null) {
+        answer = String.format(
+            "For %s (Date: %s, Status: %s), there are currently %d crew member(s) assigned and %d open task(s). "
+                + "SA Command does not maintain an authoritative staffing requirement or quota for this production, "
+                + "so I cannot determine with certainty whether sending %d people is the right number. "
+                + "That operational decision depends on your on-site scope and role requirements.",
+            prod.title, dateStr, prod.status, currentCrewCount, openTasks, requestedCount);
+      } else {
+        answer = String.format(
+            "For %s (Date: %s, Status: %s), there are currently %d crew member(s) assigned and %d open task(s). "
+                + "SA Command does not maintain an authoritative staffing requirement or quota for this production, "
+                + "so that operational staffing decision depends on your on-site scope and role requirements.",
+            prod.title, dateStr, prod.status, currentCrewCount, openTasks);
+      }
+    } else {
+      if (requestedCount != null) {
+        answer = String.format(
+            "%s ke liye (Date: %s, Status: %s), abhi %d crew member(s) assigned hain aur %d open task(s) hain. "
+                + "SA Command me is production ke liye koi authoritative staffing quota ya fixed requirement defined nahi hai, "
+                + "isliye main nischit roop se nahi keh sakti ki %d log bhejna sahi rahega ya nahi. "
+                + "Yeh operational faisla on-site kaam aur role requirements ke hisaab se lena hoga.",
+            prod.title, dateStr, prod.status, currentCrewCount, openTasks, requestedCount);
+      } else {
+        answer = String.format(
+            "%s ke liye (Date: %s, Status: %s), abhi %d crew member(s) assigned hain aur %d open task(s) hain. "
+                + "SA Command me is production ke liye koi fixed staffing quota defined nahi hai, "
+                + "isliye yeh staffing faisla on-site kaam aur requirements ke hisaab se lena hoga.",
+            prod.title, dateStr, prod.status, currentCrewCount, openTasks);
+      }
+    }
+
+    return new DecisionSupportResult(answer, EveOutcome.COMPLETED, entities, evidence, steps);
   }
 
   private DecisionSupportResult handleProfitInquiry(
@@ -219,21 +338,27 @@ public class EveDecisionSupportService {
 
     String amountStr = mentionedAmountMinor != null && mentionedAmountMinor > 0
         ? inr.format(BigDecimal.valueOf(mentionedAmountMinor).divide(BigDecimal.valueOf(100)))
-        : "50,000";
+        : null;
 
     String answer;
     if (language == EveLanguageDetector.UserLanguage.ENGLISH) {
+      String commitNotice = amountStr != null
+          ? "Whether to commit " + amountStr
+          : "Whether to commit financial capital";
       answer = String.format(
           "Here is the financial position for %s: Status is %s, Contract Value is %s, and Outstanding Balance is %s. "
               + "SA Command tracks production execution and client receivables, not investment return guarantees. "
-              + "Whether to commit %s depends on your working capital, operational cash flow, and vendor requirements.",
-          prod.title, prod.status, inr.format(contractVal), inr.format(outstandingVal), amountStr);
+              + "%s depends on your working capital, operational cash flow, and vendor requirements.",
+          prod.title, prod.status, inr.format(contractVal), inr.format(outstandingVal), commitNotice);
     } else {
+      String commitNotice = amountStr != null
+          ? amountStr + " lagane ka faisla"
+          : "Capital lagane ka faisla";
       answer = String.format(
           "%s ki current financial position yeh hai: Status %s hai, Contract Value %s hai, aur %s outstanding balance bacha hai. "
               + "SA Command event execution aur client billing track karta hai, speculative investment return guarantee nahi deta. "
-              + "%s lagane ka faisla aapko apne cash flow aur operational zaroorat ke hisaab se lena chahiye.",
-          prod.title, prod.status, inr.format(contractVal), inr.format(outstandingVal), amountStr);
+              + "%s aapko apne cash flow aur operational zaroorat ke hisaab se lena chahiye.",
+          prod.title, prod.status, inr.format(contractVal), inr.format(outstandingVal), commitNotice);
     }
 
     return new DecisionSupportResult(answer, EveOutcome.COMPLETED, entities, evidence, steps);

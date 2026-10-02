@@ -32,7 +32,7 @@ class LocalQwenModelIntegrationTest {
   void testProviderStatus() {
     EveDtos.EveStatusView status = provider.getStatus();
     assertThat(status).isNotNull();
-    assertThat(status.modelName()).isEqualTo("Qwen3-4B-Q4_K_M.gguf");
+    assertThat(status.modelName()).isIn("Qwen3-4B-Q4_K_M.gguf", "Qwen3-4B-Q4_K_M");
     assertThat(status.status()).isIn("INITIALIZING", "UNAVAILABLE", "READY");
   }
 

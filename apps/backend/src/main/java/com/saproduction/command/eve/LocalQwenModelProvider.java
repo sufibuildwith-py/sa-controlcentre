@@ -61,6 +61,11 @@ public class LocalQwenModelProvider implements EveModelProvider, EveResponseComp
   private volatile String statusMessage = "Initializing local model runtime...";
   private volatile long modelLoadDurationMs = 0;
 
+  // Instrumentation for test verification and telemetry
+  private final java.util.concurrent.atomic.AtomicLong modelInvocationCount = new java.util.concurrent.atomic.AtomicLong(0);
+  private final java.util.concurrent.atomic.AtomicLong lastInvocationLatencyMs = new java.util.concurrent.atomic.AtomicLong(0);
+  private final java.util.concurrent.atomic.AtomicLong totalInvocationLatencyMs = new java.util.concurrent.atomic.AtomicLong(0);
+
   @Autowired
   public LocalQwenModelProvider(
       @Value("${app.eve.local.model-path:${EVE_MODEL_PATH:eve/models/Qwen3-4B-Thinking-2507.Q4_K_M.gguf}}") String modelPath,
@@ -549,15 +554,18 @@ public class LocalQwenModelProvider implements EveModelProvider, EveResponseComp
           Analyze the user prompt and extract the operational goal, analytical operation, target entity, and constraints.
           Output ONLY JSON matching:
           {
-            "goal": "COUNT_PRODUCTIONS|FILTER_PRODUCTIONS|COMPARE_TASKS|COUNT_CREW|COUNT_TASKS|GET_FINANCE|SEARCH_EMPLOYEES|CLARIFICATION_REQUIRED|GENERAL_LOOKUP",
-            "operation": "COUNT|LIST|FILTER|COMPARE|SUM|GROUP|CHECK|FIND|LOOKUP|EXISTS|SUMMARIZE",
+            "goal": "COUNT_PRODUCTIONS|FILTER_PRODUCTIONS|COMPARE_TASKS|COUNT_CREW|COUNT_TASKS|GET_FINANCE|SEARCH_EMPLOYEES|DECISION_SUPPORT|CLARIFICATION_REQUIRED|GENERAL_LOOKUP",
+            "operation": "COUNT|LIST|FILTER|COMPARE|SUM|GROUP|CHECK|FIND|LOOKUP|EXISTS|SUMMARIZE|RECOMMEND|DECISION_SUPPORT",
             "entityType": "PRODUCTION|EMPLOYEE|EQUIPMENT|WORK_TASK|FINANCE|CALENDAR|SYSTEM",
             "entityReferences": ["<entity name or null>"],
             "timeRange": "NEXT_WEEK|THIS_WEEK|TODAY|TOMORROW|THIS_WEEKEND|NEXT_MONTH|null",
             "constraints": {
               "crewContains": "<crew name or null>",
               "hasOpenTasks": false,
-              "outstandingOnly": false
+              "outstandingOnly": false,
+              "decisionMetric": "CREW_ALLOCATION|INVESTMENT|PROFIT|OPERATIONAL|null",
+              "requestedCount": null,
+              "amountMinor": null
             },
             "requiredInformation": "<what information is required>",
             "completionCriteria": "<criteria to verify completion>",
@@ -571,6 +579,9 @@ public class LocalQwenModelProvider implements EveModelProvider, EveResponseComp
           - "Sharma wedding me kitne log kaam kar rahe hain?" -> goal: "COUNT_CREW", operation: "COUNT", entityType: "PRODUCTION", entityReferences: ["Sharma Wedding"]
           - "aur usme pending task kitne hain?" or counting tasks on a production -> goal: "COUNT_TASKS", operation: "COUNT", entityType: "WORK_TASK", constraints: { "hasOpenTasks": true }
           - "which productions still owe us money?" -> goal: "GET_FINANCE", operation: "FIND", entityType: "FINANCE", constraints: { "outstandingOnly": true }
+          - Staffing / crew allocation decision ("kya mujhe <X> me 4 log bhejna chahiye?", "Should I send 4 people to <X>?", "assign 4 crew members to <X>") -> goal: "DECISION_SUPPORT", operation: "DECISION_SUPPORT", entityType: "PRODUCTION", entityReferences: ["<X>"], constraints: { "decisionMetric": "CREW_ALLOCATION", "requestedCount": 4 }
+          - Financial investment decision ("kya mujhe <X> me 50000 invest karna chahiye?", "should I invest in <X>?") -> goal: "DECISION_SUPPORT", operation: "DECISION_SUPPORT", entityType: "PRODUCTION", entityReferences: ["<X>"], constraints: { "decisionMetric": "INVESTMENT", "amountMinor": 5000000 }
+          - Profit inquiries ("<X> me kitna profit hoga?", "<X> ka margin kitna hai?") -> goal: "DECISION_SUPPORT", operation: "DECISION_SUPPORT", entityType: "PRODUCTION", entityReferences: ["<X>"], constraints: { "decisionMetric": "PROFIT" }
           - If the user uses an unresolved pronoun ("uska", "usme", "him", "her") without an active antecedent in Session Context: goal: "CLARIFICATION_REQUIRED", needsClarification: true
           - If Session Context contains an active entity (e.g. "[Active Production: <Name>]") and the prompt uses a pronoun ("usme", "uska"), resolve the pronoun to that entity in "entityReferences".
           - Output strictly raw JSON.
@@ -594,6 +605,7 @@ public class LocalQwenModelProvider implements EveModelProvider, EveResponseComp
       rootNode.put("temperature", 0.0);
       rootNode.put("max_tokens", 1500);
 
+      long callStart = System.currentTimeMillis();
       HttpRequest httpRequest = HttpRequest.newBuilder()
           .uri(URI.create(serverUrl + "/v1/chat/completions"))
           .header("Content-Type", "application/json")
@@ -602,6 +614,10 @@ public class LocalQwenModelProvider implements EveModelProvider, EveResponseComp
           .build();
 
       HttpResponse<String> httpResponse = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
+      long callLatency = System.currentTimeMillis() - callStart;
+      modelInvocationCount.incrementAndGet();
+      lastInvocationLatencyMs.set(callLatency);
+      totalInvocationLatencyMs.addAndGet(callLatency);
       if (httpResponse.statusCode() != 200) {
         throw ApiException.badRequest("EVE_MODEL_FAILED", "Inference server error: " + httpResponse.body());
       }
@@ -726,6 +742,24 @@ public class LocalQwenModelProvider implements EveModelProvider, EveResponseComp
 
   public EveDtos.EveStatusView getStatus() {
     return getStatusView();
+  }
+
+  public long getModelInvocationCount() {
+    return modelInvocationCount.get();
+  }
+
+  public long getLastInvocationLatencyMs() {
+    return lastInvocationLatencyMs.get();
+  }
+
+  public long getTotalInvocationLatencyMs() {
+    return totalInvocationLatencyMs.get();
+  }
+
+  public void resetInvocationStats() {
+    modelInvocationCount.set(0);
+    lastInvocationLatencyMs.set(0);
+    totalInvocationLatencyMs.set(0);
   }
 
   private File resolveFile(String pathStr) {

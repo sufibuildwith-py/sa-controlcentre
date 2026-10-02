@@ -27,30 +27,27 @@ class LocalQwenRealInferenceTest {
     systemModel = new EveSystemModel();
     testProvider = new TestModelProvider();
 
+    File model = new File("eve/models/Qwen3-4B-Thinking-2507.Q4_K_M.gguf");
+    File server = new File("eve/runtime/llama-server/llama-server.exe");
+    if (!model.exists()) {
+      model = new File("../../eve/models/Qwen3-4B-Thinking-2507.Q4_K_M.gguf");
+      server = new File("../../eve/runtime/llama-server/llama-server.exe");
+    }
+    if (!model.exists()) {
+      model = new File("eve/models/Qwen3-4B-Q4_K_M.gguf");
+    }
+    if (!model.exists()) {
+      model = new File("../../eve/models/Qwen3-4B-Q4_K_M.gguf");
+    }
+
     qwenProvider = new LocalQwenModelProvider(
-        "eve/models/Qwen3-4B-Q4_K_M.gguf",
-        "eve/runtime/llama-server/llama-server.exe",
+        model.getPath(),
+        server.getPath(),
         "http://127.0.0.1:8089",
         8089,
         4,
         2048,
         0);
-
-    File model = new File("eve/models/Qwen3-4B-Q4_K_M.gguf");
-    File server = new File("eve/runtime/llama-server/llama-server.exe");
-    if (!model.exists()) {
-      // Look from apps/backend perspective
-      model = new File("../../eve/models/Qwen3-4B-Q4_K_M.gguf");
-      server = new File("../../eve/runtime/llama-server/llama-server.exe");
-      qwenProvider = new LocalQwenModelProvider(
-          model.getPath(),
-          server.getPath(),
-          "http://127.0.0.1:8089",
-          8089,
-          4,
-          2048,
-          0);
-    }
 
     System.out.println("=== INITIALIZING LOCAL QWEN RUNTIME ===");
     qwenProvider.init();

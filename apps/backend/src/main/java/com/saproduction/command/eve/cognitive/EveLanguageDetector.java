@@ -26,23 +26,30 @@ public final class EveLanguageDetector {
       UserRegister register) {}
 
   private static final Set<String> HINGLISH_PARTICLES = Set.of(
-      "ko", "ka", "ki", "ke", "me", "mein", "mai", "se", "pe", "par",
-      "hai", "hain", "he", "tha", "thi", "the", "hoga", "hogi", "hoge",
+      "ko", "ka", "ki", "ke", "mein", "mai", "se", "pe", "par",
+      "hai", "hain", "tha", "thi", "hoga", "hogi", "hoge",
       "kya", "kaun", "kon", "kisko", "kiska", "kiske", "kiski", "kitna", "kitne", "kitni",
       "kahan", "kaha", "kab", "kyu", "kyun",
-      "aur", "bhi", "toh", "to",
+      "aur", "bhi", "toh",
       "aaj", "kal", "parso", "agle", "pichle", "aane", "beeta",
       "wahi", "wala", "wale", "wali", "walo",
       "sabse", "zyada", "jyada", "kam",
-      "de", "dena", "do", "karo", "karna", "batao", "bataiye", "dikhana", "dikhao",
+      "de", "dena", "karo", "karna", "batao", "bataiye", "dikhana", "dikhao",
       "gaya", "gaye", "gyi", "gya", "raha", "rahe", "rahi", "hue", "hua", "hui",
       "chahiye", "lagta", "sakte", "sakta", "sakti",
       "uska", "uske", "uski", "usme", "isme", "inme", "unka", "unke", "unki",
-      "hamare", "hum", "apna", "apne", "apni", "kuch", "koi", "sirf", "abhi", "bande", "log"
+      "hamare", "hum", "apna", "apne", "apni", "kuch", "koi", "sirf", "abhi", "bande", "log", "logo"
   );
 
   private static final Set<String> CASUAL_MARKERS = Set.of(
       "yaar", "bhai", "bro", "wahi", "wala", "wale", "kon", "he", "h", "kya haal", "dikhao", "batao", "de do", "gya"
+  );
+
+  private static final Set<String> ENGLISH_MARKERS = Set.of(
+      "should", "would", "could", "what", "which", "who", "where", "when", "why", "how",
+      "is", "are", "was", "were", "have", "has", "had", "will", "can", "please", "for", "with",
+      "from", "into", "about", "after", "before", "people", "tasks", "events", "production", "details",
+      "send", "assign", "count", "list", "show", "tell", "give", "team", "members"
   );
 
   private EveLanguageDetector() {}
@@ -69,11 +76,15 @@ public final class EveLanguageDetector {
     // 2. Tokenize Latin script words
     String[] tokens = trimmed.toLowerCase(Locale.ROOT).split("[\\s\\p{Punct}]+");
     int hinglishMatches = 0;
+    int englishMatches = 0;
     int casualMatches = 0;
 
     for (String token : tokens) {
       if (HINGLISH_PARTICLES.contains(token)) {
         hinglishMatches++;
+      }
+      if (ENGLISH_MARKERS.contains(token)) {
+        englishMatches++;
       }
       if (CASUAL_MARKERS.contains(token)) {
         casualMatches++;
@@ -81,7 +92,7 @@ public final class EveLanguageDetector {
     }
 
     UserLanguage lang;
-    if (hinglishMatches >= 1 || (tokens.length <= 4 && hinglishMatches >= 1)) {
+    if (hinglishMatches > 0 && hinglishMatches >= englishMatches) {
       lang = UserLanguage.HINGLISH;
     } else {
       lang = UserLanguage.ENGLISH;
