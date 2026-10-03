@@ -11,11 +11,26 @@ public final class BillingCommands {
   private BillingCommands() {}
 
   public record Line(
-      @NotNull @DecimalMin(value = "0", inclusive = false) BigDecimal quantity,
-      @NotNull @DecimalMin(value = "0", inclusive = false) BigDecimal days,
+      @NotNull @DecimalMin(value = "1") BigDecimal quantity,
+      @NotNull @DecimalMin(value = "1") BigDecimal days,
       @NotBlank @Size(max = 500) String description,
       @NotNull @DecimalMin("0") BigDecimal rate,
-      @Size(max = 180) String reference) {}
+      @Size(max = 180) String reference) {
+
+    @AssertTrue(message = "Quantity must be a positive whole integer without decimals")
+    public boolean isQuantityInteger() {
+      return quantity != null
+          && quantity.compareTo(BigDecimal.ONE) >= 0
+          && quantity.stripTrailingZeros().scale() <= 0;
+    }
+
+    @AssertTrue(message = "Days must be a positive whole integer without decimals")
+    public boolean isDaysInteger() {
+      return days != null
+          && days.compareTo(BigDecimal.ONE) >= 0
+          && days.stripTrailingZeros().scale() <= 0;
+    }
+  }
 
   public record Create(
       @NotBlank @Size(max = 100) String billNumber,

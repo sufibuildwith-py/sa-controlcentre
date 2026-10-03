@@ -38,6 +38,10 @@ export function NavigatorEmployeeCard({ item }: { item: NavigatorItem }) {
           <dd>{item.productionTitle ?? "Not assigned"}</dd>
         </div>
         <div>
+          <dt>Team</dt>
+          <dd>{item.teamName ?? "General Crew"}</dd>
+        </div>
+        <div>
           <dt>Tracking</dt>
           <dd>
             {item.trackingStartedAt

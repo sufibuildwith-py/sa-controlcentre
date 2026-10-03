@@ -1,7 +1,18 @@
-import { api } from "../../lib/api";
-import type { NavigatorSnapshot } from "./navigator.types";
+import { api, json } from "../../lib/api";
+import type { NavigatorSnapshot, ProductionTeam } from "./navigator.types";
 export const navigatorApi = {
   live: () => api<NavigatorSnapshot>("/navigator/live"),
+  teams: () => api<ProductionTeam[]>("/productions/teams"),
+  createTeam: (productionId: string, teamName: string, employeeIds: string[]) =>
+    api<ProductionTeam>(`/productions/${productionId}/teams`, {
+      method: "POST",
+      ...json({ teamName, employeeIds }),
+    }),
+  deleteTeam: (productionId: string, teamName: string) =>
+    api<{ removed: boolean }>(
+      `/productions/${productionId}/teams/${encodeURIComponent(teamName)}`,
+      { method: "DELETE" },
+    ),
   pairing: (employeeId: string) =>
     api<{ id: string; code: string; expiresAt: string }>(
       `/navigator/employees/${employeeId}/pairing`,

@@ -34,6 +34,11 @@ public class ProductionController {
     return ApiEnvelope.of(onboardingService.onboard(input));
   }
 
+  @GetMapping("/teams")
+  public ApiEnvelope<List<ProductionService.ProductionTeamView>> allTeams() {
+    return ApiEnvelope.of(service.getAllActiveTeams());
+  }
+
   @GetMapping("/{id}")
   public ApiEnvelope<ProductionService.View> get(@PathVariable UUID id) {
     return ApiEnvelope.of(service.get(id));
@@ -69,6 +74,30 @@ public class ProductionController {
   public ApiEnvelope<Map<String, Boolean>> remove(
       @PathVariable UUID id, @PathVariable UUID employeeId) {
     service.removeMember(id, employeeId);
+    return ApiEnvelope.of(Map.of("removed", true));
+  }
+
+  @GetMapping("/{id}/teams")
+  public ApiEnvelope<List<ProductionService.ProductionTeamView>> teams(@PathVariable UUID id) {
+    return ApiEnvelope.of(service.getTeams(id));
+  }
+
+  @PostMapping("/{id}/teams")
+  public ApiEnvelope<ProductionService.ProductionTeamView> assignTeam(
+      @PathVariable UUID id, @Valid @RequestBody ProductionService.TeamInput input) {
+    return ApiEnvelope.of(service.assignTeam(id, input));
+  }
+
+  @PutMapping("/{id}/members/team")
+  public ApiEnvelope<ProductionService.ProductionTeamView> assignTeamMembers(
+      @PathVariable UUID id, @Valid @RequestBody ProductionService.TeamInput input) {
+    return ApiEnvelope.of(service.assignTeam(id, input));
+  }
+
+  @DeleteMapping("/{id}/teams/{teamName}")
+  public ApiEnvelope<Map<String, Boolean>> deleteTeam(
+      @PathVariable UUID id, @PathVariable String teamName) {
+    service.deleteTeam(id, teamName);
     return ApiEnvelope.of(Map.of("removed", true));
   }
 

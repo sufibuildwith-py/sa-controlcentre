@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { motion, useReducedMotion, AnimatePresence, type HTMLMotionProps } from "motion/react";
+import {
+  motion,
+  useReducedMotion,
+  AnimatePresence,
+  type HTMLMotionProps,
+} from "motion/react";
 import {
   AlertCircle,
   ArrowDownLeft,
@@ -30,10 +35,17 @@ import {
 import { useNavigate } from "react-router-dom";
 import { WorkspaceHeader } from "../../components/layout/AppShell";
 import { EmptyState, Tooltip, SAProgress } from "../../components/ui/sa";
-import { commandApi, type CommandAttentionItem, type CommandDashboardView, type DashboardProduction, type DashboardTask } from "./command.api";
+import {
+  commandApi,
+  type CommandAttentionItem,
+  type CommandDashboardView,
+  type DashboardProduction,
+  type DashboardTask,
+} from "./command.api";
 import { CardSpotlight } from "./components/CardSpotlight";
 import { FollowingPointer } from "./components/FollowingPointer";
 import { DirectionAwareHover } from "./components/DirectionAwareHover";
+import { UpcomingProductions } from "./components/UpcomingProductions";
 
 export function CommandPage() {
   const navigate = useNavigate();
@@ -41,9 +53,12 @@ export function CommandPage() {
   const reducedMotion = useReducedMotion();
 
   const [dateStr, setDateStr] = useState<string>("");
-  const [activeOpTab, setActiveOpTab] = useState<"productions" | "tasks" | "attendance">("productions");
-  const [expandedProdId, setExpandedProdId] = useState<string | null>(null);
-  const [taskFilter, setTaskFilter] = useState<"ALL" | "OVERDUE" | "DUE_TODAY" | "PENDING">("ALL");
+  const [activeOpTab, setActiveOpTab] = useState<"tasks" | "attendance">(
+    "tasks",
+  );
+  const [taskFilter, setTaskFilter] = useState<
+    "ALL" | "OVERDUE" | "DUE_TODAY" | "PENDING"
+  >("ALL");
 
   const dashboardQuery = useQuery({
     queryKey: ["command-dashboard", dateStr],
@@ -65,11 +80,6 @@ export function CommandPage() {
     setDateStr("");
   };
 
-  const toggleExpandProd = (id: string, e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    setExpandedProdId((prev) => (prev === id ? null : id));
-  };
-
   const ownerName =
     import.meta.env.VITE_DESKTOP_RELEASE === "true" ? "Azeem" : "Owner";
 
@@ -87,8 +97,11 @@ export function CommandPage() {
           <div className="command-skeleton-card" />
         </div>
         <div className="command-skeleton-grid">
-          <div className="command-skeleton-hero" />
-          <div className="command-skeleton-hero" />
+          <div className="command-skeleton-col">
+            <div className="command-skeleton-hero" />
+            <div className="command-skeleton-upcoming" />
+          </div>
+          <div className="command-skeleton-hero" style={{ height: "100%" }} />
         </div>
       </div>
     );
@@ -121,13 +134,17 @@ export function CommandPage() {
   }
 
   const d = dashboardQuery.data;
-  const isTodayView = !dateStr || dateStr === new Date().toISOString().slice(0, 10);
-  const formattedDate = new Date(`${d.date}T00:00:00`).toLocaleDateString("en-IN", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  const isTodayView =
+    !dateStr || dateStr === new Date().toISOString().slice(0, 10);
+  const formattedDate = new Date(`${d.date}T00:00:00`).toLocaleDateString(
+    "en-IN",
+    {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    },
+  );
 
   const anim = (delay: number): HTMLMotionProps<"div"> =>
     reducedMotion
@@ -226,7 +243,9 @@ export function CommandPage() {
                 onChange={(e) => setDateStr(e.target.value)}
                 aria-label="Select custom business date"
               />
-              <span style={{ color: "var(--text-2)", marginLeft: 2 }}>{formattedDate}</span>
+              <span style={{ color: "var(--text-2)", marginLeft: 2 }}>
+                {formattedDate}
+              </span>
             </div>
 
             <button
@@ -259,12 +278,19 @@ export function CommandPage() {
             <span className="command-today-metric-label">Productions</span>
             <Clapperboard size={15} style={{ color: "var(--text-3)" }} />
           </div>
-          <strong className="command-today-metric-value">{d.today.productions}</strong>
+          <strong className="command-today-metric-value">
+            {d.today.productions}
+          </strong>
           <div className="command-today-metric-footer">
             <span>
-              {d.today.productions > 0 ? "Scheduled commitments today" : "No productions today"}
+              {d.today.productions > 0
+                ? "Scheduled commitments today"
+                : "No productions today"}
             </span>
-            <ArrowUpRight size={13} style={{ marginLeft: "auto", color: "var(--text-3)" }} />
+            <ArrowUpRight
+              size={13}
+              style={{ marginLeft: "auto", color: "var(--text-3)" }}
+            />
           </div>
         </div>
 
@@ -280,10 +306,19 @@ export function CommandPage() {
             <span className="command-today-metric-label">Tasks Due</span>
             <Clock size={15} style={{ color: "var(--text-3)" }} />
           </div>
-          <strong className="command-today-metric-value">{d.today.tasks}</strong>
+          <strong className="command-today-metric-value">
+            {d.today.tasks}
+          </strong>
           <div className="command-today-metric-footer">
-            <span>{d.today.tasks > 0 ? "Operational tasks due today" : "Schedule is clear"}</span>
-            <ArrowUpRight size={13} style={{ marginLeft: "auto", color: "var(--text-3)" }} />
+            <span>
+              {d.today.tasks > 0
+                ? "Operational tasks due today"
+                : "Schedule is clear"}
+            </span>
+            <ArrowUpRight
+              size={13}
+              style={{ marginLeft: "auto", color: "var(--text-3)" }}
+            />
           </div>
         </div>
 
@@ -299,14 +334,19 @@ export function CommandPage() {
             <span className="command-today-metric-label">Attendance</span>
             <Users size={15} style={{ color: "var(--text-3)" }} />
           </div>
-          <strong className="command-today-metric-value">{d.today.attendanceExceptions}</strong>
+          <strong className="command-today-metric-value">
+            {d.today.attendanceExceptions}
+          </strong>
           <div className="command-today-metric-footer">
             <span>
               {d.today.attendanceExceptions > 0
                 ? "Exceptions need review"
                 : "All members accounted for"}
             </span>
-            <ArrowUpRight size={13} style={{ marginLeft: "auto", color: "var(--text-3)" }} />
+            <ArrowUpRight
+              size={13}
+              style={{ marginLeft: "auto", color: "var(--text-3)" }}
+            />
           </div>
         </div>
 
@@ -327,142 +367,164 @@ export function CommandPage() {
           </strong>
           <div className="command-today-metric-footer">
             <span>
-              Out: {formatInr(d.today.moneyMovement.disbursed)} ({d.today.moneyMovement.transactionCount} txs)
+              Out: {formatInr(d.today.moneyMovement.disbursed)} (
+              {d.today.moneyMovement.transactionCount} txs)
             </span>
-            <ArrowUpRight size={13} style={{ marginLeft: "auto", color: "var(--text-3)" }} />
+            <ArrowUpRight
+              size={13}
+              style={{ marginLeft: "auto", color: "var(--text-3)" }}
+            />
           </div>
         </div>
       </motion.div>
 
-      {/* 3. Primary Grid: Business Position + Attention Queue */}
+      {/* 3. Primary Grid: Business Position + Upcoming Productions (Left) & Attention Queue (Right) */}
       <motion.div className="command-primary-grid" {...anim(0.1)}>
-        {/* Business Position Hero Card with Spotlight */}
-        <FollowingPointer
-          content={
-            <div>
-              <strong>Canonical Finance Core</strong>
-              <p style={{ margin: "2px 0 0", fontSize: "11px", color: "var(--text-3)" }}>
-                Click to explore ledger journals & account balances.
-              </p>
-            </div>
-          }
-        >
-          <CardSpotlight interactive onClick={() => navigate("/finance")}>
-            <div className="command-money-hero-header">
-              <div className="command-money-title-group">
-                <h2>Business Position</h2>
-                <div
-                  className={`command-money-hero-amount ${
-                    d.money.businessPosition >= 0 ? "positive" : "negative"
-                  }`}
+        <div className="command-primary-left-col">
+          {/* Business Position Hero Card with Spotlight */}
+          <FollowingPointer
+            content={
+              <div>
+                <strong>Canonical Finance Core</strong>
+                <p
+                  style={{
+                    margin: "2px 0 0",
+                    fontSize: "11px",
+                    color: "var(--text-3)",
+                  }}
                 >
-                  {formatInr(d.money.businessPosition)}
+                  Click to explore ledger journals & account balances.
+                </p>
+              </div>
+            }
+          >
+            <CardSpotlight interactive onClick={() => navigate("/finance")}>
+              <div className="command-money-hero-header">
+                <div className="command-money-title-group">
+                  <h2>Business Position</h2>
+                  <div
+                    className={`command-money-hero-amount ${
+                      d.money.businessPosition >= 0 ? "positive" : "negative"
+                    }`}
+                  >
+                    {formatInr(d.money.businessPosition)}
+                  </div>
                 </div>
+
+                <Tooltip content="Reconciliation Control: Compares total journal postings to physical owner balances. Click to open control plane.">
+                  <div
+                    className={`command-money-badge status-${d.money.reconciliationStatus.toLowerCase()}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate("/finance?tab=RECONCILIATION");
+                    }}
+                    role="button"
+                    tabIndex={0}
+                  >
+                    <span
+                      style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: "50%",
+                        backgroundColor: "currentColor",
+                      }}
+                    />
+                    {d.money.reconciliationStatus}
+                  </div>
+                </Tooltip>
               </div>
 
-              <Tooltip content="Reconciliation Control: Compares total journal postings to physical owner balances. Click to open control plane.">
-                <div
-                  className={`command-money-badge status-${d.money.reconciliationStatus.toLowerCase()}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigate("/finance?tab=RECONCILIATION");
-                  }}
-                  role="button"
-                  tabIndex={0}
-                >
-                  <span
-                    style={{
-                      width: 6,
-                      height: 6,
-                      borderRadius: "50%",
-                      backgroundColor: "currentColor",
+              {/* Owner Account Positions */}
+              <div className="command-owner-positions-grid">
+                <Tooltip content="Azeem (AZ-2): Current balance of owner capital. Negative position indicates capital drawn or funded beyond current balance, not third-party debt.">
+                  <div
+                    className="command-position-tile"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate("/finance?tab=OWNERS");
                     }}
-                  />
-                  {d.money.reconciliationStatus}
-                </div>
-              </Tooltip>
-            </div>
-
-            {/* Owner Account Positions */}
-            <div className="command-owner-positions-grid">
-              <Tooltip content="Azeem (AZ-2): Current balance of owner capital. Negative position indicates capital drawn or funded beyond current balance, not third-party debt.">
-                <div
-                  className="command-position-tile"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigate("/finance?tab=OWNERS");
-                  }}
-                >
-                  <div className="tile-label">
-                    <span>Azeem (AZ-2)</span>
-                    <ArrowUpRight size={13} />
+                  >
+                    <div className="tile-label">
+                      <span>Azeem (AZ-2)</span>
+                      <ArrowUpRight size={13} />
+                    </div>
+                    <strong className="tile-value">
+                      {formatInr(d.money.azeemPosition)}
+                    </strong>
+                    <span className="tile-hint">Owner capital position</span>
                   </div>
-                  <strong className="tile-value">{formatInr(d.money.azeemPosition)}</strong>
-                  <span className="tile-hint">Owner capital position</span>
-                </div>
-              </Tooltip>
+                </Tooltip>
 
-              <Tooltip content="Akash (AK-2): Current balance of owner capital associated with AK-2 account.">
-                <div
-                  className="command-position-tile"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigate("/finance?tab=OWNERS");
-                  }}
-                >
-                  <div className="tile-label">
-                    <span>Akash (AK-2)</span>
-                    <ArrowUpRight size={13} />
+                <Tooltip content="Akash (AK-2): Current balance of owner capital associated with AK-2 account.">
+                  <div
+                    className="command-position-tile"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate("/finance?tab=OWNERS");
+                    }}
+                  >
+                    <div className="tile-label">
+                      <span>Akash (AK-2)</span>
+                      <ArrowUpRight size={13} />
+                    </div>
+                    <strong className="tile-value">
+                      {formatInr(d.money.akashPosition)}
+                    </strong>
+                    <span className="tile-hint">Owner capital position</span>
                   </div>
-                  <strong className="tile-value">{formatInr(d.money.akashPosition)}</strong>
-                  <span className="tile-hint">Owner capital position</span>
-                </div>
-              </Tooltip>
-            </div>
+                </Tooltip>
+              </div>
 
-            {/* Receivables & Payables Breakdown */}
-            <div className="command-receivables-breakdown">
-              <Tooltip content="Direct counterparty charges outstanding on the direct ledger track.">
-                <div
-                  className="command-sub-metric"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigate("/finance?tab=PARTIES");
-                  }}
-                >
-                  <span>Party Charges</span>
-                  <strong>{formatInr(d.money.customerReceivable)}</strong>
-                </div>
-              </Tooltip>
+              {/* Receivables & Payables Breakdown */}
+              <div className="command-receivables-breakdown">
+                <Tooltip content="Direct counterparty charges outstanding on the direct ledger track.">
+                  <div
+                    className="command-sub-metric"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate("/finance?tab=PARTIES");
+                    }}
+                  >
+                    <span>Party Charges</span>
+                    <strong>{formatInr(d.money.customerReceivable)}</strong>
+                  </div>
+                </Tooltip>
 
-              <Tooltip content="Formal GST / standard invoices pending payment on the invoice track.">
-                <div
-                  className="command-sub-metric"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigate("/finance?tab=INVOICES");
-                  }}
-                >
-                  <span>Formal Invoices</span>
-                  <strong>{formatInr(d.money.invoiceReceivable)}</strong>
-                </div>
-              </Tooltip>
+                <Tooltip content="Formal GST / standard invoices pending payment on the invoice track.">
+                  <div
+                    className="command-sub-metric"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate("/finance?tab=INVOICES");
+                    }}
+                  >
+                    <span>Formal Invoices</span>
+                    <strong>{formatInr(d.money.invoiceReceivable)}</strong>
+                  </div>
+                </Tooltip>
 
-              <Tooltip content="Pending salary and manual earning obligations owed to employees.">
-                <div
-                  className="command-sub-metric"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigate("/payroll");
-                  }}
-                >
-                  <span>Crew Payable</span>
-                  <strong>{formatInr(d.money.employeePayable)}</strong>
-                </div>
-              </Tooltip>
-            </div>
-          </CardSpotlight>
-        </FollowingPointer>
+                <Tooltip content="Pending salary and manual earning obligations owed to employees.">
+                  <div
+                    className="command-sub-metric"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate("/payroll");
+                    }}
+                  >
+                    <span>Crew Payable</span>
+                    <strong>{formatInr(d.money.employeePayable)}</strong>
+                  </div>
+                </Tooltip>
+              </div>
+            </CardSpotlight>
+          </FollowingPointer>
+
+          {/* Dedicated Upcoming Productions Section */}
+          <UpcomingProductions
+            productions={d.operations.upcomingProductions}
+            formatInr={formatInr}
+          />
+        </div>
 
         {/* Attention Center Panel (Phase 3 Centerpiece — Actionable Queue) */}
         <div className="command-panel-card command-attention-panel">
@@ -478,9 +540,15 @@ export function CommandPage() {
               d.attention.map((item, i) => (
                 <motion.div
                   key={item.id}
-                  initial={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 6 }}
+                  initial={
+                    reducedMotion ? { opacity: 0 } : { opacity: 0, y: 6 }
+                  }
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.18, delay: reducedMotion ? 0 : i * 0.05, ease: "easeOut" }}
+                  transition={{
+                    duration: 0.18,
+                    delay: reducedMotion ? 0 : i * 0.05,
+                    ease: "easeOut",
+                  }}
                 >
                   <DirectionAwareHover
                     onClick={() => navigate(item.route)}
@@ -506,7 +574,9 @@ export function CommandPage() {
                             />
                             {item.severity}
                           </span>
-                          <span className="command-category-pill">{item.category}</span>
+                          <span className="command-category-pill">
+                            {item.category}
+                          </span>
                         </div>
 
                         {item.amount != null && item.amount > 0 && (
@@ -543,9 +613,15 @@ export function CommandPage() {
               ))
             ) : (
               <div className="command-attention-clear">
-                <CheckCircle2 size={30} style={{ color: "#10b981", strokeWidth: 1.5 }} />
+                <CheckCircle2
+                  size={30}
+                  style={{ color: "#10b981", strokeWidth: 1.5 }}
+                />
                 <strong>Everything is clear</strong>
-                <p>No operational or financial exceptions need attention right now.</p>
+                <p>
+                  No operational or financial exceptions need attention right
+                  now.
+                </p>
               </div>
             )}
           </div>
@@ -561,9 +637,14 @@ export function CommandPage() {
             <div className="command-operations-tabs" role="tablist">
               {(
                 [
-                  { id: "productions", label: `Productions (${d.operations.upcomingProductions.length})` },
-                  { id: "tasks", label: `Tasks (${d.operations.pendingWork.length})` },
-                  { id: "attendance", label: `Exceptions (${d.operations.attendanceExceptions.length})` },
+                  {
+                    id: "tasks",
+                    label: `Tasks (${d.operations.pendingWork.length})`,
+                  },
+                  {
+                    id: "attendance",
+                    label: `Exceptions (${d.operations.attendanceExceptions.length})`,
+                  },
                 ] as const
               ).map((tab) => (
                 <button
@@ -574,13 +655,19 @@ export function CommandPage() {
                   className={`command-tab-btn ${activeOpTab === tab.id ? "active" : ""}`}
                   onClick={() => setActiveOpTab(tab.id)}
                 >
-                  {tab.label}
+                  <span style={{ position: "relative", zIndex: 2 }}>
+                    {tab.label}
+                  </span>
                   {activeOpTab === tab.id && !reducedMotion && (
                     <motion.div
                       layoutId="command-ops-indicator"
                       className="command-tab-indicator"
-                      transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                      style={{ inset: 0 }}
+                      transition={{
+                        type: "spring",
+                        stiffness: 380,
+                        damping: 30,
+                      }}
+                      style={{ inset: 0, zIndex: 1 }}
                     />
                   )}
                 </button>
@@ -589,119 +676,14 @@ export function CommandPage() {
           </div>
 
           <div className="command-operations-list">
-            {/* PRODUCTIONS TAB */}
-            {activeOpTab === "productions" && (
-              <>
-                {d.operations.upcomingProductions.length > 0 ? (
-                  d.operations.upcomingProductions.map((p) => {
-                    const isExpanded = expandedProdId === p.id;
-                    const contracted = p.contractedAmount ?? 0;
-                    const received = p.receivedAmount ?? 0;
-                    const balance = Math.max(0, contracted - received);
-
-                    return (
-                      <div key={p.id} className="command-prod-card">
-                        <div
-                          className="command-prod-main"
-                          onClick={() => toggleExpandProd(p.id)}
-                          role="button"
-                          tabIndex={0}
-                          onKeyDown={(e) => e.key === "Enter" && toggleExpandProd(p.id)}
-                          aria-expanded={isExpanded}
-                        >
-                          <div className="command-prod-info">
-                            <strong>{p.title}</strong>
-                            <span>
-                              {p.clientName} · {p.venueName} ·{" "}
-                              {new Date(`${p.eventDate}T00:00:00`).toLocaleDateString("en-IN", {
-                                day: "2-digit",
-                                month: "short",
-                              })}
-                            </span>
-                          </div>
-
-                          <div className="command-prod-right">
-                            <div style={{ width: 75, textAlign: "right" }}>
-                              <span style={{ fontSize: "11px", fontWeight: 600 }}>
-                                {p.progressPercent}%
-                              </span>
-                              <SAProgress value={p.progressPercent} />
-                            </div>
-                            <span
-                              style={{
-                                color: "var(--text-3)",
-                                display: "inline-flex",
-                                alignItems: "center",
-                              }}
-                            >
-                              {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Expandable Drawer with Financial & Task Detail */}
-                        <AnimatePresence>
-                          {isExpanded && (
-                            <motion.div
-                              initial={reducedMotion ? { opacity: 0 } : { height: 0, opacity: 0 }}
-                              animate={{ height: "auto", opacity: 1 }}
-                              exit={reducedMotion ? { opacity: 0 } : { height: 0, opacity: 0 }}
-                              transition={{ duration: 0.18, ease: "easeOut" }}
-                              className="command-prod-drawer"
-                            >
-                              <div className="command-prod-finance-grid">
-                                <div className="command-prod-finance-tile">
-                                  <span>Contracted</span>
-                                  <strong>{formatInr(contracted)}</strong>
-                                </div>
-                                <div className="command-prod-finance-tile">
-                                  <span>Received</span>
-                                  <strong>{formatInr(received)}</strong>
-                                </div>
-                                <div className="command-prod-finance-tile">
-                                  <span>Unsettled</span>
-                                  <strong style={{ color: balance > 0 ? "#f59e0b" : "var(--text-1)" }}>
-                                    {formatInr(balance)}
-                                  </strong>
-                                </div>
-                              </div>
-
-                              <div className="command-prod-drawer-footer">
-                                <span>
-                                  {p.openTaskCount} open of {p.taskCount} operational tasks
-                                  {p.startTime ? ` · ${p.startTime.slice(0, 5)}–${p.endTime?.slice(0, 5) ?? ""}` : ""}
-                                </span>
-
-                                <button
-                                  type="button"
-                                  className="command-prod-link-btn"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    navigate(`/productions/${p.id}`);
-                                  }}
-                                >
-                                  Open Detail
-                                  <ArrowUpRight size={13} />
-                                </button>
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    );
-                  })
-                ) : (
-                  <p style={{ fontSize: "12.5px", color: "var(--text-3)", padding: "16px 0" }}>
-                    No upcoming productions scheduled.
-                  </p>
-                )}
-              </>
-            )}
-
             {/* TASKS TAB */}
             {activeOpTab === "tasks" && (
               <>
-                <div className="command-task-subfilters" role="group" aria-label="Task category filter">
+                <div
+                  className="command-task-subfilters"
+                  role="group"
+                  aria-label="Task category filter"
+                >
                   {(
                     [
                       { id: "ALL", label: "All" },
@@ -726,7 +708,9 @@ export function CommandPage() {
                     <div
                       key={t.id}
                       className="command-task-item"
-                      onClick={() => navigate(t.isOverdue ? "/work?view=OVERDUE" : "/work")}
+                      onClick={() =>
+                        navigate(t.isOverdue ? "/work?view=OVERDUE" : "/work")
+                      }
                       role="button"
                       tabIndex={0}
                       onKeyDown={(e) => e.key === "Enter" && navigate("/work")}
@@ -739,15 +723,30 @@ export function CommandPage() {
                         </span>
                       </div>
 
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span className={`command-task-bucket-badge bucket-${t.bucket.toLowerCase()}`}>
-                          {t.bucket === "DUE_TODAY" ? "Today" : t.bucket === "OVERDUE" ? "Overdue" : "Pending"}
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                        }}
+                      >
+                        <span
+                          className={`command-task-bucket-badge bucket-${t.bucket.toLowerCase()}`}
+                        >
+                          {t.bucket === "DUE_TODAY"
+                            ? "Today"
+                            : t.bucket === "OVERDUE"
+                              ? "Overdue"
+                              : "Pending"}
                         </span>
                         <span
                           style={{
                             fontSize: "11px",
                             fontWeight: 560,
-                            color: t.priority === "URGENT" || t.priority === "HIGH" ? "#ef4444" : "var(--text-3)",
+                            color:
+                              t.priority === "URGENT" || t.priority === "HIGH"
+                                ? "#ef4444"
+                                : "var(--text-3)",
                           }}
                         >
                           {t.priority}
@@ -756,7 +755,13 @@ export function CommandPage() {
                     </div>
                   ))
                 ) : (
-                  <p style={{ fontSize: "12.5px", color: "var(--text-3)", padding: "16px 0" }}>
+                  <p
+                    style={{
+                      fontSize: "12.5px",
+                      color: "var(--text-3)",
+                      padding: "16px 0",
+                    }}
+                  >
                     No tasks matching this filter.
                   </p>
                 )}
@@ -774,7 +779,9 @@ export function CommandPage() {
                       onClick={() => navigate("/attendance")}
                       role="button"
                       tabIndex={0}
-                      onKeyDown={(e) => e.key === "Enter" && navigate("/attendance")}
+                      onKeyDown={(e) =>
+                        e.key === "Enter" && navigate("/attendance")
+                      }
                     >
                       <div className="command-op-info">
                         <strong>{ex.employeeName}</strong>
@@ -788,26 +795,44 @@ export function CommandPage() {
                         </span>
                       </div>
 
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                        }}
+                      >
                         <span
                           style={{
                             fontSize: "11px",
                             fontWeight: 600,
                             padding: "2px 7px",
                             borderRadius: 6,
-                            color: ex.status === "ABSENT" ? "#dc2626" : "#d97706",
+                            color:
+                              ex.status === "ABSENT" ? "#dc2626" : "#d97706",
                             background:
-                              ex.status === "ABSENT" ? "rgba(239, 68, 68, 0.12)" : "rgba(245, 158, 11, 0.12)",
+                              ex.status === "ABSENT"
+                                ? "rgba(239, 68, 68, 0.12)"
+                                : "rgba(245, 158, 11, 0.12)",
                           }}
                         >
                           {ex.status === "UNRECORDED" ? "Missing" : ex.status}
                         </span>
-                        <ArrowUpRight size={13} style={{ color: "var(--text-3)" }} />
+                        <ArrowUpRight
+                          size={13}
+                          style={{ color: "var(--text-3)" }}
+                        />
                       </div>
                     </div>
                   ))
                 ) : (
-                  <p style={{ fontSize: "12.5px", color: "var(--text-3)", padding: "16px 0" }}>
+                  <p
+                    style={{
+                      fontSize: "12.5px",
+                      color: "var(--text-3)",
+                      padding: "16px 0",
+                    }}
+                  >
                     Full team attendance accounted for today.
                   </p>
                 )}
@@ -829,7 +854,9 @@ export function CommandPage() {
               role="button"
               tabIndex={0}
               onClick={() => navigate("/finance?tab=TRANSACTIONS")}
-              onKeyDown={(e) => e.key === "Enter" && navigate("/finance?tab=TRANSACTIONS")}
+              onKeyDown={(e) =>
+                e.key === "Enter" && navigate("/finance?tab=TRANSACTIONS")
+              }
             >
               View ledger →
             </span>
@@ -841,7 +868,10 @@ export function CommandPage() {
                 const isPositive =
                   tx.type.includes("RECEIPT") || tx.type === "INVOICE_PAYMENT";
                 const entity =
-                  tx.counterpartyName || tx.employeeName || tx.productionTitle || "Operating";
+                  tx.counterpartyName ||
+                  tx.employeeName ||
+                  tx.productionTitle ||
+                  "Operating";
                 const txRoute = activityRoute(tx.type);
                 return (
                   <div
@@ -854,7 +884,9 @@ export function CommandPage() {
                     aria-label={`${formatTxType(tx.type)}: ${entity} — ${formatInr(tx.amount)}`}
                   >
                     <div className="command-timeline-left">
-                      <span className="command-timeline-badge">{formatTxType(tx.type)}</span>
+                      <span className="command-timeline-badge">
+                        {formatTxType(tx.type)}
+                      </span>
                       <div className="command-timeline-desc">
                         <strong>{entity}</strong>
                         <span>{tx.description}</span>
@@ -869,15 +901,19 @@ export function CommandPage() {
                         {isPositive ? "+" : "-"}
                         {formatInr(tx.amount)}
                       </strong>
-                      <span className="command-timeline-date">
-                        {tx.date}
-                      </span>
+                      <span className="command-timeline-date">{tx.date}</span>
                     </div>
                   </div>
                 );
               })
             ) : (
-              <p style={{ fontSize: "12.5px", color: "var(--text-3)", padding: "16px 0" }}>
+              <p
+                style={{
+                  fontSize: "12.5px",
+                  color: "var(--text-3)",
+                  padding: "16px 0",
+                }}
+              >
                 No recent financial transactions posted.
               </p>
             )}
@@ -944,7 +980,11 @@ export function CommandPage() {
             key={action.id}
             initial={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.16, delay: reducedMotion ? 0 : 0.22 + i * 0.04, ease: "easeOut" }}
+            transition={{
+              duration: 0.16,
+              delay: reducedMotion ? 0 : 0.22 + i * 0.04,
+              ease: "easeOut",
+            }}
           >
             <Tooltip content={action.hint}>
               <button
@@ -1023,7 +1063,11 @@ function activityRoute(type: string): string {
   if (type === "EQUIPMENT_PURCHASE" || type === "EQUIPMENT_PAYMENT") {
     return "/finance?tab=EQUIPMENT";
   }
-  if (type === "OWNER_CREDIT" || type === "OWNER_DEBIT" || type === "TRANSFER") {
+  if (
+    type === "OWNER_CREDIT" ||
+    type === "OWNER_DEBIT" ||
+    type === "TRANSFER"
+  ) {
     return "/finance?tab=OWNERS";
   }
   return "/finance?tab=TRANSACTIONS";

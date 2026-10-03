@@ -26,6 +26,9 @@ public class ProductionMember {
   @Column(name = "production_role", nullable = false)
   public String productionRole;
 
+  @Column(name = "team_name")
+  public String teamName;
+
   @Column(name = "attendance_required", nullable = false)
   public boolean attendanceRequired;
 

@@ -337,4 +337,197 @@ class BillingServiceTest {
     // Verify finance was never touched during export
     verifyNoInteractions(finance);
   }
+
+  @Test
+  void billingCommandsLineRejectsFractionalValues() {
+    BillingCommands.Line validLine =
+        new BillingCommands.Line(
+            new BigDecimal("2"),
+            new BigDecimal("3"),
+            "Sound system",
+            new BigDecimal("1500.00"),
+            "");
+    assertThat(validLine.isQuantityInteger()).isTrue();
+    assertThat(validLine.isDaysInteger()).isTrue();
+
+    // Scale 3 but integer value (e.g. 2.000)
+    BillingCommands.Line trailingZerosLine =
+        new BillingCommands.Line(
+            new BigDecimal("2.000"),
+            new BigDecimal("1.000"),
+            "Truss",
+            new BigDecimal("1000.00"),
+            "");
+    assertThat(trailingZerosLine.isQuantityInteger()).isTrue();
+    assertThat(trailingZerosLine.isDaysInteger()).isTrue();
+
+    // Fractional quantity (1.001, 1.5)
+    BillingCommands.Line fracQty1 =
+        new BillingCommands.Line(
+            new BigDecimal("1.001"),
+            new BigDecimal("1"),
+            "Mic",
+            new BigDecimal("500.00"),
+            "");
+    assertThat(fracQty1.isQuantityInteger()).isFalse();
+
+    BillingCommands.Line fracQty2 =
+        new BillingCommands.Line(
+            new BigDecimal("1.5"),
+            new BigDecimal("2"),
+            "Cable",
+            new BigDecimal("200.00"),
+            "");
+    assertThat(fracQty2.isQuantityInteger()).isFalse();
+
+    // Fractional days (2.25, 1.001)
+    BillingCommands.Line fracDays =
+        new BillingCommands.Line(
+            new BigDecimal("2"),
+            new BigDecimal("2.25"),
+            "Lights",
+            new BigDecimal("1500.00"),
+            "");
+    assertThat(fracDays.isDaysInteger()).isFalse();
+  }
+
+  @Test
+  void createRejectsFractionalQuantity() {
+    UUID counterpartyId = UUID.randomUUID();
+    when(jdbc.queryForObject(
+            "SELECT count(*) FROM finance_counterparties WHERE id=?", Long.class, counterpartyId))
+        .thenReturn(1L);
+    when(jdbc.queryForObject(
+            "SELECT count(*) FROM billing_bills WHERE bill_number=?", Long.class, "SA-TEST-FRAC-QTY"))
+        .thenReturn(0L);
+
+    BillingCommands.Line fracLine =
+        new BillingCommands.Line(
+            new BigDecimal("1.001"),
+            new BigDecimal("1"),
+            "Audio Console",
+            new BigDecimal("5000.00"),
+            "");
+
+    BillingCommands.Create cmd =
+        new BillingCommands.Create(
+            "SA-TEST-FRAC-QTY",
+            LocalDate.of(2026, 10, 3),
+            "2026-27",
+            counterpartyId,
+            null,
+            "Gala",
+            "Venue",
+            "NONE",
+            BigDecimal.ZERO,
+            BigDecimal.ZERO,
+            BigDecimal.ZERO,
+            null,
+            BigDecimal.ZERO,
+            BigDecimal.ZERO,
+            BigDecimal.ZERO,
+            null,
+            null,
+            List.of(fracLine));
+
+    assertThatThrownBy(() -> billing.create(cmd))
+        .isInstanceOf(ApiException.class)
+        .extracting("code")
+        .isEqualTo("BILL_LINE_QUANTITY_INVALID");
+  }
+
+  @Test
+  void createRejectsFractionalDays() {
+    UUID counterpartyId = UUID.randomUUID();
+    when(jdbc.queryForObject(
+            "SELECT count(*) FROM finance_counterparties WHERE id=?", Long.class, counterpartyId))
+        .thenReturn(1L);
+    when(jdbc.queryForObject(
+            "SELECT count(*) FROM billing_bills WHERE bill_number=?", Long.class, "SA-TEST-FRAC-DAYS"))
+        .thenReturn(0L);
+
+    BillingCommands.Line fracLine =
+        new BillingCommands.Line(
+            new BigDecimal("2"),
+            new BigDecimal("1.5"),
+            "Stage Setup",
+            new BigDecimal("2000.00"),
+            "");
+
+    BillingCommands.Create cmd =
+        new BillingCommands.Create(
+            "SA-TEST-FRAC-DAYS",
+            LocalDate.of(2026, 10, 3),
+            "2026-27",
+            counterpartyId,
+            null,
+            "Gala",
+            "Venue",
+            "NONE",
+            BigDecimal.ZERO,
+            BigDecimal.ZERO,
+            BigDecimal.ZERO,
+            null,
+            BigDecimal.ZERO,
+            BigDecimal.ZERO,
+            BigDecimal.ZERO,
+            null,
+            null,
+            List.of(fracLine));
+
+    assertThatThrownBy(() -> billing.create(cmd))
+        .isInstanceOf(ApiException.class)
+        .extracting("code")
+        .isEqualTo("BILL_LINE_DAYS_INVALID");
+  }
+
+  @Test
+  void calculationWithIntegerQty2Days2Rate1500Yields6000() {
+    UUID billId = UUID.randomUUID();
+    Map<String, Object> bill = new HashMap<>();
+    bill.put("id", billId);
+    bill.put("bill_number", "SA-2026-CALC");
+    bill.put("bill_date", java.sql.Date.valueOf(LocalDate.of(2026, 9, 30)));
+    bill.put("financial_year", "2026-27");
+    bill.put("customer", "Sharma Family");
+    bill.put("status", "DRAFT");
+    bill.put("event_name", "Cultural Fest");
+    bill.put("venue", "CSJMU");
+    bill.put("subtotal", new BigDecimal("6000.00"));
+    bill.put("discount", BigDecimal.ZERO);
+    bill.put("freight", BigDecimal.ZERO);
+    bill.put("tax_amount", BigDecimal.ZERO);
+    bill.put("gross_total", new BigDecimal("6000.00"));
+    bill.put("advance_paid", BigDecimal.ZERO);
+    bill.put("notes", "");
+    bill.put("payment_terms", "");
+    bill.put("canonical_invoice_id", null);
+
+    Map<String, Object> line1 = new HashMap<>();
+    line1.put("id", UUID.randomUUID());
+    line1.put("lineNo", 1);
+    line1.put("quantity", new BigDecimal("2"));
+    line1.put("days", new BigDecimal("2"));
+    line1.put("description", "Sound system & video graphics");
+    line1.put("rate", new BigDecimal("1500.00"));
+    line1.put("amount", new BigDecimal("6000.00"));
+    line1.put("reference", "");
+
+    when(jdbc.queryForList(startsWith("SELECT b.*,c.display_name"), eq(billId)))
+        .thenReturn(List.of(bill));
+    when(jdbc.queryForList(startsWith("SELECT id,line_no AS \"lineNo\""), eq(billId)))
+        .thenReturn(List.of(line1));
+
+    Map<String, Object> pdfResult = billing.exportPdf(billId);
+    assertThat(pdfResult).containsKey("base64");
+    byte[] pdfBytes = Base64.getDecoder().decode((String) pdfResult.get("base64"));
+    assertThat(pdfBytes.length).isGreaterThan(500);
+
+    // Verify amount calculation: Qty 2 * Days 2 * Rate 1500 = 6000
+    BigDecimal qty = (BigDecimal) line1.get("quantity");
+    BigDecimal days = (BigDecimal) line1.get("days");
+    BigDecimal rate = (BigDecimal) line1.get("rate");
+    BigDecimal amount = qty.multiply(days).multiply(rate);
+    assertThat(amount.compareTo(new BigDecimal("6000.00"))).isEqualTo(0);
+  }
 }

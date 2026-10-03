@@ -454,4 +454,185 @@ class ProductionServiceTest {
     var dateViolations = validator.validate(missingDate);
     assertThat(dateViolations).anyMatch(v -> v.getPropertyPath().toString().equals("eventDate"));
   }
+
+  @Test
+  void assignTeam_assignsExistingMembersAndCreatesNewMembersWithTeamName() {
+    UUID emp1 = UUID.randomUUID();
+    UUID emp2 = UUID.randomUUID();
+
+    ProductionMember existingPm = new ProductionMember();
+    existingPm.id = UUID.randomUUID();
+    existingPm.productionId = productionId;
+    existingPm.employeeId = emp1;
+    existingPm.productionRole = "Photographer";
+
+    when(members.findAllByProductionIdOrderByCreatedAt(productionId))
+        .thenReturn(new ArrayList<>(List.of(existingPm)));
+
+    Employee e1 = new Employee();
+    e1.id = emp1;
+    e1.displayName = "Sarah Khan";
+    e1.roleTitle = "Photographer";
+
+    Employee e2 = new Employee();
+    e2.id = emp2;
+    e2.displayName = "Rehan Ali";
+    e2.roleTitle = "Camera Operator";
+
+    when(employees.getEntity(emp1)).thenReturn(e1);
+    when(employees.getEntity(emp2)).thenReturn(e2);
+
+    ProductionMember savedPm2 = new ProductionMember();
+    savedPm2.id = UUID.randomUUID();
+    savedPm2.productionId = productionId;
+    savedPm2.employeeId = emp2;
+    savedPm2.productionRole = "Camera Operator";
+    savedPm2.teamName = "Camera Crew";
+
+    when(members.findAllByProductionIdAndTeamNameIgnoreCase(productionId, "Camera Crew"))
+        .thenReturn(List.of(existingPm, savedPm2));
+    when(jdbc.queryForObject(contains("select display_name"), eq(String.class), eq(emp1)))
+        .thenReturn("Sarah Khan");
+    when(jdbc.queryForObject(contains("select display_name"), eq(String.class), eq(emp2)))
+        .thenReturn("Rehan Ali");
+
+    var result =
+        service.assignTeam(
+            productionId,
+            new ProductionService.TeamInput("Camera Crew", List.of(emp1, emp2)));
+
+    assertThat(result.teamName()).isEqualTo("Camera Crew");
+    assertThat(result.memberCount()).isEqualTo(2);
+    assertThat(result.members()).hasSize(2);
+    assertThat(result.members().stream().map(ProductionService.TeamMemberView::employeeName))
+        .containsExactlyInAnyOrder("Sarah Khan", "Rehan Ali");
+    assertThat(existingPm.teamName).isEqualTo("Camera Crew");
+
+    verify(audit)
+        .record(
+            eq("PRODUCTION"),
+            eq("PRODUCTION_TEAM_ASSIGNED"),
+            eq(productionId.toString()),
+            isNull(),
+            any());
+  }
+
+  @Test
+  void assignTeam_clearsTeamForUnselectedEmployeesPreviouslyInTeam() {
+    UUID emp1 = UUID.randomUUID();
+    UUID emp2 = UUID.randomUUID();
+
+    ProductionMember pm1 = new ProductionMember();
+    pm1.id = UUID.randomUUID();
+    pm1.productionId = productionId;
+    pm1.employeeId = emp1;
+    pm1.productionRole = "Photographer";
+    pm1.teamName = "Camera Crew";
+
+    ProductionMember pm2 = new ProductionMember();
+    pm2.id = UUID.randomUUID();
+    pm2.productionId = productionId;
+    pm2.employeeId = emp2;
+    pm2.productionRole = "Assistant";
+    pm2.teamName = "Camera Crew";
+
+    when(members.findAllByProductionIdOrderByCreatedAt(productionId))
+        .thenReturn(new ArrayList<>(List.of(pm1, pm2)));
+
+    Employee e1 = new Employee();
+    e1.id = emp1;
+    e1.displayName = "Sarah Khan";
+    e1.roleTitle = "Photographer";
+    when(employees.getEntity(emp1)).thenReturn(e1);
+
+    when(members.findAllByProductionIdAndTeamNameIgnoreCase(productionId, "Camera Crew"))
+        .thenReturn(List.of(pm1));
+    when(jdbc.queryForObject(contains("select display_name"), eq(String.class), eq(emp1)))
+        .thenReturn("Sarah Khan");
+
+    // Only emp1 is retained in Camera Crew
+    var result =
+        service.assignTeam(
+            productionId,
+            new ProductionService.TeamInput("Camera Crew", List.of(emp1)));
+
+    assertThat(result.memberCount()).isEqualTo(1);
+    assertThat(pm1.teamName).isEqualTo("Camera Crew");
+    assertThat(pm2.teamName).isNull(); // Cleared
+  }
+
+  @Test
+  void getTeams_groupsMembersByTeamName() {
+    UUID emp1 = UUID.randomUUID();
+    UUID emp2 = UUID.randomUUID();
+
+    ProductionMember pm1 = new ProductionMember();
+    pm1.id = UUID.randomUUID();
+    pm1.productionId = productionId;
+    pm1.employeeId = emp1;
+    pm1.productionRole = "Photographer";
+    pm1.teamName = "Camera Crew";
+
+    ProductionMember pm2 = new ProductionMember();
+    pm2.id = UUID.randomUUID();
+    pm2.productionId = productionId;
+    pm2.employeeId = emp2;
+    pm2.productionRole = "Sound Engineer";
+    pm2.teamName = "Sound Crew";
+
+    when(members.findAllByProductionIdOrderByCreatedAt(productionId)).thenReturn(List.of(pm1, pm2));
+    when(jdbc.queryForObject(contains("select display_name"), eq(String.class), eq(emp1)))
+        .thenReturn("Sarah Khan");
+    when(jdbc.queryForObject(contains("select display_name"), eq(String.class), eq(emp2)))
+        .thenReturn("Ahmed");
+
+    var teams = service.getTeams(productionId);
+    assertThat(teams).hasSize(2);
+    assertThat(teams.stream().map(ProductionService.ProductionTeamView::teamName))
+        .containsExactly("Camera Crew", "Sound Crew");
+  }
+
+  @Test
+  void deleteTeam_clearsTeamNameFromMembers() {
+    UUID emp1 = UUID.randomUUID();
+    ProductionMember pm1 = new ProductionMember();
+    pm1.id = UUID.randomUUID();
+    pm1.productionId = productionId;
+    pm1.employeeId = emp1;
+    pm1.productionRole = "Photographer";
+    pm1.teamName = "Camera Crew";
+
+    when(members.findAllByProductionIdAndTeamNameIgnoreCase(productionId, "Camera Crew"))
+        .thenReturn(List.of(pm1));
+
+    service.deleteTeam(productionId, "Camera Crew");
+
+    assertThat(pm1.teamName).isNull();
+    verify(audit)
+        .record(
+            eq("PRODUCTION"),
+            eq("PRODUCTION_TEAM_REMOVED"),
+            eq(productionId.toString()),
+            any(),
+            isNull());
+  }
+
+  @Test
+  void assignTeam_validatesTeamNameAndEmployees() {
+    assertThatThrownBy(
+            () ->
+                service.assignTeam(
+                    productionId,
+                    new ProductionService.TeamInput("", List.of(UUID.randomUUID()))))
+        .isInstanceOf(ApiException.class)
+        .hasMessageContaining("Team name cannot be empty");
+
+    assertThatThrownBy(
+            () ->
+                service.assignTeam(
+                    productionId,
+                    new ProductionService.TeamInput("Camera Crew", List.of())))
+        .isInstanceOf(ApiException.class)
+        .hasMessageContaining("At least one employee must be selected");
+  }
 }

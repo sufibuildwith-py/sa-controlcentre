@@ -13,4 +13,8 @@ public interface ProductionMemberRepository extends JpaRepository<ProductionMemb
   List<ProductionMember> findByEmployeeId(UUID employeeId);
 
   long countByEmployeeIdAndAssignmentStatusNot(UUID employeeId, ProductionMember.Status status);
+
+  List<ProductionMember> findAllByProductionIdAndTeamNameIgnoreCase(UUID productionId, String teamName);
+
+  List<ProductionMember> findAllByProductionIdAndTeamNameIsNotNull(UUID productionId);
 }

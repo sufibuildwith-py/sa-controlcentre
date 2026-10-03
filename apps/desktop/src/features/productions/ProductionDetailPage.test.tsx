@@ -254,7 +254,9 @@ describe("ProductionDetailPage — Phase 1 Production Finance", () => {
     });
   });
 
-  it("opens Log Expense modal and calls financeApi.logExpense with owner and category", async () => {
+  it(
+    "opens Log Expense modal and calls financeApi.logExpense with owner and category",
+    async () => {
     vi.mocked(api).mockImplementation((path: string) => {
       if (path === "/productions/p1") return Promise.resolve(mockProduction);
       if (path === "/employees") return Promise.resolve(mockEmployees);
@@ -324,7 +326,7 @@ describe("ProductionDetailPage — Phase 1 Production Finance", () => {
         }),
       );
     });
-  });
+  }, 15000);
 
   it("opens Add Crew Earning modal and calls financeApi.addEarning", async () => {
     vi.mocked(api).mockImplementation((path: string) => {

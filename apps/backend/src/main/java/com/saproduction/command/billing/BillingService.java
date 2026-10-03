@@ -64,6 +64,7 @@ public class BillingService {
     UUID id = UUID.randomUUID();
     BigDecimal subtotal = ZERO();
     for (BillingCommands.Line line : activeLines) {
+      validateIntegerLine(line);
       BigDecimal rate = money(line.rate());
       BigDecimal amount =
           line.quantity().multiply(line.days()).multiply(rate).setScale(2, RoundingMode.HALF_UP);
@@ -177,6 +178,7 @@ public class BillingService {
 
     BigDecimal subtotal = ZERO();
     for (BillingCommands.Line line : activeLines) {
+      validateIntegerLine(line);
       BigDecimal rate = money(line.rate());
       BigDecimal amount =
           line.quantity().multiply(line.days()).multiply(rate).setScale(2, RoundingMode.HALF_UP);
@@ -418,11 +420,7 @@ public class BillingService {
       for (Map<String, Object> line : lines) {
         Row rr = sheet.createRow(r++);
         rr.createCell(0).setCellValue(((Number) line.get("lineNo")).doubleValue());
-        rr.createCell(1)
-            .setCellValue(
-                ((Number) line.get("quantity")).doubleValue()
-                    + " × "
-                    + ((Number) line.get("days")).doubleValue());
+        rr.createCell(1).setCellValue(formatQtyDays(line.get("quantity"), line.get("days")));
         rr.createCell(2).setCellValue(String.valueOf(line.get("description")));
         rr.getCell(2).setCellStyle(wrap);
         rr.createCell(3).setCellValue(((Number) line.get("rate")).doubleValue());
@@ -499,263 +497,313 @@ public class BillingService {
     List<Map<String, Object>> lines = (List<Map<String, Object>>) data.get("lines");
 
     try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-      Document doc = new Document(PageSize.A4, 36, 36, 36, 36);
+      Document doc = new Document(PageSize.A4, 36f, 36f, 36f, 36f);
       PdfWriter.getInstance(doc, out);
       doc.open();
 
-      Color brandNavy = new Color(24, 32, 47);
-      Color slateGray = new Color(71, 85, 105);
-      Color lightBg = new Color(248, 250, 252);
-      Color borderColor = new Color(226, 232, 240);
+      Color darkText = new Color(20, 22, 26);
+      Color slateText = new Color(85, 93, 105);
+      Color mutedText = new Color(130, 138, 148);
+      Color hairline = new Color(226, 230, 236);
+      Color subtleSurface = new Color(248, 249, 251);
+      Color headerBg = new Color(243, 245, 248);
+      Color accentDark = new Color(28, 32, 40);
 
-      Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 18, brandNavy);
-      Font subtitleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11, slateGray);
-      Font headerFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, Color.WHITE);
-      Font boldFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, brandNavy);
-      Font normalFont = FontFactory.getFont(FontFactory.HELVETICA, 9, brandNavy);
-      Font smallFont = FontFactory.getFont(FontFactory.HELVETICA, 8, slateGray);
+      Font brandFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 17f, darkText);
+      Font docTypeFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8.5f, slateText);
+      Font companySubFont = FontFactory.getFont(FontFactory.HELVETICA, 7.5f, mutedText);
+      Font invoiceNumberFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11f, darkText);
+      Font metaLabelFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 7.2f, mutedText);
+      Font metaValFont = FontFactory.getFont(FontFactory.HELVETICA, 8.8f, darkText);
+      Font metaValBold = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9.5f, darkText);
+      Font thFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 7.5f, darkText);
+      Font tdFont = FontFactory.getFont(FontFactory.HELVETICA, 8.5f, darkText);
+      Font tdBold = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8.8f, darkText);
+      Font tdMuted = FontFactory.getFont(FontFactory.HELVETICA, 8f, slateText);
+      Font tdSmall = FontFactory.getFont(FontFactory.HELVETICA, 7.2f, mutedText);
+      Font totalLabelFont = FontFactory.getFont(FontFactory.HELVETICA, 8.5f, slateText);
+      Font totalValFont = FontFactory.getFont(FontFactory.HELVETICA, 8.8f, darkText);
+      Font grossTotalLabelFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9.5f, darkText);
+      Font grossTotalValFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10f, darkText);
+      Font netDueLabelFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10f, darkText);
+      Font netDueValFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12f, darkText);
+      Font footerFont = FontFactory.getFont(FontFactory.HELVETICA, 7.5f, mutedText);
 
+      // --- 1. HEADER: BRAND & DOCUMENT NUMBER ---
       PdfPTable headerTable = new PdfPTable(2);
       headerTable.setWidthPercentage(100);
-      headerTable.setWidths(new float[] {58f, 42f});
+      headerTable.setWidths(new float[] {56f, 44f});
 
-      PdfPCell titleCell = new PdfPCell();
-      titleCell.setBorder(Rectangle.NO_BORDER);
-      titleCell.addElement(new Paragraph("SA PRODUCTIONS", titleFont));
-      titleCell.addElement(new Paragraph("INVOICE / BILL OF SUPPLY", subtitleFont));
-      headerTable.addCell(titleCell);
+      PdfPCell brandCell = new PdfPCell();
+      brandCell.setBorder(Rectangle.NO_BORDER);
+      brandCell.setPadding(0);
+      Paragraph pBrand = new Paragraph("SA PRODUCTIONS", brandFont);
+      pBrand.setSpacingAfter(2f);
+      brandCell.addElement(pBrand);
+      Paragraph pSub = new Paragraph("COMMERCIAL INVOICE / BILL OF SUPPLY", docTypeFont);
+      pSub.setSpacingAfter(2f);
+      brandCell.addElement(pSub);
+      brandCell.addElement(new Paragraph("Live Event Technical Production & Field Operations", companySubFont));
+      headerTable.addCell(brandCell);
 
       PdfPCell metaRight = new PdfPCell();
       metaRight.setBorder(Rectangle.NO_BORDER);
+      metaRight.setPadding(0);
       metaRight.setHorizontalAlignment(Element.ALIGN_RIGHT);
-      Paragraph pBill = new Paragraph("Bill No: " + bill.get("bill_number"), boldFont);
+      Paragraph pBill = new Paragraph("BILL NO: " + bill.get("bill_number"), invoiceNumberFont);
       pBill.setAlignment(Element.ALIGN_RIGHT);
+      pBill.setSpacingAfter(2f);
       metaRight.addElement(pBill);
-      Paragraph pDate = new Paragraph("Date: " + bill.get("bill_date"), normalFont);
+      Paragraph pDate = new Paragraph("Date: " + bill.get("bill_date"), metaValFont);
       pDate.setAlignment(Element.ALIGN_RIGHT);
+      pDate.setSpacingAfter(2f);
       metaRight.addElement(pDate);
-      Paragraph pStatus = new Paragraph("Status: " + bill.get("status"), boldFont);
+      Paragraph pStatus = new Paragraph("Status: " + bill.get("status"), metaValBold);
       pStatus.setAlignment(Element.ALIGN_RIGHT);
+      pStatus.setSpacingAfter(2f);
       metaRight.addElement(pStatus);
+      Paragraph pFin = new Paragraph("Financial Year: " + bill.get("financial_year"), metaLabelFont);
+      pFin.setAlignment(Element.ALIGN_RIGHT);
+      metaRight.addElement(pFin);
       headerTable.addCell(metaRight);
 
       doc.add(headerTable);
-      doc.add(new Paragraph(" ", smallFont));
 
-      PdfPTable infoTable = new PdfPTable(4);
-      infoTable.setWidthPercentage(100);
-      infoTable.setWidths(new float[] {25f, 25f, 25f, 25f});
+      // Thin solid accent divider
+      PdfPTable ruleTable = new PdfPTable(1);
+      ruleTable.setWidthPercentage(100);
+      ruleTable.setSpacingBefore(10f);
+      ruleTable.setSpacingAfter(10f);
+      PdfPCell ruleCell = new PdfPCell();
+      ruleCell.setBorder(Rectangle.BOTTOM);
+      ruleCell.setBorderColorBottom(accentDark);
+      ruleCell.setBorderWidthBottom(1.2f);
+      ruleCell.setPadding(0);
+      ruleCell.setFixedHeight(2f);
+      ruleTable.addCell(ruleCell);
+      doc.add(ruleTable);
 
-      addMetaCell(
-          infoTable,
-          "Customer",
-          String.valueOf(bill.get("customer") == null ? "" : bill.get("customer")),
-          smallFont,
-          normalFont,
-          lightBg,
-          borderColor,
-          2);
-      addMetaCell(
-          infoTable,
-          "Financial Year",
-          String.valueOf(bill.get("financial_year") == null ? "" : bill.get("financial_year")),
-          smallFont,
-          normalFont,
-          lightBg,
-          borderColor,
-          2);
-      addMetaCell(
-          infoTable,
-          "Event / Project",
-          String.valueOf(bill.get("event_name") == null ? "—" : bill.get("event_name")),
-          smallFont,
-          normalFont,
-          lightBg,
-          borderColor,
-          2);
-      addMetaCell(
-          infoTable,
-          "Venue",
-          String.valueOf(bill.get("venue") == null ? "—" : bill.get("venue")),
-          smallFont,
-          normalFont,
-          lightBg,
-          borderColor,
-          2);
+      // --- 2. COMMERCIAL METADATA CARD (BILLED TO & EVENT CONTEXT) ---
+      PdfPTable infoCard = new PdfPTable(2);
+      infoCard.setWidthPercentage(100);
+      infoCard.setWidths(new float[] {50f, 50f});
+      infoCard.setSpacingAfter(14f);
 
-      String gstin =
-          bill.get("gstin") == null || String.valueOf(bill.get("gstin")).isBlank()
-              ? "—"
-              : String.valueOf(bill.get("gstin"));
-      addMetaCell(infoTable, "GSTIN", gstin, smallFont, normalFont, lightBg, borderColor, 2);
+      // Left Column: Customer Details
+      PdfPCell custCell = new PdfPCell();
+      custCell.setBorder(Rectangle.BOX);
+      custCell.setBorderColor(hairline);
+      custCell.setBackgroundColor(subtleSurface);
+      custCell.setPadding(9f);
+      Paragraph lblCust = new Paragraph("BILLED TO", metaLabelFont);
+      lblCust.setSpacingAfter(3f);
+      custCell.addElement(lblCust);
+      Paragraph valCust = new Paragraph(String.valueOf(bill.get("customer") == null ? "" : bill.get("customer")), metaValBold);
+      valCust.setSpacingAfter(4f);
+      custCell.addElement(valCust);
+      String gstin = bill.get("gstin") == null || String.valueOf(bill.get("gstin")).isBlank() ? "—" : String.valueOf(bill.get("gstin"));
+      Paragraph valGstin = new Paragraph("GSTIN: " + gstin, tdMuted);
+      valGstin.setSpacingAfter(2f);
+      custCell.addElement(valGstin);
+      String terms = bill.get("payment_terms") == null || String.valueOf(bill.get("payment_terms")).isBlank() ? "—" : String.valueOf(bill.get("payment_terms"));
+      custCell.addElement(new Paragraph("Payment Terms: " + terms, tdMuted));
+      infoCard.addCell(custCell);
+
+      // Right Column: Production / Event Details
+      PdfPCell prodCell = new PdfPCell();
+      prodCell.setBorder(Rectangle.BOX);
+      prodCell.setBorderColor(hairline);
+      prodCell.setBackgroundColor(subtleSurface);
+      prodCell.setPadding(9f);
+      Paragraph lblProd = new Paragraph("PRODUCTION & VENUE", metaLabelFont);
+      lblProd.setSpacingAfter(3f);
+      prodCell.addElement(lblProd);
+      String evName = bill.get("event_name") == null || String.valueOf(bill.get("event_name")).isBlank() ? "—" : String.valueOf(bill.get("event_name"));
+      Paragraph valEv = new Paragraph(evName, metaValBold);
+      valEv.setSpacingAfter(4f);
+      prodCell.addElement(valEv);
+      String venue = bill.get("venue") == null || String.valueOf(bill.get("venue")).isBlank() ? "—" : String.valueOf(bill.get("venue"));
+      Paragraph valVenue = new Paragraph("Venue: " + venue, tdMuted);
+      valVenue.setSpacingAfter(2f);
+      prodCell.addElement(valVenue);
       String taxMode = String.valueOf(bill.get("tax_mode") == null ? "NONE" : bill.get("tax_mode"));
-      addMetaCell(infoTable, "Tax Mode", taxMode, smallFont, normalFont, lightBg, borderColor, 2);
+      prodCell.addElement(new Paragraph("Tax Mode: " + taxMode, tdMuted));
+      infoCard.addCell(prodCell);
 
-      String terms =
-          bill.get("payment_terms") == null || String.valueOf(bill.get("payment_terms")).isBlank()
-              ? "—"
-              : String.valueOf(bill.get("payment_terms"));
-      addMetaCell(
-          infoTable, "Payment Terms", terms, smallFont, normalFont, lightBg, borderColor, 4);
+      doc.add(infoCard);
 
-      doc.add(infoTable);
-      doc.add(new Paragraph(" ", smallFont));
-
-      PdfPTable lineTable = new PdfPTable(6);
+      // --- 3. LINE ITEMS TABLE ---
+      PdfPTable lineTable = new PdfPTable(5);
       lineTable.setWidthPercentage(100);
-      lineTable.setWidths(new float[] {6f, 16f, 40f, 13f, 15f, 10f});
+      lineTable.setWidths(new float[] {5f, 15f, 48f, 16f, 16f});
 
-      String[] headers = {"SR.", "QTY / DAYS", "PRODUCT-DESCRIPTION", "RATE", "AMOUNT", "REF"};
-      for (String h : headers) {
-        PdfPCell th = new PdfPCell(new Phrase(h, headerFont));
-        th.setBackgroundColor(brandNavy);
-        th.setPadding(6f);
-        th.setHorizontalAlignment(Element.ALIGN_CENTER);
-        th.setBorderColor(brandNavy);
+      // Headers with clean top/bottom hairline borders and subtle tint
+      String[] headers = {"SR", "QTY × DAYS", "PRODUCT / DESCRIPTION", "RATE", "AMOUNT"};
+      int[] aligns = {Element.ALIGN_CENTER, Element.ALIGN_CENTER, Element.ALIGN_LEFT, Element.ALIGN_RIGHT, Element.ALIGN_RIGHT};
+      for (int i = 0; i < headers.length; i++) {
+        PdfPCell th = new PdfPCell(new Phrase(headers[i], thFont));
+        th.setBackgroundColor(headerBg);
+        th.setBorder(Rectangle.TOP | Rectangle.BOTTOM);
+        th.setBorderColorTop(accentDark);
+        th.setBorderColorBottom(accentDark);
+        th.setBorderWidthTop(1.2f);
+        th.setBorderWidthBottom(0.8f);
+        th.setPaddingTop(6f);
+        th.setPaddingBottom(6f);
+        th.setHorizontalAlignment(aligns[i]);
         lineTable.addCell(th);
       }
 
-      int lineIdx = 0;
+      int lineIdx = 1;
       for (Map<String, Object> line : lines) {
-        Color rowBg = (lineIdx % 2 == 0) ? Color.WHITE : lightBg;
-        lineIdx++;
-
-        PdfPCell cSr = new PdfPCell(new Phrase(String.valueOf(line.get("lineNo")), normalFont));
+        String srStr = String.format("%02d", lineIdx++);
+        PdfPCell cSr = new PdfPCell(new Phrase(srStr, tdMuted));
+        cSr.setBorder(Rectangle.BOTTOM);
+        cSr.setBorderColorBottom(hairline);
+        cSr.setBorderWidthBottom(0.5f);
+        cSr.setPaddingTop(7f);
+        cSr.setPaddingBottom(7f);
         cSr.setHorizontalAlignment(Element.ALIGN_CENTER);
-        cSr.setBackgroundColor(rowBg);
-        cSr.setBorderColor(borderColor);
-        cSr.setPadding(5f);
         lineTable.addCell(cSr);
 
-        String qtyDays = line.get("quantity") + " × " + line.get("days");
-        PdfPCell cQty = new PdfPCell(new Phrase(qtyDays, normalFont));
+        String qtyDays = formatQtyDays(line.get("quantity"), line.get("days"));
+        PdfPCell cQty = new PdfPCell(new Phrase(qtyDays, tdBold));
+        cQty.setBorder(Rectangle.BOTTOM);
+        cQty.setBorderColorBottom(hairline);
+        cQty.setBorderWidthBottom(0.5f);
+        cQty.setPaddingTop(7f);
+        cQty.setPaddingBottom(7f);
         cQty.setHorizontalAlignment(Element.ALIGN_CENTER);
-        cQty.setBackgroundColor(rowBg);
-        cQty.setBorderColor(borderColor);
-        cQty.setPadding(5f);
         lineTable.addCell(cQty);
 
-        PdfPCell cDesc =
-            new PdfPCell(new Phrase(String.valueOf(line.get("description")), normalFont));
-        cDesc.setBackgroundColor(rowBg);
-        cDesc.setBorderColor(borderColor);
-        cDesc.setPadding(5f);
+        PdfPCell cDesc = new PdfPCell();
+        cDesc.setBorder(Rectangle.BOTTOM);
+        cDesc.setBorderColorBottom(hairline);
+        cDesc.setBorderWidthBottom(0.5f);
+        cDesc.setPaddingTop(7f);
+        cDesc.setPaddingBottom(7f);
+        Paragraph pTitle = new Paragraph(String.valueOf(line.get("description")), tdBold);
+        cDesc.addElement(pTitle);
+        if (line.get("reference") != null && !String.valueOf(line.get("reference")).isBlank()) {
+          Paragraph pRef = new Paragraph("Ref: " + line.get("reference"), tdSmall);
+          cDesc.addElement(pRef);
+        }
         lineTable.addCell(cDesc);
 
-        PdfPCell cRate = new PdfPCell(new Phrase(formatCurrency(line.get("rate")), normalFont));
+        PdfPCell cRate = new PdfPCell(new Phrase(formatCurrency(line.get("rate")), tdFont));
+        cRate.setBorder(Rectangle.BOTTOM);
+        cRate.setBorderColorBottom(hairline);
+        cRate.setBorderWidthBottom(0.5f);
+        cRate.setPaddingTop(7f);
+        cRate.setPaddingBottom(7f);
         cRate.setHorizontalAlignment(Element.ALIGN_RIGHT);
-        cRate.setBackgroundColor(rowBg);
-        cRate.setBorderColor(borderColor);
-        cRate.setPadding(5f);
         lineTable.addCell(cRate);
 
-        PdfPCell cAmt = new PdfPCell(new Phrase(formatCurrency(line.get("amount")), normalFont));
+        PdfPCell cAmt = new PdfPCell(new Phrase(formatCurrency(line.get("amount")), tdBold));
+        cAmt.setBorder(Rectangle.BOTTOM);
+        cAmt.setBorderColorBottom(hairline);
+        cAmt.setBorderWidthBottom(0.5f);
+        cAmt.setPaddingTop(7f);
+        cAmt.setPaddingBottom(7f);
         cAmt.setHorizontalAlignment(Element.ALIGN_RIGHT);
-        cAmt.setBackgroundColor(rowBg);
-        cAmt.setBorderColor(borderColor);
-        cAmt.setPadding(5f);
         lineTable.addCell(cAmt);
-
-        String ref = line.get("reference") == null ? "" : String.valueOf(line.get("reference"));
-        PdfPCell cRef = new PdfPCell(new Phrase(ref, smallFont));
-        cRef.setHorizontalAlignment(Element.ALIGN_CENTER);
-        cRef.setBackgroundColor(rowBg);
-        cRef.setBorderColor(borderColor);
-        cRef.setPadding(5f);
-        lineTable.addCell(cRef);
       }
 
+      lineTable.setSpacingAfter(14f);
       doc.add(lineTable);
-      doc.add(new Paragraph(" ", smallFont));
+
+      // --- 4. SETTLEMENT & TOTALS SECTION ---
+      PdfPTable settlementTable = new PdfPTable(2);
+      settlementTable.setWidthPercentage(100);
+      settlementTable.setWidths(new float[] {52f, 48f});
+
+      // Left: Notes & Declaration
+      PdfPCell notesCol = new PdfPCell();
+      notesCol.setBorder(Rectangle.NO_BORDER);
+      notesCol.setPaddingRight(12f);
+      if (bill.get("notes") != null && !String.valueOf(bill.get("notes")).isBlank()) {
+        PdfPTable notesBox = new PdfPTable(1);
+        notesBox.setWidthPercentage(100);
+        PdfPCell nCell = new PdfPCell();
+        nCell.setBackgroundColor(subtleSurface);
+        nCell.setBorder(Rectangle.BOX);
+        nCell.setBorderColor(hairline);
+        nCell.setPadding(8f);
+        Paragraph nLbl = new Paragraph("NOTES & INSTRUCTIONS", metaLabelFont);
+        nLbl.setSpacingAfter(3f);
+        nCell.addElement(nLbl);
+        nCell.addElement(new Paragraph(String.valueOf(bill.get("notes")), tdMuted));
+        notesBox.addCell(nCell);
+        notesCol.addElement(notesBox);
+      }
+      Paragraph pDecl = new Paragraph("Certified that the particulars given above are true and correct for live production services rendered.", tdSmall);
+      pDecl.setSpacingBefore(8f);
+      notesCol.addElement(pDecl);
+      settlementTable.addCell(notesCol);
+
+      // Right: Refined Financial Summary Table
+      PdfPCell totalsCol = new PdfPCell();
+      totalsCol.setBorder(Rectangle.NO_BORDER);
+      totalsCol.setPadding(0);
 
       PdfPTable totalsTable = new PdfPTable(2);
-      totalsTable.setWidthPercentage(45);
-      totalsTable.setHorizontalAlignment(Element.ALIGN_RIGHT);
-      totalsTable.setWidths(new float[] {50f, 50f});
+      totalsTable.setWidthPercentage(100);
+      totalsTable.setWidths(new float[] {52f, 48f});
 
-      addTotalRow(
-          totalsTable,
-          "Subtotal",
-          formatCurrency(bill.get("subtotal")),
-          normalFont,
-          normalFont,
-          borderColor);
+      addSummaryRow(totalsTable, "Subtotal", formatCurrency(bill.get("subtotal")), totalLabelFont, totalValFont, hairline, false);
       if (nonZero(bill.get("discount"))) {
-        addTotalRow(
-            totalsTable,
-            "Discount",
-            "−" + formatCurrency(bill.get("discount")),
-            normalFont,
-            normalFont,
-            borderColor);
+        addSummaryRow(totalsTable, "Discount", "−" + formatCurrency(bill.get("discount")), totalLabelFont, totalValFont, hairline, false);
       }
       if (nonZero(bill.get("freight"))) {
-        addTotalRow(
-            totalsTable,
-            "Freight / Transport",
-            formatCurrency(bill.get("freight")),
-            normalFont,
-            normalFont,
-            borderColor);
+        addSummaryRow(totalsTable, "Freight / Transport", formatCurrency(bill.get("freight")), totalLabelFont, totalValFont, hairline, false);
       }
       if (nonZero(bill.get("tax_amount"))) {
-        addTotalRow(
-            totalsTable,
-            "Tax",
-            formatCurrency(bill.get("tax_amount")),
-            normalFont,
-            normalFont,
-            borderColor);
+        String taxLabel = "Tax (" + taxMode + ")";
+        addSummaryRow(totalsTable, taxLabel, formatCurrency(bill.get("tax_amount")), totalLabelFont, totalValFont, hairline, false);
       }
-      addTotalRow(
-          totalsTable,
-          "GROSS TOTAL",
-          formatCurrency(bill.get("gross_total")),
-          boldFont,
-          boldFont,
-          borderColor,
-          lightBg);
-      addTotalRow(
-          totalsTable,
-          "Advance Received",
-          formatCurrency(bill.get("advance_paid")),
-          normalFont,
-          normalFont,
-          borderColor);
 
+      // Gross Total with bold separator
+      addSummaryRow(totalsTable, "GROSS TOTAL", formatCurrency(bill.get("gross_total")), grossTotalLabelFont, grossTotalValFont, accentDark, true);
+
+      // Advance
+      addSummaryRow(totalsTable, "Advance Received", formatCurrency(bill.get("advance_paid")), totalLabelFont, totalValFont, hairline, false);
+
+      // Net Balance Due in prominent container
       BigDecimal gross = (BigDecimal) bill.get("gross_total");
       BigDecimal advance = (BigDecimal) bill.get("advance_paid");
       BigDecimal balance = gross.subtract(advance);
-      addTotalRow(
-          totalsTable,
-          "NET BALANCE DUE",
-          formatCurrency(balance),
-          boldFont,
-          boldFont,
-          borderColor,
-          lightBg);
+      addNetBalanceRow(totalsTable, "NET BALANCE DUE", formatCurrency(balance), netDueLabelFont, netDueValFont, accentDark, headerBg);
 
-      doc.add(totalsTable);
+      totalsCol.addElement(totalsTable);
+      settlementTable.addCell(totalsCol);
 
-      if (bill.get("notes") != null && !String.valueOf(bill.get("notes")).isBlank()) {
-        doc.add(new Paragraph(" ", smallFont));
-        PdfPTable notesTable = new PdfPTable(1);
-        notesTable.setWidthPercentage(100);
-        PdfPCell notesCell = new PdfPCell();
-        notesCell.setBackgroundColor(lightBg);
-        notesCell.setBorderColor(borderColor);
-        notesCell.setPadding(6f);
-        notesCell.addElement(new Paragraph("Notes & Instructions:", boldFont));
-        notesCell.addElement(new Paragraph(String.valueOf(bill.get("notes")), normalFont));
-        notesTable.addCell(notesCell);
-        doc.add(notesTable);
-      }
+      doc.add(settlementTable);
 
-      Paragraph footer =
-          new Paragraph("SA Productions · Computer-generated commercial document", smallFont);
-      footer.setAlignment(Element.ALIGN_CENTER);
-      footer.setSpacingBefore(18f);
-      doc.add(footer);
+      // --- 5. FOOTER ---
+      Paragraph footerRule = new Paragraph(" ", FontFactory.getFont(FontFactory.HELVETICA, 4f));
+      footerRule.setSpacingBefore(18f);
+      doc.add(footerRule);
+
+      PdfPTable footerTable = new PdfPTable(1);
+      footerTable.setWidthPercentage(100);
+      PdfPCell fCell = new PdfPCell();
+      fCell.setBorder(Rectangle.TOP);
+      fCell.setBorderColorTop(hairline);
+      fCell.setBorderWidthTop(0.5f);
+      fCell.setPaddingTop(8f);
+      fCell.setHorizontalAlignment(Element.ALIGN_CENTER);
+
+      Paragraph fBrand = new Paragraph("SA PRODUCTIONS · COMMERCIAL BILLING & RECEIVABLES CONTROL", footerFont);
+      fBrand.setAlignment(Element.ALIGN_CENTER);
+      fBrand.setSpacingAfter(2f);
+      fCell.addElement(fBrand);
+
+      Paragraph fDoc = new Paragraph("Computer-generated official commercial document · SA Command ERP · Authorised for business records", tdSmall);
+      fDoc.setAlignment(Element.ALIGN_CENTER);
+      fCell.addElement(fDoc);
+
+      footerTable.addCell(fCell);
+      doc.add(footerTable);
 
       doc.close();
 
@@ -768,33 +816,70 @@ public class BillingService {
     }
   }
 
-  private void addMetaCell(
+  private void validateIntegerLine(BillingCommands.Line line) {
+    if (line.quantity() == null
+        || line.quantity().compareTo(BigDecimal.ONE) < 0
+        || line.quantity().stripTrailingZeros().scale() > 0) {
+      throw ApiException.badRequest(
+          "BILL_LINE_QUANTITY_INVALID", "Line quantity must be a positive whole integer (minimum 1).");
+    }
+    if (line.days() == null
+        || line.days().compareTo(BigDecimal.ONE) < 0
+        || line.days().stripTrailingZeros().scale() > 0) {
+      throw ApiException.badRequest(
+          "BILL_LINE_DAYS_INVALID", "Line days must be a positive whole integer (minimum 1).");
+    }
+  }
+
+  private String formatQtyDays(Object qty, Object days) {
+    long q = 1L;
+    if (qty instanceof Number n) {
+      q = Math.round(n.doubleValue());
+    } else if (qty != null) {
+      try {
+        q = Math.round(Double.parseDouble(String.valueOf(qty)));
+      } catch (Exception ignored) {
+      }
+    }
+    long d = 1L;
+    if (days instanceof Number n) {
+      d = Math.round(n.doubleValue());
+    } else if (days != null) {
+      try {
+        d = Math.round(Double.parseDouble(String.valueOf(days)));
+      } catch (Exception ignored) {
+      }
+    }
+    return Math.max(1, q) + " × " + Math.max(1, d);
+  }
+
+  private void addSummaryRow(
       PdfPTable table,
       String label,
       String value,
       Font labelFont,
       Font valFont,
-      Color bg,
       Color border,
-      int colspan) {
-    PdfPCell cell = new PdfPCell();
-    cell.setColspan(colspan);
-    cell.setBackgroundColor(bg);
-    cell.setBorderColor(border);
-    cell.setPadding(5f);
-    Paragraph pLabel = new Paragraph(label.toUpperCase(), labelFont);
-    pLabel.setSpacingAfter(1f);
-    cell.addElement(pLabel);
-    cell.addElement(new Paragraph(value, valFont));
-    table.addCell(cell);
+      boolean isProminent) {
+    PdfPCell cLabel = new PdfPCell(new Phrase(label, labelFont));
+    cLabel.setBorder(Rectangle.BOTTOM);
+    cLabel.setBorderColorBottom(border);
+    cLabel.setBorderWidthBottom(isProminent ? 1f : 0.5f);
+    cLabel.setPaddingTop(isProminent ? 6f : 4f);
+    cLabel.setPaddingBottom(isProminent ? 6f : 4f);
+    table.addCell(cLabel);
+
+    PdfPCell cVal = new PdfPCell(new Phrase(value, valFont));
+    cVal.setBorder(Rectangle.BOTTOM);
+    cVal.setBorderColorBottom(border);
+    cVal.setBorderWidthBottom(isProminent ? 1f : 0.5f);
+    cVal.setHorizontalAlignment(Element.ALIGN_RIGHT);
+    cVal.setPaddingTop(isProminent ? 6f : 4f);
+    cVal.setPaddingBottom(isProminent ? 6f : 4f);
+    table.addCell(cVal);
   }
 
-  private void addTotalRow(
-      PdfPTable table, String label, String value, Font labelFont, Font valFont, Color border) {
-    addTotalRow(table, label, value, labelFont, valFont, border, Color.WHITE);
-  }
-
-  private void addTotalRow(
+  private void addNetBalanceRow(
       PdfPTable table,
       String label,
       String value,
@@ -803,16 +888,28 @@ public class BillingService {
       Color border,
       Color bg) {
     PdfPCell cLabel = new PdfPCell(new Phrase(label, labelFont));
-    cLabel.setBorderColor(border);
+    cLabel.setBorder(Rectangle.TOP | Rectangle.BOTTOM);
+    cLabel.setBorderColorTop(border);
+    cLabel.setBorderColorBottom(border);
+    cLabel.setBorderWidthTop(1.2f);
+    cLabel.setBorderWidthBottom(1.2f);
     cLabel.setBackgroundColor(bg);
-    cLabel.setPadding(5f);
+    cLabel.setPaddingTop(7f);
+    cLabel.setPaddingBottom(7f);
+    cLabel.setPaddingLeft(6f);
     table.addCell(cLabel);
 
     PdfPCell cVal = new PdfPCell(new Phrase(value, valFont));
-    cVal.setBorderColor(border);
+    cVal.setBorder(Rectangle.TOP | Rectangle.BOTTOM);
+    cVal.setBorderColorTop(border);
+    cVal.setBorderColorBottom(border);
+    cVal.setBorderWidthTop(1.2f);
+    cVal.setBorderWidthBottom(1.2f);
     cVal.setBackgroundColor(bg);
     cVal.setHorizontalAlignment(Element.ALIGN_RIGHT);
-    cVal.setPadding(5f);
+    cVal.setPaddingTop(7f);
+    cVal.setPaddingBottom(7f);
+    cVal.setPaddingRight(6f);
     table.addCell(cVal);
   }
 

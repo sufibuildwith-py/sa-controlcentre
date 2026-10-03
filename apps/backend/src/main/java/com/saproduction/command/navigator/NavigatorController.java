@@ -16,9 +16,107 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/navigator")
 @ConditionalOnProperty(prefix="app.navigator",name="enabled",havingValue="true")
 public class NavigatorController {
-  private final NavigatorGatewayClient gateway; private final EmployeeRepository employees; private final ProductionRepository productions; private final ProductionMemberRepository members; private final AuditService audit; private final NavigatorConfig config;
-  NavigatorController(NavigatorGatewayClient gateway,EmployeeRepository employees,ProductionRepository productions,ProductionMemberRepository members,AuditService audit,NavigatorConfig config){this.gateway=gateway;this.employees=employees;this.productions=productions;this.members=members;this.audit=audit;this.config=config;}
-  @GetMapping("/live") ApiEnvelope<Map<String,Object>> live(){var remote=gateway.live();var ids=remote.stream().map(x->UUID.fromString(x.get("employeeRef").toString())).toList();var people=new HashMap<UUID,EmployeeDtos.View>();employees.findAllById(ids).forEach(e->people.put(e.id,EmployeeDtos.view(e)));var items=remote.stream().map(x->{var row=new LinkedHashMap<String,Object>(x);var person=people.get(UUID.fromString(x.get("employeeRef").toString()));if(person!=null){row.put("employeeName",person.displayName());row.put("roleTitle",person.roleTitle());row.put("profilePhotoUrl",person.profilePhotoUrl());row.put("productionTitle","Sharma Wedding");}return row;}).toList();return ApiEnvelope.of(Map.of("items",items,"syncedAt",Instant.now(),"organizationPublicId",config.getOrganizationPublicId()));}
+  private final NavigatorGatewayClient gateway;
+  private final EmployeeRepository employees;
+  private final ProductionRepository productions;
+  private final ProductionMemberRepository members;
+  private final ProductionService productionService;
+  private final AuditService audit;
+  private final NavigatorConfig config;
+
+  NavigatorController(
+      NavigatorGatewayClient gateway,
+      EmployeeRepository employees,
+      ProductionRepository productions,
+      ProductionMemberRepository members,
+      ProductionService productionService,
+      AuditService audit,
+      NavigatorConfig config) {
+    this.gateway = gateway;
+    this.employees = employees;
+    this.productions = productions;
+    this.members = members;
+    this.productionService = productionService;
+    this.audit = audit;
+    this.config = config;
+  }
+
+  @GetMapping("/live")
+  ApiEnvelope<Map<String, Object>> live() {
+    var remote = gateway.live();
+    var ids =
+        remote.stream()
+            .map(x -> UUID.fromString(x.get("employeeRef").toString()))
+            .toList();
+    var people = new HashMap<UUID, EmployeeDtos.View>();
+    employees.findAllById(ids).forEach(e -> people.put(e.id, EmployeeDtos.view(e)));
+    var today = LocalDate.now(ZoneId.of("Asia/Kolkata"));
+
+    var items =
+        remote.stream()
+            .map(
+                x -> {
+                  var row = new LinkedHashMap<String, Object>(x);
+                  UUID empId = UUID.fromString(x.get("employeeRef").toString());
+                  var person = people.get(empId);
+                  if (person != null) {
+                    row.put("employeeName", person.displayName());
+                    row.put("roleTitle", person.roleTitle());
+                    row.put("profilePhotoUrl", person.profilePhotoUrl());
+
+                    var assignedMember =
+                        members.findByEmployeeId(empId).stream()
+                            .map(
+                                m -> {
+                                  var prod = productions.findById(m.productionId).orElse(null);
+                                  return prod != null
+                                          && prod.status != Production.Status.CANCELLED
+                                          && prod.status != Production.Status.DELIVERED
+                                      ? Map.entry(m, prod)
+                                      : null;
+                                })
+                            .filter(Objects::nonNull)
+                            .sorted(
+                                (e1, e2) -> {
+                                  boolean t1 = e1.getValue().eventDate.equals(today);
+                                  boolean t2 = e2.getValue().eventDate.equals(today);
+                                  if (t1 && !t2) return -1;
+                                  if (!t1 && t2) return 1;
+                                  return e1.getValue().eventDate.compareTo(e2.getValue().eventDate);
+                                })
+                            .findFirst()
+                            .orElse(null);
+
+                    if (assignedMember != null) {
+                      row.put("productionId", assignedMember.getValue().id);
+                      row.put("productionTitle", assignedMember.getValue().title);
+                      row.put("teamName", assignedMember.getKey().teamName);
+                      if (assignedMember.getKey().productionRole != null) {
+                        row.put("productionRole", assignedMember.getKey().productionRole);
+                      }
+                    } else {
+                      row.put("productionTitle", null);
+                      row.put("teamName", null);
+                    }
+                  }
+                  return row;
+                })
+            .toList();
+
+    return ApiEnvelope.of(
+        Map.of(
+            "items",
+            items,
+            "syncedAt",
+            Instant.now(),
+            "organizationPublicId",
+            config.getOrganizationPublicId()));
+  }
+
+  @GetMapping("/teams")
+  ApiEnvelope<List<ProductionService.ProductionTeamView>> teams() {
+    return ApiEnvelope.of(productionService.getAllActiveTeams());
+  }
   @PostMapping("/employees/{employeeId}/pairing") ApiEnvelope<Map<String,Object>> pairing(@PathVariable UUID employeeId){syncProjection(employeeId);var result=gateway.pairing(employeeId);audit.record("NAVIGATOR_DEVICE","NAVIGATOR_DEVICE_PAIRED",employeeId.toString(),null,Map.of("pairingId",result.get("id"),"expiresAt",result.get("expiresAt")));return ApiEnvelope.of(result);}
   record MobileMessageInput(@NotBlank @Size(max=160) String title,@NotBlank @Size(max=1600) String body) {}
   @PostMapping("/employees/{employeeId}/mobile-message") ApiEnvelope<Map<String,Object>> message(@PathVariable UUID employeeId,@Valid @RequestBody MobileMessageInput input){employees.findById(employeeId).orElseThrow();syncProjection(employeeId);var sent=gateway.message(employeeId,input.title(),input.body());audit.record("NAVIGATOR_MESSAGE","NAVIGATOR_MOBILE_MESSAGE_SENT",employeeId.toString(),null,Map.of("messageId",sent.get("id")));return ApiEnvelope.of(sent);}

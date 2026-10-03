@@ -82,7 +82,26 @@ public class ProductionService {
       boolean attendanceRequired,
       ProductionMember.Status assignmentStatus,
       boolean overrideConflict,
-      @Size(max = 500) String overrideReason) {}
+      @Size(max = 500) String overrideReason,
+      @Size(max = 120) String teamName) {
+
+    public MemberInput(
+        UUID employeeId,
+        String productionRole,
+        boolean attendanceRequired,
+        ProductionMember.Status assignmentStatus,
+        boolean overrideConflict,
+        String overrideReason) {
+      this(
+          employeeId,
+          productionRole,
+          attendanceRequired,
+          assignmentStatus,
+          overrideConflict,
+          overrideReason,
+          null);
+    }
+  }
 
   public record MemberStatusInput(@NotNull ProductionMember.Status assignmentStatus) {}
 
@@ -94,7 +113,47 @@ public class ProductionService {
       boolean attendanceRequired,
       ProductionMember.Status assignmentStatus,
       boolean conflictOverridden,
-      String overrideReason) {}
+      String overrideReason,
+      String teamName) {
+
+    public MemberView(
+        UUID id,
+        UUID employeeId,
+        String employeeName,
+        String productionRole,
+        boolean attendanceRequired,
+        ProductionMember.Status assignmentStatus,
+        boolean conflictOverridden,
+        String overrideReason) {
+      this(
+          id,
+          employeeId,
+          employeeName,
+          productionRole,
+          attendanceRequired,
+          assignmentStatus,
+          conflictOverridden,
+          overrideReason,
+          null);
+    }
+  }
+
+  public record TeamInput(
+      @NotBlank @Size(max = 120) String teamName,
+      @NotEmpty List<UUID> employeeIds) {}
+
+  public record TeamMemberView(
+      UUID employeeId,
+      String employeeName,
+      String productionRole,
+      ProductionMember.Status assignmentStatus) {}
+
+  public record ProductionTeamView(
+      UUID productionId,
+      String productionTitle,
+      String teamName,
+      int memberCount,
+      List<TeamMemberView> members) {}
 
   public record View(
       UUID id,
@@ -388,6 +447,7 @@ public class ProductionService {
     m.productionId = id;
     m.employeeId = in.employeeId();
     m.productionRole = in.productionRole().trim();
+    m.teamName = clean(in.teamName());
     m.attendanceRequired = in.attendanceRequired();
     m.assignmentStatus =
         in.assignmentStatus() == null ? ProductionMember.Status.PENDING : in.assignmentStatus();
@@ -445,6 +505,174 @@ public class ProductionService {
         before,
         memberView(member));
     return view(p);
+  }
+
+  @Transactional
+  public ProductionTeamView assignTeam(UUID productionId, TeamInput in) {
+    Production p = entity(productionId);
+    String teamName = in.teamName() != null ? in.teamName().trim() : "";
+    if (teamName.isEmpty()) {
+      throw ApiException.badRequest("TEAM_NAME_REQUIRED", "Team name cannot be empty.");
+    }
+    if (in.employeeIds() == null || in.employeeIds().isEmpty()) {
+      throw ApiException.badRequest("EMPLOYEES_REQUIRED", "At least one employee must be selected.");
+    }
+    Set<UUID> targetIds = new LinkedHashSet<>(in.employeeIds());
+
+    // 1. Verify each employee exists in canonical People domain
+    for (UUID empId : targetIds) {
+      employees.getEntity(empId);
+    }
+
+    // 2. Fetch all current production members
+    List<ProductionMember> currentMembers = members.findAllByProductionIdOrderByCreatedAt(productionId);
+    Map<UUID, ProductionMember> memberMap = new HashMap<>();
+    for (ProductionMember pm : currentMembers) {
+      memberMap.put(pm.employeeId, pm);
+    }
+
+    // 3. For any employee currently assigned to this team in this production who is NOT in targetIds,
+    // clear their teamName
+    for (ProductionMember pm : currentMembers) {
+      if (teamName.equalsIgnoreCase(pm.teamName) && !targetIds.contains(pm.employeeId)) {
+        pm.teamName = null;
+        members.save(pm);
+      }
+    }
+
+    // 4. For each selected employee: update existing member or add new member to production
+    for (UUID empId : targetIds) {
+      ProductionMember pm = memberMap.get(empId);
+      if (pm != null) {
+        pm.teamName = teamName;
+        members.save(pm);
+      } else {
+        var emp = employees.getEntity(empId);
+        final ProductionMember newMember = new ProductionMember();
+        newMember.productionId = productionId;
+        newMember.employeeId = empId;
+        newMember.productionRole = (emp.roleTitle != null && !emp.roleTitle.isBlank()) ? emp.roleTitle.trim() : teamName;
+        newMember.teamName = teamName;
+        newMember.attendanceRequired = true;
+        newMember.assignmentStatus = ProductionMember.Status.CONFIRMED;
+        newMember.conflictOverridden = false;
+        members.saveAndFlush(newMember);
+        memberMap.put(empId, newMember);
+        calendar
+            .findEventForProduction(productionId)
+            .ifPresent(
+                event -> {
+                  calendar.addAttendee(
+                      event, empId, true, "Assigned to production team: " + teamName);
+                  newMember.conflictOverridden = true;
+                  newMember.overrideReason = "Assigned to production team: " + teamName;
+                  members.save(newMember);
+                });
+      }
+    }
+
+    audit.record(
+        "PRODUCTION",
+        "PRODUCTION_TEAM_ASSIGNED",
+        productionId.toString(),
+        null,
+        Map.of("teamName", teamName, "memberCount", targetIds.size()));
+
+    return buildTeamView(p, teamName);
+  }
+
+  @Transactional
+  public void deleteTeam(UUID productionId, String teamName) {
+    entity(productionId);
+    if (teamName == null || teamName.isBlank()) return;
+    String trimmed = teamName.trim();
+    List<ProductionMember> teamMembers =
+        members.findAllByProductionIdAndTeamNameIgnoreCase(productionId, trimmed);
+    for (ProductionMember pm : teamMembers) {
+      pm.teamName = null;
+      members.save(pm);
+    }
+    audit.record(
+        "PRODUCTION",
+        "PRODUCTION_TEAM_REMOVED",
+        productionId.toString(),
+        Map.of("teamName", trimmed),
+        null);
+  }
+
+  @Transactional(readOnly = true)
+  public List<ProductionTeamView> getTeams(UUID productionId) {
+    Production p = entity(productionId);
+    List<ProductionMember> pmList = members.findAllByProductionIdOrderByCreatedAt(productionId);
+    Map<String, List<ProductionMember>> byTeam = new LinkedHashMap<>();
+    for (ProductionMember pm : pmList) {
+      if (pm.teamName != null && !pm.teamName.isBlank()) {
+        byTeam.computeIfAbsent(pm.teamName.trim(), k -> new ArrayList<>()).add(pm);
+      }
+    }
+    return byTeam.entrySet().stream()
+        .map(
+            entry ->
+                new ProductionTeamView(
+                    p.id,
+                    p.title,
+                    entry.getKey(),
+                    entry.getValue().size(),
+                    entry.getValue().stream()
+                        .map(
+                            pm -> {
+                              String name =
+                                  jdbc.queryForObject(
+                                      "select display_name from employees where id=?",
+                                      String.class,
+                                      pm.employeeId);
+                              return new TeamMemberView(
+                                  pm.employeeId,
+                                  name != null ? name : "Employee",
+                                  pm.productionRole,
+                                  pm.assignmentStatus);
+                            })
+                        .toList()))
+        .toList();
+  }
+
+  @Transactional(readOnly = true)
+  public List<ProductionTeamView> getAllActiveTeams() {
+    List<Production> activeProds =
+        productions.findAll().stream()
+            .filter(
+                p ->
+                    p.status != Production.Status.CANCELLED
+                        && p.status != Production.Status.DELIVERED)
+            .sorted(Comparator.comparing(p -> p.eventDate))
+            .toList();
+    List<ProductionTeamView> result = new ArrayList<>();
+    for (Production p : activeProds) {
+      result.addAll(getTeams(p.id));
+    }
+    return result;
+  }
+
+  private ProductionTeamView buildTeamView(Production p, String teamName) {
+    List<ProductionMember> teamMembers =
+        members.findAllByProductionIdAndTeamNameIgnoreCase(p.id, teamName.trim());
+    List<TeamMemberView> memberViews =
+        teamMembers.stream()
+            .map(
+                pm -> {
+                  String name =
+                      jdbc.queryForObject(
+                          "select display_name from employees where id=?",
+                          String.class,
+                          pm.employeeId);
+                  return new TeamMemberView(
+                      pm.employeeId,
+                      name != null ? name : "Employee",
+                      pm.productionRole,
+                      pm.assignmentStatus);
+                })
+            .toList();
+    return new ProductionTeamView(p.id, p.title, teamName, memberViews.size(), memberViews);
   }
 
   @Transactional
@@ -634,7 +862,8 @@ public class ProductionService {
         m.attendanceRequired,
         m.assignmentStatus,
         m.conflictOverridden,
-        m.overrideReason);
+        m.overrideReason,
+        m.teamName);
   }
 
   private Production entity(UUID id) {

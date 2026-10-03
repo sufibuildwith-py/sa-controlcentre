@@ -45,6 +45,18 @@ public class GlobalExceptionHandler {
         .body(body("INVALID_REQUEST_BODY", "Please review the request fields and formats.", Map.of()));
   }
 
+  @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+  ResponseEntity<ErrorEnvelope> notFound(org.springframework.web.servlet.resource.NoResourceFoundException ex) {
+    return ResponseEntity.status(HttpStatus.NOT_FOUND)
+        .body(body("NOT_FOUND", ex.getMessage(), Map.of()));
+  }
+
+  @ExceptionHandler(org.springframework.web.HttpRequestMethodNotSupportedException.class)
+  ResponseEntity<ErrorEnvelope> methodNotSupported(org.springframework.web.HttpRequestMethodNotSupportedException ex) {
+    return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
+        .body(body("METHOD_NOT_ALLOWED", ex.getMessage(), Map.of()));
+  }
+
   @ExceptionHandler(Exception.class)
   ResponseEntity<ErrorEnvelope> fallback(Exception ex) {
     log.error("Unhandled request failure", ex);

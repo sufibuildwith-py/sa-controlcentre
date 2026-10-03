@@ -7,6 +7,7 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
+.navigator-summary .sa-card,
 .navigator-summary .sa-bento-card {
   min-height: 88px;
   display: grid;
@@ -14,6 +15,12 @@
   align-items: center;
   gap: 2px 10px;
   padding: 16px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+.navigator-metric-card.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
 }
 .navigator-summary strong {
   font-size: 24px;
@@ -23,9 +30,15 @@
   color: var(--text-2);
   font-size: 12px;
 }
+.navigator-empty-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 14px;
+}
 .navigator-layout {
   display: grid;
-  grid-template-columns: minmax(0, 7fr) minmax(260px, 3fr);
+  grid-template-columns: minmax(0, 7fr) minmax(280px, 3fr);
   gap: 12px;
   min-height: 520px;
 }
@@ -69,6 +82,7 @@
   font: 700 12px inherit;
   box-shadow: var(--shadow-floating);
   cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
 }
 .navigator-marker[data-state="STALE"] {
   background: var(--warning);
@@ -77,8 +91,18 @@
   background: var(--danger);
 }
 .navigator-marker.selected {
-  outline: 3px solid color-mix(in srgb, var(--accent) 35%, transparent);
-  transform: scale(1.08);
+  outline: 3px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  transform: scale(1.14);
+  z-index: 6;
+}
+.navigator-marker.in-focused-team {
+  box-shadow: 0 0 0 3px var(--accent), var(--shadow-floating);
+  transform: scale(1.1);
+  z-index: 5;
+}
+.navigator-marker.dimmed {
+  opacity: 0.35;
+  filter: grayscale(0.6);
 }
 .navigator-roster {
   border: 1px solid var(--border);
@@ -86,92 +110,231 @@
   background: var(--surface);
   padding: 14px;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 .navigator-roster-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 .navigator-roster-head h2 {
   font-size: 16px;
+  margin: 0;
 }
-.navigator-roster-head label {
+.navigator-roster-count {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-left: 6px;
+}
+.navigator-roster-actions {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
+}
+.navigator-roster-search {
+  margin: 10px 0 6px;
+}
+.navigator-roster-search label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 7px 9px;
+  padding: 7px 10px;
+  background: var(--surface-soft);
+  color: var(--text-2);
 }
-.navigator-roster-head input {
-  width: 100px;
+.navigator-roster-search input {
+  width: 100%;
   border: 0;
   background: transparent;
   color: var(--text-1);
+  font: inherit;
+  font-size: 12px;
   outline: 0;
 }
 .navigator-filters {
   display: flex;
   gap: 5px;
-  overflow: auto;
-  padding: 12px 0;
+  overflow-x: auto;
+  padding: 6px 0 10px;
+  scrollbar-width: none;
+}
+.navigator-filters::-webkit-scrollbar {
+  display: none;
 }
 .navigator-filters button {
   white-space: nowrap;
   border: 1px solid var(--border);
   border-radius: 999px;
-  padding: 6px 9px;
+  padding: 5px 10px;
   background: transparent;
   color: var(--text-2);
   font-size: 11px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.navigator-filters button:hover {
+  background: var(--surface-soft);
+  color: var(--text-1);
 }
 .navigator-filters button.active {
   background: var(--text-1);
   color: var(--surface);
   border-color: var(--text-1);
 }
+.navigator-focused-team-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-soft));
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: 14px;
+  font-size: 12px;
+  color: var(--text-1);
+  margin-bottom: 8px;
+}
+.navigator-clear-team-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 8px;
+}
+.navigator-clear-team-btn:hover {
+  color: var(--text-1);
+  background: var(--surface-soft);
+}
 .navigator-roster-list {
   display: grid;
-  gap: 4px;
+  gap: 8px;
+  overflow-y: auto;
+  max-height: calc(100vh - 340px);
+  padding-right: 2px;
 }
-.navigator-roster-list > button {
+.navigator-production-group {
+  margin-top: 4px;
+}
+.navigator-production-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+  padding: 4px 6px;
+  margin-bottom: 4px;
+}
+.navigator-team-section {
+  margin-bottom: 6px;
+  background: color-mix(in srgb, var(--surface-soft) 40%, transparent);
+  border-radius: 16px;
+  padding: 4px;
+}
+.navigator-team-header-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 6px 8px;
+  border-radius: 12px;
+  cursor: pointer;
+  color: var(--text-1);
+  text-align: left;
+  font: inherit;
+  transition: all 0.12s ease;
+}
+.navigator-team-header-btn:hover {
+  background: var(--surface-soft);
+}
+.navigator-team-header-btn.focused {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.navigator-team-header-btn strong {
+  font-size: 12px;
+}
+.navigator-team-count {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-left: auto;
+}
+.navigator-team-members {
+  display: grid;
+  gap: 2px;
+  margin-top: 2px;
+}
+.navigator-employee-row {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 9px;
   text-align: left;
-  border: 0;
-  border-radius: 17px;
-  padding: 9px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  padding: 6px 8px;
   background: transparent;
   color: var(--text-1);
+  cursor: pointer;
+  width: 100%;
+  font: inherit;
+  transition: background 0.12s ease;
 }
-.navigator-roster-list > button:hover,
-.navigator-roster-list > button.active {
+.navigator-employee-row:hover,
+.navigator-employee-row.active {
   background: var(--surface-soft);
 }
-.navigator-roster-list strong,
-.navigator-roster-list small {
-  display: block;
+.navigator-employee-row.active {
+  border-color: var(--border);
+}
+.navigator-employee-details {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.navigator-employee-name {
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
-.navigator-roster-list small {
+.navigator-employee-sub {
   color: var(--text-2);
   font-size: 10px;
-  margin-top: 2px;
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .navigator-avatar {
-  width: 33px;
-  height: 33px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   display: grid;
   place-items: center;
   background: var(--surface-soft);
   font-weight: 700;
   font-size: 11px;
+  color: var(--text-1);
+}
+.navigator-roster-empty {
+  text-align: center;
+  padding: 24px 12px;
+  display: grid;
+  gap: 10px;
+  place-items: center;
+  color: var(--text-2);
+  font-size: 12px;
 }
 .navigator-selection {
   position: absolute;
@@ -198,7 +361,7 @@
 }
 .navigator-selection dl {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 8px;
   margin: 12px 0;
 }
@@ -219,12 +382,14 @@
   border-radius: 999px;
   background: color-mix(in srgb, var(--surface) 88%, transparent);
   color: var(--text-2);
+  font-size: 11px;
 }
 .employee-navigator {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
+.employee-navigator .sa-card,
 .employee-navigator .sa-bento-card {
   display: grid;
   gap: 6px;
@@ -239,7 +404,201 @@
   gap: 8px;
   flex-wrap: wrap;
 }
-.navigator-message textarea{min-height:78px;width:100%;resize:vertical;border:1px solid var(--line,#deddd7);border-radius:14px;padding:10px;background:var(--surface,#fff);font:inherit;color:inherit}
+.navigator-message textarea {
+  min-height: 78px;
+  width: 100%;
+  resize: vertical;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 10px;
+  background: var(--surface);
+  font: inherit;
+  color: inherit;
+}
+
+/* Modals: AddEmployeeModal & MakeTeamModal */
+.navigator-modal-desc {
+  font-size: 13px;
+  color: var(--text-2);
+  margin-bottom: 12px;
+}
+.navigator-modal-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px 12px;
+  background: var(--surface-soft);
+  color: var(--text-2);
+}
+.navigator-modal-search input {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--text-1);
+  font: inherit;
+  font-size: 13px;
+  outline: 0;
+}
+.navigator-employee-picker {
+  display: grid;
+  gap: 4px;
+  max-height: 240px;
+  overflow-y: auto;
+  margin: 10px 0;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 6px;
+}
+.navigator-employee-pick-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  color: var(--text-1);
+  font: inherit;
+  transition: all 0.12s ease;
+}
+.navigator-employee-pick-item:hover {
+  background: var(--surface-soft);
+}
+.navigator-employee-pick-item.selected {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.navigator-employee-pick-info {
+  display: grid;
+  gap: 2px;
+}
+.navigator-employee-pick-info strong {
+  font-size: 13px;
+}
+.navigator-employee-pick-info small {
+  font-size: 11px;
+  color: var(--text-2);
+}
+.navigator-code-display {
+  text-align: center;
+  padding: 20px 16px;
+  background: var(--surface-soft);
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  margin-top: 14px;
+}
+.navigator-code-value {
+  font-family: var(--font-mono, monospace);
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: var(--accent);
+  margin: 8px 0;
+}
+.navigator-code-meta {
+  font-size: 12px;
+  color: var(--text-2);
+  margin-bottom: 12px;
+}
+.navigator-code-steps {
+  font-size: 12px;
+  color: var(--text-2);
+  text-align: left;
+  padding-left: 20px;
+  margin: 12px 0 0;
+  line-height: 1.6;
+}
+.navigator-make-team-form {
+  display: grid;
+  gap: 14px;
+}
+.navigator-form-group {
+  display: grid;
+  gap: 6px;
+}
+.navigator-form-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.navigator-form-input,
+.navigator-form-select {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text-1);
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+.navigator-form-input:focus,
+.navigator-form-select:focus {
+  border-color: var(--accent);
+}
+.navigator-member-checklist {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 6px;
+  display: grid;
+  gap: 4px;
+  background: var(--surface-soft);
+}
+.navigator-member-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  user-select: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  transition: background 0.12s ease;
+}
+.navigator-member-checkbox-row:hover {
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
+.navigator-member-checkbox-row input[type="checkbox"] {
+  accent-color: var(--accent);
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+.navigator-member-checkbox-row .member-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-1);
+}
+.navigator-member-checkbox-row .member-sub {
+  font-size: 11px;
+  color: var(--text-2);
+  margin-left: 4px;
+}
+.navigator-modal-error {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent);
+  color: var(--danger);
+  font-size: 12px;
+}
+.navigator-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
 @media (max-width: 900px) {
   .navigator-layout {
     grid-template-columns: 1fr;

@@ -870,6 +870,18 @@ export const financeApi = {
     api<{ counterparty: FinanceParty; transactions: FinanceTransaction[] }>(
       `/finance/counterparties/${id}`,
     ),
+  createCounterparty: (data: {
+    displayName: string;
+    role?: string;
+    gstin?: string;
+  }) =>
+    api<{ id: string; displayName: string; role: string }>(
+      "/finance/counterparties",
+      {
+        method: "POST",
+        ...json({ role: "CUSTOMER", ...data }),
+      },
+    ),
   party360: (id: string) =>
     api<Party360View>(`/finance/counterparties/${id}/360`),
   recordPartyReceipt: (data: {
