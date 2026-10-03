@@ -31,32 +31,46 @@ public class CommandDashboardReadService {
   private final JdbcTemplate jdbc;
   private final FinanceReadService financeReads;
   private final ZoneId zone;
+  private final com.saproduction.command.finance.access.FinanceAccessGuard financeAccessGuard;
+
+  @org.springframework.beans.factory.annotation.Autowired
+  public CommandDashboardReadService(
+      JdbcTemplate jdbc,
+      FinanceReadService financeReads,
+      @Value("${app.time-zone:Asia/Kolkata}") String timeZone,
+      com.saproduction.command.finance.access.FinanceAccessGuard financeAccessGuard) {
+    this.jdbc = jdbc;
+    this.financeReads = financeReads;
+    this.zone = ZoneId.of(timeZone);
+    this.financeAccessGuard = financeAccessGuard;
+  }
 
   public CommandDashboardReadService(
       JdbcTemplate jdbc,
       FinanceReadService financeReads,
-      @Value("${app.time-zone:Asia/Kolkata}") String timeZone) {
-    this.jdbc = jdbc;
-    this.financeReads = financeReads;
-    this.zone = ZoneId.of(timeZone);
+      String timeZone) {
+    this(jdbc, financeReads, timeZone, null);
   }
 
   @Transactional(readOnly = true)
   public CommandDashboard getDashboard(LocalDate requestedDate) {
     LocalDate date = requestedDate != null ? requestedDate : LocalDate.now(zone);
+    boolean financeUnlocked = financeAccessGuard == null || financeAccessGuard.isFinanceUnlocked();
 
-    Today today = queryToday(date);
-    Money money = queryMoney();
-    List<AttentionItem> attention = queryAttention(date, money.reconciliationStatus());
-    Operations operations = queryOperations(date);
-    List<FinancialActivity> recentActivity = queryRecentFinancialActivity();
-    List<QuickAction> quickActions = getQuickActions();
+    Today today = queryToday(date, financeUnlocked);
+    Money money = financeUnlocked ? queryMoney() : null;
+    String reconStatus = money != null ? money.reconciliationStatus() : null;
+    List<AttentionItem> attention = queryAttention(date, reconStatus, financeUnlocked);
+    Operations operations = queryOperations(date, financeUnlocked);
+    List<FinancialActivity> recentActivity = financeUnlocked ? queryRecentFinancialActivity() : List.of();
+    List<QuickAction> quickActions = getQuickActions(financeUnlocked);
 
     return new CommandDashboard(
         date, today, money, attention, operations, recentActivity, quickActions);
   }
 
-  private Today queryToday(LocalDate date) {
+  private Today queryToday(LocalDate date, boolean financeUnlocked) {
+
     // 1. Productions scheduled on this date
     int productions =
         Objects.requireNonNullElse(
@@ -103,33 +117,38 @@ public class CommandDashboardReadService {
     int attendanceExceptions = recordedExceptions + unrecordedEmployees;
 
     // 4. Money movement on this specific business date
-    var movementRow =
-        jdbc.queryForMap(
-            """
-            SELECT
-              coalesce(sum(amount) FILTER (WHERE transaction_type IN ('PRODUCTION_RECEIPT','COUNTERPARTY_RECEIPT','INVOICE_PAYMENT')), 0) AS received,
-              coalesce(sum(amount) FILTER (WHERE transaction_type IN ('PRODUCTION_EXPENSE','GENERAL_EXPENSE','EMPLOYEE_EARNING','MONTHLY_SALARY_ACCRUAL','EMPLOYEE_PAYMENT','EQUIPMENT_PAYMENT')), 0) AS disbursed,
-              count(*) FILTER (WHERE status = 'POSTED') AS tx_count
-            FROM finance_transactions
-            WHERE effective_date = ? AND status = 'POSTED'
-            """,
-            date);
+    MoneyMovement moneyMovement;
+    if (!financeUnlocked) {
+      moneyMovement = new MoneyMovement(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, 0);
+    } else {
+      var movementRow =
+          jdbc.queryForMap(
+              """
+              SELECT
+                coalesce(sum(amount) FILTER (WHERE transaction_type IN ('PRODUCTION_RECEIPT','COUNTERPARTY_RECEIPT','INVOICE_PAYMENT')), 0) AS received,
+                coalesce(sum(amount) FILTER (WHERE transaction_type IN ('PRODUCTION_EXPENSE','GENERAL_EXPENSE','EMPLOYEE_EARNING','MONTHLY_SALARY_ACCRUAL','EMPLOYEE_PAYMENT','EQUIPMENT_PAYMENT')), 0) AS disbursed,
+                count(*) FILTER (WHERE status = 'POSTED') AS tx_count
+              FROM finance_transactions
+              WHERE effective_date = ? AND status = 'POSTED'
+              """,
+              date);
 
-    BigDecimal received =
-        movementRow != null && movementRow.get("received") instanceof BigDecimal bd
-            ? bd
-            : BigDecimal.ZERO;
-    BigDecimal disbursed =
-        movementRow != null && movementRow.get("disbursed") instanceof BigDecimal bd
-            ? bd
-            : BigDecimal.ZERO;
-    BigDecimal net = received.subtract(disbursed);
-    int txCount =
-        movementRow != null && movementRow.get("tx_count") instanceof Number num
-            ? num.intValue()
-            : 0;
+      BigDecimal received =
+          movementRow != null && movementRow.get("received") instanceof BigDecimal bd
+              ? bd
+              : BigDecimal.ZERO;
+      BigDecimal disbursed =
+          movementRow != null && movementRow.get("disbursed") instanceof BigDecimal bd
+              ? bd
+              : BigDecimal.ZERO;
+      BigDecimal net = received.subtract(disbursed);
+      int txCount =
+          movementRow != null && movementRow.get("tx_count") instanceof Number num
+              ? num.intValue()
+              : 0;
 
-    MoneyMovement moneyMovement = new MoneyMovement(received, disbursed, net, txCount);
+      moneyMovement = new MoneyMovement(received, disbursed, net, txCount);
+    }
 
     return new Today(productions, tasks, attendanceExceptions, moneyMovement);
   }
@@ -189,137 +208,139 @@ public class CommandDashboardReadService {
         reconciliationStatus);
   }
 
-  private List<AttentionItem> queryAttention(LocalDate date, String reconciliationStatus) {
+  private List<AttentionItem> queryAttention(LocalDate date, String reconciliationStatus, boolean financeUnlocked) {
     List<AttentionItem> items = new ArrayList<>();
 
-    // 1. Reconciliation issues (CRITICAL / HIGH)
-    if ("BROKEN".equalsIgnoreCase(reconciliationStatus)) {
-      items.add(
-          new AttentionItem(
-              "reconciliation-broken",
-              "CRITICAL",
-              "RECONCILIATION_BROKEN",
-              "RECONCILIATION",
-              "Finance reconciliation broken",
-              "Control discrepancy detected between double-entry journal balance and physical account positions.",
-              "Control discrepancy detected across journal entries and account positions.",
-              "RECONCILIATION",
-              null,
-              null,
-              1,
-              "/finance?tab=RECONCILIATION",
-              "tab=RECONCILIATION"));
-    } else if ("WARNING".equalsIgnoreCase(reconciliationStatus)) {
-      items.add(
-          new AttentionItem(
-              "reconciliation-warning",
-              "HIGH",
-              "RECONCILIATION_WARNING",
-              "RECONCILIATION",
-              "Finance reconciliation needs review",
-              "Unresolved migration facts or balance variance in canonical ledger.",
-              "Unresolved migration facts or balance variance in canonical ledger.",
-              "RECONCILIATION",
-              null,
-              null,
-              1,
-              "/finance?tab=RECONCILIATION",
-              "tab=RECONCILIATION"));
-    }
+    if (financeUnlocked) {
+      // 1. Reconciliation issues (CRITICAL / HIGH)
+      if ("BROKEN".equalsIgnoreCase(reconciliationStatus)) {
+        items.add(
+            new AttentionItem(
+                "reconciliation-broken",
+                "CRITICAL",
+                "RECONCILIATION_BROKEN",
+                "RECONCILIATION",
+                "Finance reconciliation broken",
+                "Control discrepancy detected between double-entry journal balance and physical account positions.",
+                "Control discrepancy detected across journal entries and account positions.",
+                "RECONCILIATION",
+                null,
+                null,
+                1,
+                "/finance?tab=RECONCILIATION",
+                "tab=RECONCILIATION"));
+      } else if ("WARNING".equalsIgnoreCase(reconciliationStatus)) {
+        items.add(
+            new AttentionItem(
+                "reconciliation-warning",
+                "HIGH",
+                "RECONCILIATION_WARNING",
+                "RECONCILIATION",
+                "Finance reconciliation needs review",
+                "Unresolved migration facts or balance variance in canonical ledger.",
+                "Unresolved migration facts or balance variance in canonical ledger.",
+                "RECONCILIATION",
+                null,
+                null,
+                1,
+                "/finance?tab=RECONCILIATION",
+                "tab=RECONCILIATION"));
+      }
 
-    // 2. Overdue formal invoices (HIGH)
-    var overdueInvoices =
-        jdbc.queryForMap(
-            """
-            SELECT count(*) AS count, coalesce(sum(i.invoice_total - i.tds_amount - coalesce(p.paid_amount, 0)), 0) AS total
-            FROM finance_invoices i
-            JOIN finance_transactions t ON t.id = i.source_transaction_id AND t.status = 'POSTED'
-            LEFT JOIN (
-              SELECT a.invoice_id, sum(a.amount) AS paid_amount
-              FROM finance_invoice_payment_allocations a
-              JOIN finance_transactions pt ON pt.id = a.transaction_id AND pt.status = 'POSTED'
-              GROUP BY a.invoice_id
-            ) p ON p.invoice_id = i.id
-            WHERE i.invoice_date < ?
-              AND (i.invoice_total - i.tds_amount - coalesce(p.paid_amount, 0)) > 0
-            """,
-            date);
+      // 2. Overdue formal invoices (HIGH)
+      var overdueInvoices =
+          jdbc.queryForMap(
+              """
+              SELECT count(*) AS count, coalesce(sum(i.invoice_total - i.tds_amount - coalesce(p.paid_amount, 0)), 0) AS total
+              FROM finance_invoices i
+              JOIN finance_transactions t ON t.id = i.source_transaction_id AND t.status = 'POSTED'
+              LEFT JOIN (
+                SELECT a.invoice_id, sum(a.amount) AS paid_amount
+                FROM finance_invoice_payment_allocations a
+                JOIN finance_transactions pt ON pt.id = a.transaction_id AND pt.status = 'POSTED'
+                GROUP BY a.invoice_id
+              ) p ON p.invoice_id = i.id
+              WHERE i.invoice_date < ?
+                AND (i.invoice_total - i.tds_amount - coalesce(p.paid_amount, 0)) > 0
+              """,
+              date);
 
-    int overdueInvCount =
-        overdueInvoices != null && overdueInvoices.get("count") instanceof Number num
-            ? num.intValue()
-            : 0;
-    BigDecimal overdueInvTotal =
-        overdueInvoices != null && overdueInvoices.get("total") instanceof BigDecimal bd
-            ? bd
-            : BigDecimal.ZERO;
-    if (overdueInvCount > 0) {
-      items.add(
-          new AttentionItem(
-              "overdue-invoices",
-              "HIGH",
-              "OVERDUE_INVOICES",
-              "FINANCE",
-              overdueInvCount + " invoice" + (overdueInvCount == 1 ? "" : "s") + " overdue",
-              "Formal invoices with prior invoice date carry outstanding unpaid balance.",
-              formatInr(overdueInvTotal)
-                  + " outstanding across "
-                  + overdueInvCount
-                  + " overdue invoice"
-                  + (overdueInvCount == 1 ? "" : "s"),
-              "INVOICE",
-              null,
-              overdueInvTotal,
-              overdueInvCount,
-              "/finance?tab=INVOICES",
-              "tab=INVOICES"));
-    }
+      int overdueInvCount =
+          overdueInvoices != null && overdueInvoices.get("count") instanceof Number num
+              ? num.intValue()
+              : 0;
+      BigDecimal overdueInvTotal =
+          overdueInvoices != null && overdueInvoices.get("total") instanceof BigDecimal bd
+              ? bd
+              : BigDecimal.ZERO;
+      if (overdueInvCount > 0) {
+        items.add(
+            new AttentionItem(
+                "overdue-invoices",
+                "HIGH",
+                "OVERDUE_INVOICES",
+                "FINANCE",
+                overdueInvCount + " invoice" + (overdueInvCount == 1 ? "" : "s") + " overdue",
+                "Formal invoices with prior invoice date carry outstanding unpaid balance.",
+                formatInr(overdueInvTotal)
+                    + " outstanding across "
+                    + overdueInvCount
+                    + " overdue invoice"
+                    + (overdueInvCount == 1 ? "" : "s"),
+                "INVOICE",
+                null,
+                overdueInvTotal,
+                overdueInvCount,
+                "/finance?tab=INVOICES",
+                "tab=INVOICES"));
+      }
 
-    // 3. Unpaid employee salary obligations (HIGH)
-    var unpaidSalaries =
-        jdbc.queryForMap(
-            """
-            SELECT count(DISTINCT o.employee_id) AS count, coalesce(sum(o.net_amount - coalesce(p.paid_amount, 0)), 0) AS total
-            FROM finance_employee_obligations o
-            LEFT JOIN finance_transactions t ON t.id = o.source_transaction_id
-            LEFT JOIN (
-              SELECT a.obligation_id, sum(a.amount) AS paid_amount
-              FROM finance_employee_payment_allocations a
-              JOIN finance_transactions pt ON pt.id = a.transaction_id AND pt.status = 'POSTED'
-              GROUP BY a.obligation_id
-            ) p ON p.obligation_id = o.id
-            WHERE (t.id IS NULL OR t.status = 'POSTED')
-              AND (o.net_amount - coalesce(p.paid_amount, 0)) > 0
-            """);
+      // 3. Unpaid employee salary obligations (HIGH)
+      var unpaidSalaries =
+          jdbc.queryForMap(
+              """
+              SELECT count(DISTINCT o.employee_id) AS count, coalesce(sum(o.net_amount - coalesce(p.paid_amount, 0)), 0) AS total
+              FROM finance_employee_obligations o
+              LEFT JOIN finance_transactions t ON t.id = o.source_transaction_id
+              LEFT JOIN (
+                SELECT a.obligation_id, sum(a.amount) AS paid_amount
+                FROM finance_employee_payment_allocations a
+                JOIN finance_transactions pt ON pt.id = a.transaction_id AND pt.status = 'POSTED'
+                GROUP BY a.obligation_id
+              ) p ON p.obligation_id = o.id
+              WHERE (t.id IS NULL OR t.status = 'POSTED')
+                AND (o.net_amount - coalesce(p.paid_amount, 0)) > 0
+              """);
 
-    int unpaidEmpCount =
-        unpaidSalaries != null && unpaidSalaries.get("count") instanceof Number num
-            ? num.intValue()
-            : 0;
-    BigDecimal unpaidEmpTotal =
-        unpaidSalaries != null && unpaidSalaries.get("total") instanceof BigDecimal bd
-            ? bd
-            : BigDecimal.ZERO;
-    if (unpaidEmpCount > 0 && unpaidEmpTotal.compareTo(BigDecimal.ZERO) > 0) {
-      items.add(
-          new AttentionItem(
-              "unpaid-salary",
-              "HIGH",
-              "UNPAID_SALARY",
-              "PAYROLL",
-              "Employee payment obligations pending",
-              "Approved work earnings or monthly salary accruals have not yet been disbursed to crew members.",
-              formatInr(unpaidEmpTotal)
-                  + " payable across "
-                  + unpaidEmpCount
-                  + " crew member"
-                  + (unpaidEmpCount == 1 ? "" : "s"),
-              "EMPLOYEE",
-              null,
-              unpaidEmpTotal,
-              unpaidEmpCount,
-              "/payroll",
-              null));
+      int unpaidEmpCount =
+          unpaidSalaries != null && unpaidSalaries.get("count") instanceof Number num
+              ? num.intValue()
+              : 0;
+      BigDecimal unpaidEmpTotal =
+          unpaidSalaries != null && unpaidSalaries.get("total") instanceof BigDecimal bd
+              ? bd
+              : BigDecimal.ZERO;
+      if (unpaidEmpCount > 0 && unpaidEmpTotal.compareTo(BigDecimal.ZERO) > 0) {
+        items.add(
+            new AttentionItem(
+                "unpaid-salary",
+                "HIGH",
+                "UNPAID_SALARY",
+                "PAYROLL",
+                "Employee payment obligations pending",
+                "Approved work earnings or monthly salary accruals have not yet been disbursed to crew members.",
+                formatInr(unpaidEmpTotal)
+                    + " payable across "
+                    + unpaidEmpCount
+                    + " crew member"
+                    + (unpaidEmpCount == 1 ? "" : "s"),
+                "EMPLOYEE",
+                null,
+                unpaidEmpTotal,
+                unpaidEmpCount,
+                "/payroll",
+                null));
+      }
     }
 
     // 4. Overdue tasks requiring attention (MEDIUM)
@@ -391,39 +412,64 @@ public class CommandDashboardReadService {
     return items;
   }
 
-  private Operations queryOperations(LocalDate date) {
+  private Operations queryOperations(LocalDate date, boolean financeUnlocked) {
     // Upcoming productions with financial profile and task counts (up to 6)
+    String productionsSql = financeUnlocked
+        ? """
+          SELECT
+            p.id, p.title, p.client_name, p.venue_name, p.event_date, p.start_time, p.end_time,
+            p.status, p.priority, p.progress_percent,
+            coalesce(f.contracted_amount, 0) AS contracted_amount,
+            coalesce(rec.amount, 0) AS received_amount,
+            coalesce(t.task_count, 0) AS task_count,
+            coalesce(t.open_task_count, 0) AS open_task_count
+          FROM productions p
+          LEFT JOIN finance_production_profiles f ON f.production_id = p.id
+          LEFT JOIN (
+            SELECT a.production_id, sum(a.amount) AS amount
+            FROM finance_production_receipt_allocations a
+            JOIN finance_transactions tx ON tx.id = a.transaction_id AND tx.status = 'POSTED'
+            GROUP BY a.production_id
+          ) rec ON rec.production_id = p.id
+          LEFT JOIN (
+            SELECT
+              production_id,
+              count(*) AS task_count,
+              count(*) FILTER (WHERE status NOT IN ('DONE', 'CANCELLED')) AS open_task_count
+            FROM tasks
+            WHERE production_id IS NOT NULL
+            GROUP BY production_id
+          ) t ON t.production_id = p.id
+          WHERE p.event_date >= ? AND p.status NOT IN ('DELIVERED', 'CANCELLED')
+          ORDER BY p.event_date ASC, CASE p.priority WHEN 'URGENT' THEN 0 WHEN 'HIGH' THEN 1 ELSE 2 END
+          LIMIT 6
+          """
+        : """
+          SELECT
+            p.id, p.title, p.client_name, p.venue_name, p.event_date, p.start_time, p.end_time,
+            p.status, p.priority, p.progress_percent,
+            0 AS contracted_amount,
+            0 AS received_amount,
+            coalesce(t.task_count, 0) AS task_count,
+            coalesce(t.open_task_count, 0) AS open_task_count
+          FROM productions p
+          LEFT JOIN (
+            SELECT
+              production_id,
+              count(*) AS task_count,
+              count(*) FILTER (WHERE status NOT IN ('DONE', 'CANCELLED')) AS open_task_count
+            FROM tasks
+            WHERE production_id IS NOT NULL
+            GROUP BY production_id
+          ) t ON t.production_id = p.id
+          WHERE p.event_date >= ? AND p.status NOT IN ('DELIVERED', 'CANCELLED')
+          ORDER BY p.event_date ASC, CASE p.priority WHEN 'URGENT' THEN 0 WHEN 'HIGH' THEN 1 ELSE 2 END
+          LIMIT 6
+          """;
+
     List<DashboardProduction> productions =
         jdbc.query(
-            """
-            SELECT
-              p.id, p.title, p.client_name, p.venue_name, p.event_date, p.start_time, p.end_time,
-              p.status, p.priority, p.progress_percent,
-              coalesce(f.contracted_amount, 0) AS contracted_amount,
-              coalesce(rec.amount, 0) AS received_amount,
-              coalesce(t.task_count, 0) AS task_count,
-              coalesce(t.open_task_count, 0) AS open_task_count
-            FROM productions p
-            LEFT JOIN finance_production_profiles f ON f.production_id = p.id
-            LEFT JOIN (
-              SELECT a.production_id, sum(a.amount) AS amount
-              FROM finance_production_receipt_allocations a
-              JOIN finance_transactions tx ON tx.id = a.transaction_id AND tx.status = 'POSTED'
-              GROUP BY a.production_id
-            ) rec ON rec.production_id = p.id
-            LEFT JOIN (
-              SELECT
-                production_id,
-                count(*) AS task_count,
-                count(*) FILTER (WHERE status NOT IN ('DONE', 'CANCELLED')) AS open_task_count
-              FROM tasks
-              WHERE production_id IS NOT NULL
-              GROUP BY production_id
-            ) t ON t.production_id = p.id
-            WHERE p.event_date >= ? AND p.status NOT IN ('DELIVERED', 'CANCELLED')
-            ORDER BY p.event_date ASC, CASE p.priority WHEN 'URGENT' THEN 0 WHEN 'HIGH' THEN 1 ELSE 2 END
-            LIMIT 6
-            """,
+            productionsSql,
             this::mapProduction,
             date);
 
@@ -458,7 +504,7 @@ public class CommandDashboardReadService {
         jdbc.query(
             """
             SELECT e.id AS employee_id, e.display_name AS employee_name, coalesce(a.status, 'UNRECORDED') AS status,
-                   a.check_in_time, a.minutes_late, a.notes
+               a.check_in_time, a.minutes_late, a.notes
             FROM employees e
             LEFT JOIN attendance_records a ON a.employee_id = e.id AND a.attendance_date = ?
             WHERE e.status <> 'INACTIVE'
@@ -488,7 +534,11 @@ public class CommandDashboardReadService {
         this::mapFinancialActivity);
   }
 
-  private List<QuickAction> getQuickActions() {
+  private List<QuickAction> getQuickActions(boolean financeUnlocked) {
+    if (!financeUnlocked) {
+      return List.of(
+          new QuickAction("NEW_PRODUCTION", "New Production", "clapperboard", "/productions?create=production"));
+    }
     return List.of(
         new QuickAction("NEW_PRODUCTION", "New Production", "clapperboard", "/productions?create=production"),
         new QuickAction("RECORD_RECEIPT", "Record Receipt", "arrow-down-left", "/finance"),

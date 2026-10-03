@@ -26,6 +26,7 @@ import type {
   NotificationRule,
   OutboundMessage,
 } from "../../types/domain";
+import { DeveloperSettings } from "./DeveloperSettings";
 import { navigatorEnabled } from "../navigator/navigator.types";
 import { navigatorApi } from "../navigator/navigator.api";
 type Diagnostics = {
@@ -98,6 +99,7 @@ export function SettingsPage() {
         {import.meta.env.VITE_DESKTOP_RELEASE === "true" && <ReleaseSettings />}
         {import.meta.env.VITE_DESKTOP_RELEASE !== "true" && <Simulator />}
         {navigatorEnabled && import.meta.env.VITE_APP_MODE === "demo" && <NavigatorSimulator />}
+        <DeveloperSettings />
       </div>
     </>
   );

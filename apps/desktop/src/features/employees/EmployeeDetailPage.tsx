@@ -42,6 +42,7 @@ import { initials } from "./PeoplePage";
 import { navigatorEnabled } from "../navigator/navigator.types";
 import { EmployeeNavigatorPanel } from "../navigator/EmployeeNavigatorPanel";
 import { financeApi, financeAmount } from "../finance/finance.api";
+import { useFinanceAccess } from "../finance/financeAccess.api";
 
 function SpotlightCard({
   children,
@@ -106,6 +107,10 @@ export function EmployeeDetailPage() {
         : "overview",
     ),
     [confirm, setConfirm] = useState(false);
+  const financeAccess = useFinanceAccess();
+  const isUnlocked = financeAccess.data?.unlocked ?? false;
+  const activeTab = !isUnlocked && (tab === "payroll" || tab === "finance") ? "overview" : tab;
+
   const employee = useQuery({
     queryKey: ["employee", id],
     queryFn: () => api<Employee>(`/employees/${id}`),
@@ -114,27 +119,27 @@ export function EmployeeDetailPage() {
   const e360 = useQuery({
     queryKey: ["employee", id, "360"],
     queryFn: () => api<Employee360View>(`/employees/${id}/360`),
-    enabled: !!id && tab === "overview",
+    enabled: !!id && activeTab === "overview",
   });
   const attendance = useQuery({
     queryKey: ["employee", id, "attendance"],
     queryFn: () => api<AttendanceMonth>(`/employees/${id}/attendance`),
-    enabled: !!id && tab === "attendance",
+    enabled: !!id && activeTab === "attendance",
   });
   const operations = useQuery({
     queryKey: ["employee", id, "operations"],
     queryFn: () => api<EmployeeOperations>(`/employees/${id}/operations`),
-    enabled: !!id && ["work", "payroll", "performance"].includes(tab),
+    enabled: !!id && ["work", "payroll", "performance"].includes(activeTab) && (activeTab !== "payroll" || isUnlocked),
   });
   const finance = useQuery({
     queryKey: ["finance", "employee", id],
     queryFn: () => financeApi.employee(id!),
-    enabled: !!id && tab === "finance",
+    enabled: !!id && activeTab === "finance" && isUnlocked,
   });
   const communications = useQuery({
     queryKey: ["employee", id, "communications"],
     queryFn: () => api<CommunicationCentre>(`/messages?employeeId=${id}`),
-    enabled: !!id && tab === "communication",
+    enabled: !!id && activeTab === "communication",
   });
   const deactivate = useMutation({
     mutationFn: () =>
@@ -315,14 +320,18 @@ export function EmployeeDetailPage() {
         </div>
       </SABentoCard>
       <SATabs
-        value={tab}
+        value={activeTab}
         onValueChange={setTab}
         tabs={[
           { value: "overview", label: "Overview" },
           { value: "attendance", label: "Attendance" },
           { value: "work", label: "Work" },
-          { value: "payroll", label: "Payroll" },
-          { value: "finance", label: "Finance" },
+          ...(isUnlocked
+            ? [
+                { value: "payroll", label: "Payroll" },
+                { value: "finance", label: "Finance" },
+              ]
+            : []),
           { value: "performance", label: "Performance" },
           { value: "communication", label: "Communication" },
           ...(navigatorEnabled
@@ -354,12 +363,14 @@ export function EmployeeDetailPage() {
                   <Info label="Status" value={e.status.replace("_", " ")} />
                 </dl>
               </SABentoCard>
-              <SABentoCard className="salary-card">
-                <WalletCards size={18} />
-                <span>Salary basis</span>
-                <strong>{money(e.baseSalaryMinor, e.salaryCurrency)}</strong>
-                <small>Monthly · integer minor units</small>
-              </SABentoCard>
+              {isUnlocked && (
+                <SABentoCard className="salary-card">
+                  <WalletCards size={18} />
+                  <span>Salary basis</span>
+                  <strong>{money(e.baseSalaryMinor, e.salaryCurrency)}</strong>
+                  <small>Monthly · integer minor units</small>
+                </SABentoCard>
+              )}
               <SABentoCard className="contact-card">
                 <Phone size={18} />
                 <span>Primary contact</span>
@@ -483,62 +494,64 @@ export function EmployeeDetailPage() {
                 </SpotlightCard>
 
                 {/* Pillar 2: Canonical Money */}
-                <SpotlightCard className="e360-col-8">
-                  <div className="e360-card-header">
-                    <div>
-                      <h3>Canonical Compensation & Ledger</h3>
-                      <span>Zero-risk integer minor units</span>
+                {isUnlocked && (
+                  <SpotlightCard className="e360-col-8">
+                    <div className="e360-card-header">
+                      <div>
+                        <h3>Canonical Compensation & Ledger</h3>
+                        <span>Zero-risk integer minor units</span>
+                      </div>
+                      <SAButton variant="ghost" size="sm" onClick={() => setTab("finance")}>
+                        Ledger
+                        <ArrowUpRight size={12} />
+                      </SAButton>
                     </div>
-                    <SAButton variant="ghost" size="sm" onClick={() => setTab("finance")}>
-                      Ledger
-                      <ArrowUpRight size={12} />
-                    </SAButton>
-                  </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12, marginBottom: 14 }}>
-                    <div className="e360-metric-box">
-                      <span>Base Salary</span>
-                      <strong>{money(e360.data.money.baseSalaryMinor, e360.data.money.salaryCurrency)}</strong>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12, marginBottom: 14 }}>
+                      <div className="e360-metric-box">
+                        <span>Base Salary</span>
+                        <strong>{money(e360.data.money.baseSalaryMinor, e360.data.money.salaryCurrency)}</strong>
+                      </div>
+                      <div className="e360-metric-box">
+                        <span>Total Earned</span>
+                        <strong>{financeAmount(e360.data.money.earned)}</strong>
+                      </div>
+                      <div className="e360-metric-box">
+                        <span>Total Paid</span>
+                        <strong>{financeAmount(e360.data.money.paid)}</strong>
+                      </div>
+                      <div className="e360-metric-box" style={{ background: e360.data.money.outstanding > 0 ? "var(--warning-soft, rgba(234, 179, 8, 0.08))" : undefined }}>
+                        <span>Net Outstanding</span>
+                        <strong style={{ color: e360.data.money.outstanding > 0 ? "var(--warning, #f59e0b)" : undefined }}>
+                          {financeAmount(e360.data.money.outstanding)}
+                        </strong>
+                      </div>
                     </div>
-                    <div className="e360-metric-box">
-                      <span>Total Earned</span>
-                      <strong>{financeAmount(e360.data.money.earned)}</strong>
-                    </div>
-                    <div className="e360-metric-box">
-                      <span>Total Paid</span>
-                      <strong>{financeAmount(e360.data.money.paid)}</strong>
-                    </div>
-                    <div className="e360-metric-box" style={{ background: e360.data.money.outstanding > 0 ? "var(--warning-soft, rgba(234, 179, 8, 0.08))" : undefined }}>
-                      <span>Net Outstanding</span>
-                      <strong style={{ color: e360.data.money.outstanding > 0 ? "var(--warning, #f59e0b)" : undefined }}>
-                        {financeAmount(e360.data.money.outstanding)}
-                      </strong>
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 10, borderTop: "1px solid var(--border-soft, var(--border))", fontSize: 12, flexWrap: "wrap", gap: 8 }}>
-                    <div>
-                      {e360.data.money.latestPayrollPeriod ? (
-                        <span>
-                          Latest Payroll: <strong>{e360.data.money.latestPayrollPeriod}</strong> ·{" "}
-                          <StatusBadge tone={e360.data.money.currentPayrollStatus === "PAID" ? "success" : "warning"}>
-                            {e360.data.money.currentPayrollStatus ?? "DRAFT"}
-                          </StatusBadge>
-                        </span>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 10, borderTop: "1px solid var(--border-soft, var(--border))", fontSize: 12, flexWrap: "wrap", gap: 8 }}>
+                      <div>
+                        {e360.data.money.latestPayrollPeriod ? (
+                          <span>
+                            Latest Payroll: <strong>{e360.data.money.latestPayrollPeriod}</strong> ·{" "}
+                            <StatusBadge tone={e360.data.money.currentPayrollStatus === "PAID" ? "success" : "warning"}>
+                              {e360.data.money.currentPayrollStatus ?? "DRAFT"}
+                            </StatusBadge>
+                          </span>
+                        ) : (
+                          <span className="muted">No finalized payroll runs on record.</span>
+                        )}
+                      </div>
+                      {e360.data.money.outstanding > 0 ? (
+                        <SAButton size="sm" variant="secondary" onClick={() => openPayoutModal(e360.data?.money.outstanding)}>
+                          Disburse {financeAmount(e360.data.money.outstanding)}
+                        </SAButton>
                       ) : (
-                        <span className="muted">No finalized payroll runs on record.</span>
+                        <span style={{ color: "var(--success, #10b981)", display: "flex", alignItems: "center", gap: 4 }}>
+                          <CheckCircle2 size={13} />
+                          Ledger balanced
+                        </span>
                       )}
                     </div>
-                    {e360.data.money.outstanding > 0 ? (
-                      <SAButton size="sm" variant="secondary" onClick={() => openPayoutModal(e360.data?.money.outstanding)}>
-                        Disburse {financeAmount(e360.data.money.outstanding)}
-                      </SAButton>
-                    ) : (
-                      <span style={{ color: "var(--success, #10b981)", display: "flex", alignItems: "center", gap: 4 }}>
-                        <CheckCircle2 size={13} />
-                        Ledger balanced
-                      </span>
-                    )}
-                  </div>
-                </SpotlightCard>
+                  </SpotlightCard>
+                )}
 
                 {/* Pillar 3: Operations & Tasks */}
                 <SpotlightCard className="e360-col-6">

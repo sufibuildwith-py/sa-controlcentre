@@ -15,6 +15,14 @@ vi.mock("../finance/finance.api", () => ({
     `₹${Number(value || 0).toLocaleString("en-IN")}`,
 }));
 
+vi.mock("../finance/financeAccess.api", () => ({
+  useFinanceAccess: () => ({
+    data: { eligible: true, unlocked: true, expiresAt: "2026-10-03T18:00:00Z" },
+    isPending: false,
+    isError: false,
+  }),
+}));
+
 vi.mock("../../lib/api", () => ({
   api: vi.fn(),
   json: (body: unknown) => ({

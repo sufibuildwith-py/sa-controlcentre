@@ -11,6 +11,7 @@ import {
 import { useUiStore } from "../../app/store/ui";
 import { SAModal } from "../ui/sa";
 import { useNavigate } from "react-router-dom";
+import { useFinanceAccess } from "../../features/finance/financeAccess.api";
 const items = [
   { label: "Add employee", icon: UserPlus, action: "employee" },
   {
@@ -42,6 +43,16 @@ export function QuickCreate() {
     open = useUiStore((s) => s.quickCreateOpen),
     setOpen = useUiStore((s) => s.setQuickCreateOpen),
     openEmployee = useUiStore((s) => s.openEmployeeForm);
+  const financeAccess = useFinanceAccess();
+  const isUnlocked = financeAccess.data?.unlocked ?? false;
+
+  const visibleItems = items.filter((item) => {
+    if (!isUnlocked && item.to?.startsWith("/payroll")) {
+      return false;
+    }
+    return true;
+  });
+
   const act = (item: (typeof items)[number]) => {
     if (item.action === "employee") openEmployee();
     else if (item.to) {
@@ -57,7 +68,7 @@ export function QuickCreate() {
       description="Start an operation without leaving your current view."
     >
       <div className="quick-create-list">
-        {items.map((item) => {
+        {visibleItems.map((item) => {
           const Icon = item.icon;
           return (
             <button key={item.label} onClick={() => act(item)}>

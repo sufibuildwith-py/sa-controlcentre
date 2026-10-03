@@ -31,20 +31,33 @@ public class EmployeeOperationsController {
   private final WorkTaskService tasks;
   private final PayrollService payroll;
   private final JdbcTemplate jdbc;
+  private final com.saproduction.command.finance.access.FinanceAccessGuard financeAccessGuard;
 
+  @org.springframework.beans.factory.annotation.Autowired
   public EmployeeOperationsController(
-      EmployeeService employees, WorkTaskService tasks, PayrollService payroll, JdbcTemplate jdbc) {
+      EmployeeService employees,
+      WorkTaskService tasks,
+      PayrollService payroll,
+      JdbcTemplate jdbc,
+      com.saproduction.command.finance.access.FinanceAccessGuard financeAccessGuard) {
     this.employees = employees;
     this.tasks = tasks;
     this.payroll = payroll;
     this.jdbc = jdbc;
+    this.financeAccessGuard = financeAccessGuard;
+  }
+
+  public EmployeeOperationsController(
+      EmployeeService employees, WorkTaskService tasks, PayrollService payroll, JdbcTemplate jdbc) {
+    this(employees, tasks, payroll, jdbc, null);
   }
 
   @GetMapping
   public ApiEnvelope<View> get(@PathVariable UUID id) {
     employees.getEntity(id);
     var work = tasks.list(id, null, null, null, null, null, null);
-    var periods = payroll.listForEmployee(id);
+    boolean financeUnlocked = financeAccessGuard == null || financeAccessGuard.isFinanceUnlocked();
+    var periods = financeUnlocked ? payroll.listForEmployee(id) : Collections.<PayrollService.View>emptyList();
     long attendance = count("select count(*) from attendance_records where employee_id=?", id),
         attended =
             count(

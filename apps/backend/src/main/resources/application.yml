@@ -53,7 +53,9 @@ app:
       phone-number-id: ${META_WHATSAPP_PHONE_NUMBER_ID:}
       access-token: ${META_WHATSAPP_ACCESS_TOKEN:}
       app-secret: ${META_WHATSAPP_APP_SECRET:}
-      verify-token: ${META_WHATSAPP_VERIFY_TOKEN:}
+  finance:
+    unlock-code-hash: ${FINANCE_UNLOCK_CODE_HASH:dd7a0bb1db3c404e514d61d0b8025f2c0a6023a17fb74c4461c38bf951d9ee47}
+    access-ttl-minutes: ${FINANCE_ACCESS_TTL_MINUTES:30}
   desktop-origins: ${DESKTOP_ORIGINS:http://localhost:1420,tauri://localhost,http://tauri.localhost}
   navigator:
     enabled: ${NAVIGATOR_ENABLED:false}

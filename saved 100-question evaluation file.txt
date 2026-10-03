@@ -1,0 +1,141 @@
+A. Employees & people — 1–15
+1. Kabir Khan ka role kya hai?
+2. Production department me kaun kaun hai?
+3. Camera team me kitne log hain?
+4. Kaun kaun Sound department me kaam karta hai?
+5. Rohan Sharma ki joining kab hui thi?
+6. Neha Bhatia ka salary kitna hai?
+7. Kaunse employees contract basis pe kaam kar rahe hain?
+8. Kaun kaun abhi leave pe hai?
+9. Part-time employees kaun hain?
+10. Lighting department me sabse senior kaun hai?
+11. Kis employee ka role Equipment Manager hai?
+12. Kabir aur Rahul dono ka role kya hai?
+13. Kya Nikhil Arora abhi available hai?
+14. Accounts aur Client Services me kaun kaun hai?
+15. Kis employee ka salary 70,000 hai?
+B. Production basics — 16–30
+16. Sharma Wedding kab hai?
+17. Sharma Wedding ka client kaun hai?
+18. Sharma Wedding kahan ho raha hai?
+19. Sharma Wedding me kaunsa equipment chahiye?
+20. Royal Fashion Night ka venue kya hai?
+21. MIPS wala event kis client ka hai?
+22. Arora Corporate Summit kab start hota hai?
+23. Kapoor Product Launch ki priority kya hai?
+24. Kaunsa event Noida me hai?
+25. Bengaluru me kaun kaunse productions hain?
+26. Kaunsa production 8 October ko hai?
+27. Kaunse events HIGH priority wale hain?
+28. Sabse bada contract kis production ka hai?
+29. Kaunse event ka contract 3 lakh se kam hai?
+30. Sabse late khatam hone wala production kaunsa hai?
+C. Crew & relationships — 31–42
+31. Sharma Wedding me kaun kaun assigned hai?
+32. Royal Fashion Night ka crew dikhao.
+33. Mehta Family Wedding me kitne log kaam kar rahe hain?
+34. Kabir Khan kin kin productions me assigned hai?
+35. Rohan Sharma kitne events me hai?
+36. Faisal Mirza kaunse productions cover kar raha hai?
+37. Sharma Family ke aur kaunse events hain?
+38. Sara Khan sabse zyada kis type ke events me assigned hai?
+39. Kaunse productions me Imran Hussain hai?
+40. Mujhe aise events dikhao jahan Priya Nair aur Sara Khan dono hain.
+41. Kaunse event me 6 crew members hain?
+42. Kis production me sabse zyada crew hai?
+D. Tasks & work — 43–54
+43. Sharma Wedding me abhi kya pending hai?
+44. Royal Fashion Night ke open tasks kya hain?
+45. Kaunse production me sabse zyada pending tasks hain?
+46. Kis event ka workload sabse zyada lag raha hai?
+47. Sharma Wedding ka camera setup task pending hai kya?
+48. Kaunse events me sound check ka task hai?
+49. Kaunse productions me LED test karna hai?
+50. Mujhe woh events batao jahan rehearsal ka task hai.
+51. Kis production me venue inspection karni hai?
+52. Kaunse events me equipment delivery ka kaam hai?
+53. Sabhi productions me total kitne operational tasks listed hain?
+54. Aisa kaunsa production hai jisme sabse kam open work hai?
+E. Equipment & inventory relationships — 55–65
+55. Sharma Wedding ke liye kitne cameras chahiye?
+56. Royal Fashion Night me kitni lights chahiye?
+57. Kaunse event me LED Wall chahiye?
+58. Sharma Wedding me audio setup hai kya?
+59. 5 cameras wale saare productions kaunse hain?
+60. Sabse zyada lights kis production ke liye chahiye?
+61. Kin events me Audio Kit aur LED Wall dono hain?
+62. Mujhe 4 cameras aur 6 lights wale events batao.
+63. Kaunse production me sirf 2 cameras hain?
+64. Kis event ko sabse heavy equipment setup chahiye?
+65. Gaffer Tape ka kitna stock available hai?
+F. Finance — 66–75
+66. Kabir Khan ko kitna dena hai?
+67. Rohan Sharma ka outstanding kitna hai?
+68. Sharma Wedding ka contract kitne ka hai?
+69. Sharma Wedding me kitna advance aa chuka hai?
+70. Sharma Wedding ka abhi kitna balance outstanding hai?
+71. Kaunse production ka advance 2 lakh se zyada hai?
+72. Sabse bada contract kis client ka hai?
+73. Kin productions me aadha contract advance me aa chuka hai?
+74. Sharma Family ke saare events mila ke contract value kitni hai?
+75. Kis event ka received amount sabse kam hai?
+G. Temporal reasoning — 76–83
+76. Agla event kaunsa hai?
+77. Agle hafte kaun kaunse productions hain?
+78. October ke events kaunse hain?
+79. Next month kitne events scheduled hain?
+80. Is month ka sabse high priority event kaunsa hai?
+81. October ke end me kaunsa production hai?
+82. Kaunse events 15 October ke baad hain?
+83. Sabse pehle aur sabse baad wala production kaunsa hai?
+H. Comparison, ranking & decision support — 84–90
+84. Kaunsa production sabse zyada pending kaam wala hai?
+85. Sabse zyada contract value kis event ki hai?
+86. Kaunsa event crew ke hisaab se sabse bada hai?
+87. Sharma Wedding me 4 log bhejna sahi rahega kya?
+88. Royal Fashion Night ke liye current crew enough lagti hai kya?
+89. Sharma Wedding aur Sharma Reception me kaunsa zyada bada setup hai?
+90. Agar mujhe ek event pe extra production support bhejna ho toh kis event ke workload ko pehle dekhna chahiye?
+I. Context, pronouns & conversational follow-ups — 91–100
+91. Sharma Wedding ka client kaun hai?
+    Aur uska venue kya hai?
+92. MIPS event ka crew kaun hai?
+    Unme se kitne log production department ke hain?
+93. Royal Fashion Night ka equipment kya hai?
+    Usme kitni lights hain?
+94. Kabir Khan ka outstanding batao.
+    Aur woh kin productions me assigned hai?
+95. Sharma Wedding me kitne log hain?
+    Kya unme koi Sound department ka bhi hai?
+96. Kaunsa event sabse zyada pending work wala hai?
+    Uska client kaun hai?
+97. Mehta Family Wedding ka crew batao.
+    Unme se camera wale kaun hain?
+98. October ke events dikhao.
+    Unme sabse high priority wala kaunsa hai?
+99. Mujhe woh production batao jisme LED Wall hai.
+    Uska venue kahan hai?
+100. Kabir Khan ka role kya hai?
+     Aur agar mujhe usko ₹3,000 pay karna ho toh kya uska outstanding hai?
+20 casual / general-talk questions
+These are not supposed to become SA Command lookups. They are specifically there to test whether EVE can leave the ERP world when the user is simply talking to her.
+1. Aaj mausam acha hai kya, field pe jaana chahiye?
+2. Office me garmi bahut ho rahi hai aur AC kharab hai, ab kya karein?
+3. Kal lunch me paneer tha, aaj kya bana sakte hain?
+4. Aaj bahut thak gaya hoon, thoda productive kaise rahun?
+5. Mujhe 30-10+4-12 solve karke batao.
+6. Aaj kaam karne ka bilkul mann nahi hai, kya karun?
+7. Team ke liye simple sa lunch suggest karo jo sabko pasand aa sake.
+8. Baarish ho rahi ho aur shoot bhi ho toh planning kaise karni chahiye?
+9. Mujhe ek quick chai break lena chahiye ya pehle ye kaam finish karun?
+10. Aaj raat kuch light sa khane ka mann hai, kya banaun?
+11. Office me sab bore ho rahe hain, thoda mood fresh karne ke liye kya kar sakte hain?
+12. Mera focus nahi ban raha, 20 minute me kaise reset karun?
+13. Kal subah jaldi uthna hai, aaj kitne baje sona better rahega?
+14. Mujhe do ghante me kaafi kaam niptaana hai, time kaise divide karun?
+15. Garmi me field pe kaam karne ke liye basic cheezein kya rakhni chahiye?
+16. Aaj kuch different dinner karna hai, koi idea de.
+17. Main do options me confuse hoon, decision lene ka simple tareeka kya hai?
+18. Thoda casually baat karo, aaj ka din kaisa lag raha hai?
+19. Mujhe ek simple sa weekend plan suggest karo.
+20. Agar AC kharab ho aur office me kaafi garmi ho toh temporary setup kaise manage karein?

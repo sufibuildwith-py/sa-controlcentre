@@ -46,14 +46,20 @@ public class ApiSessionService {
 
   @Transactional
   public User authenticate(String token) {
-    ApiSession session =
-        sessions
-            .findByTokenHashAndRevokedAtIsNullAndExpiresAtAfter(hash(token), clock.instant())
-            .orElse(null);
+    ApiSession session = findValidSession(token);
     if (session == null) return null;
     session.lastUsedAt = clock.instant();
     return session.user;
   }
+
+  @Transactional(readOnly = true)
+  public ApiSession findValidSession(String token) {
+    if (token == null || token.isBlank()) return null;
+    return sessions
+        .findByTokenHashAndRevokedAtIsNullAndExpiresAtAfter(hash(token), clock.instant())
+        .orElse(null);
+  }
+
 
   @Transactional
   public void revoke(String token) {

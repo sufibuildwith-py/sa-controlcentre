@@ -41,6 +41,13 @@ vi.mock("../headquarters/headquarters.api", () => ({
   },
 }));
 
+vi.mock("../finance/financeAccess.api", () => ({
+  useFinanceAccess: () => ({
+    data: { eligible: true, unlocked: true, expiresAt: null },
+    isLoading: false,
+  }),
+}));
+
 import { financeApi } from "../finance/finance.api";
 import { headquartersApi } from "../headquarters/headquarters.api";
 import { api, ApiError } from "../../lib/api";

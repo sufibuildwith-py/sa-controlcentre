@@ -18,6 +18,7 @@ import {
   MeetingsPage,
   MeetingDetailPage,
 } from "../features/meetings/MeetingsPage";
+import { FinanceRouteGuard } from "../features/finance/FinanceRouteGuard";
 const ProductionDetailPage = lazy(() =>
     import("../features/productions/ProductionDetailPage").then((m) => ({
       default: m.ProductionDetailPage,
@@ -119,8 +120,22 @@ export function App() {
           <Route path="/productions" element={<ProductionsPage />} />
           <Route path="/productions/:id" element={<ProductionDetailPage />} />
           <Route path="/headquarters" element={<HeadquartersPage />} />
-          <Route path="/finance" element={<FinancePage />} />
-          <Route path="/billing" element={<BillingPage />} />
+          <Route
+            path="/finance"
+            element={
+              <FinanceRouteGuard>
+                <FinancePage />
+              </FinanceRouteGuard>
+            }
+          />
+          <Route
+            path="/billing"
+            element={
+              <FinanceRouteGuard>
+                <BillingPage />
+              </FinanceRouteGuard>
+            }
+          />
           <Route path="/eve" element={<EvePage />} />
           {NavigatorPage && (
             <Route path="/navigator" element={<NavigatorPage />} />
@@ -129,8 +144,22 @@ export function App() {
           <Route path="/calendar" element={<CalendarPage />} />
           <Route path="/meetings" element={<MeetingsPage />} />
           <Route path="/meetings/:id" element={<MeetingDetailPage />} />
-          <Route path="/payroll" element={<PayrollPage />} />
-          <Route path="/payroll/:id" element={<PayrollPage />} />
+          <Route
+            path="/payroll"
+            element={
+              <FinanceRouteGuard>
+                <PayrollPage />
+              </FinanceRouteGuard>
+            }
+          />
+          <Route
+            path="/payroll/:id"
+            element={
+              <FinanceRouteGuard>
+                <PayrollPage />
+              </FinanceRouteGuard>
+            }
+          />
           <Route path="/communications" element={<CommunicationsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />

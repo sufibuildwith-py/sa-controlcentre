@@ -91,6 +91,7 @@ flowchart TD
         HQ[Headquarters\nGear Catalogue · Units · Reservations]
         CAL[Calendar\nOperational Projections & Conflicts]
         COMMS[Communications\nOutbox · WhatsApp Delivery · Audited Webhooks]
+        NAV[Navigator\nConsent Field Telemetry · Realtime Broker · Dynamic Teams]
     end
 
     subgraph Ledger & Settlement
@@ -103,6 +104,8 @@ flowchart TD
     end
 
     PEOPLE -->|Crew Allocation| PROD
+    PEOPLE -->|Field Device Pairing| NAV
+    PROD -->|Production Team Linkage| NAV
     PEOPLE -->|Attendance & Salary| FIN
     WORK -->|Production Tasks| PROD
     HQ -->|Inventory Reservation| PROD
@@ -123,10 +126,11 @@ flowchart TD
 
 | Domain | Owns | Connects To |
 |---|---|---|
-| **People** | Employee records, roles, daily attendance, leaves, base compensation | Productions (crew), Finance (obligations & payouts), Comms (callouts) |
+| **People** | Employee records, roles, daily attendance, leaves, base compensation | Productions (crew), Finance (obligations & payouts), Comms (callouts), Navigator (pairings) |
 | **Work** | Operational tasks, assignees, priorities, status (`TODO`, `IN_PROGRESS`, `DONE`) | Productions (attached tasks), Calendar (deadlines), Command (overdue queue) |
-| **Productions** | Event titles, clients, dates, schedules, venues, operational notes | People (crew), HQ (equipment reservations), Finance (contracts & advances) |
+| **Productions** | Event titles, clients, dates, schedules, venues, operational notes | People (crew), HQ (equipment reservations), Finance (contracts & advances), Navigator (teams) |
 | **Headquarters** | Master catalogue, serialized units, bulk stock, warehouse reservations | Productions (assigned gear), Finance (asset purchases & vendor invoices) |
+| **Navigator** | Consent-based mobile location telemetry, device pairings, live roster, dynamic teams | People (field crew), Productions (team linkage & venues), Realtime WebSocket broker |
 | **Finance** | Double-entry transaction journal, receivables, payables, owner positions | Productions (contracts/receipts), People (payroll), Billing (settlement) |
 | **Billing** | Invoices, draft $\to$ issued $\to$ paid lifecycle, GST rates, PDF exports | Finance (invoice receivables & collections), Parties (commercial counterparty) |
 | **Calendar** | Canonical temporal intervals, attendee availability, conflict detection | Productions (events), Work (task deadlines), Meetings (sessions) |
@@ -648,7 +652,97 @@ flowchart TD
 
 ---
 
-## 14. Safety & System Authority Model
+## 14. Navigator: Live Field Operations & Realtime Roster
+
+Production operations do not stop at the studio desk. During live events, shoots, and multi-venue setups, directors and production coordinators require real-time visibility into crew readiness, field status, and dynamic team dispatch without compromising worker consent or battery life.
+
+```mermaid
+flowchart TD
+    subgraph Mobile Devices
+        APP[Crew Mobile Client / Simulator] -->|Encrypted HTTPS Location Heartbeat| GW[Navigator Gateway\nStandalone Microgateway :8091]
+    end
+
+    subgraph Realtime Event Broker
+        GW -->|STOMP over WebSocket\n/topic/organizations/{orgId}/locations| BROKER[WebSocket Gateway Engine]
+    end
+
+    subgraph Command Center Desktop
+        BROKER -->|Realtime Event Dispatch| HOOK[useNavigatorRealtime Hook]
+        HOOK --> CACHE[TanStack Query Cache\n['navigator', 'live']]
+        CACHE --> UI[Navigator Console\nInteractive Map · Status Roster · Dynamic Teams]
+    end
+
+    subgraph SA Command Backend
+        CTL[NavigatorController :8080] -->|Admin Ingestion & Historical Roster| GW
+        CTL --> PROD[ProductionService\nProduction & Member Team Linkage]
+        CTL --> TICKET[Secure Realtime Ticket Service]
+        TICKET -->|Short-Lived Ephemeral Auth| HOOK
+    end
+```
+
+### Operational Highlights
+
+- **Consent-Based Telemetry**: Explicit check-in and active duty states. Crew members remain in full control of their location sharing (`LIVE`, `OFF_DUTY`, `STALE`, `OFFLINE`, `UNPAIRED`).
+- **Dynamic Production & Team Grouping**: Links field crew directly to active productions with customizable operational teams (e.g., *Camera Crew*, *Sound Unit*, *Lighting Riggers*) via `MakeTeamModal` and database migrations (`V032__production_member_team.sql`).
+- **Realtime STOMP Streaming**: Eliminates polling overhead through low-latency STOMP WebSocket telemetry, updating coordinates, battery indicators, and movement trails instantly.
+- **Administrative Dispatch & Revocation**: Instant device authorization pairing codes (`POST /api/v1/navigator/employees/{id}/pairing`) and one-click cryptographic revocation (`POST /api/v1/navigator/devices/{id}/revoke`).
+- **Simulated Test Harness**: Built-in location simulator for local development, demo scenarios, and offline QA without physical mobile hardware.
+
+---
+
+## 15. Finance Privacy Veil: Zero-Knowledge Shoulder Privacy
+
+In the fast-paced environment of a production house, screens are frequently shared with clients reviewing edits, freelance crew checking call sheets, or visitors standing shoulder-to-shoulder with the owner. Commercial margins, bank balances, billing rates, and staff compensation must remain strictly confidential without obstructing daily operational workflows.
+
+```mermaid
+flowchart TD
+    subgraph Default Locked State
+        BROWSER[SA Command Desktop]
+        NAV[Segmented Top Nav] -.->|Finance & Billing Tabs Hidden| BROWSER
+        PALETTE[SA Command Palette] -.->|Financial Actions Excluded| BROWSER
+        PROD_UI[Production Sheet] -.->|Contracts & Receipts Masked| BROWSER
+        EMP_UI[Employee 360] -.->|Salaries & Payouts Hidden| BROWSER
+        DASH_UI[Command Dashboard] -.->|Liquid Balances Concealed| BROWSER
+    end
+
+    subgraph Steganographic Unlock
+        OWNER[Owner] -->|Developer Settings| DONATE[Developer Donation Modal]
+        DONATE -->|Enter 6-digit PIN: 153011| REQ[POST /api/v1/finance-access/unlock]
+        REQ --> AUTH{FinanceAccessService\nSHA-256 Hash Verification\n+ Rate Limiter}
+    end
+
+    subgraph Server-Side Grant Lifecycle
+        AUTH -->|Valid PIN + ROLE_OWNER| GRANT[api_sessions Table\n30-Minute Cryptographic Grant\nV033 Migration]
+        AUTH -->|Invalid PIN / Non-Owner| DENY[Simulated $2 Donation UI\n+ HTTP 403 Forbidden\nAudit Event Logged]
+        GRANT --> UNLOCKED[Full Commercial Access Unlocked\nAutomatic 30m Auto-Expiry\nManual Immediate Re-Lock]
+    end
+
+    subgraph Security Boundary
+        FILTER[FinanceAccessFilter] -->|Intercepts /api/v1/finance/**,\n/billing/**, /payroll/**| ENFORCE{Session Valid & Unlocked?}
+        ENFORCE -->|Yes| OK[200 OK - Canonical Ledger Postings]
+        ENFORCE -->|No| BLOCK[403 Forbidden - FINANCE_LOCKED]
+    end
+```
+
+### Architectural Guarantees
+
+1. **Zero Client Leakage**:
+   - Commercial data is **never** sent to the client and hidden with CSS. The backend strictly strips or blocks financial payloads at the HTTP and service layers.
+   - The unlock PIN (`153011`) never appears in frontend bundles, client source code, or application logs. Verification relies exclusively on server-side SHA-256 hash comparison.
+2. **Steganographic Trigger**:
+   - Access is not unlocked through a conspicuous "Finance Password" prompt. Instead, it is housed within a simulated **Developer Donation** interface ($2 UPI contribution), preserving total discretion in shared workspaces.
+3. **Time-Bound Session Grants (`V033`)**:
+   - Successful unlocks write an append-only grant timestamp to the active session in `api_sessions` (`finance_granted_at`, `finance_expires_at`).
+   - Grants automatically expire after 30 minutes. Owners can also revoke access instantly via "Lock Finance" in Developer Settings.
+4. **Defense-in-Depth Filter Boundary**:
+   - `FinanceAccessFilter` strictly gates all financial controllers (`/api/v1/finance/**`, `/api/v1/billing/**`, `/api/v1/payroll/**`, `/api/v1/productions/*/finance`, `/api/v1/employees/*/finance`).
+   - Rate limiting via `FinanceAccessThrottle` restricts unlock attempts to 3 requests/min per IP with a mandatory 15-minute cooldown.
+5. **Full Audit Traceability**:
+   - All state transitions (`FINANCE_ACCESS_GRANTED`, `FINANCE_ACCESS_DENIED`, `FINANCE_ACCESS_LOCKED`) are permanently recorded in the immutable audit log with actor identity and IP address.
+
+---
+
+## 16. Safety & System Authority Model
 
 SA Command maintains an uncompromising boundary regarding where authority resides:
 
@@ -706,7 +800,7 @@ SA Command maintains an uncompromising boundary regarding where authority reside
 
 ---
 
-## 15. Testing & Verification Philosophy
+## 17. Testing & Verification Philosophy
 
 SA Command follows a rigorous verification culture where operations that impact money, inventory, and production commitments must be provably correct.
 
@@ -727,6 +821,7 @@ flowchart LR
 - **Canonical Finance Mutations**: Tested against real PostgreSQL instances via Testcontainers to verify double-entry balance arithmetic, allocation tracking, and rollback isolation.
 - **Idempotency & Concurrency**: Validates that network retries and duplicate request UUIDs cannot produce duplicate financial transactions.
 - **Stale-Plan Prevention**: Proves that mid-flight balance changes invalidate pending proposal hashes, preventing out-of-date writes.
+- **Finance Privacy Veil Security Matrix**: Automated HTTP and service boundary verification ensuring locked owners and non-owners receive complete 403 blocks across all financial endpoints.
 - **EVE Security Boundaries**: Validates that prompt injection attempts in transaction descriptions, entity notes, and user prompts are treated strictly as inert string data.
 - **Conversational Regression**: Multi-turn dialogue tests evaluate pronoun resolution, session context preservation, and candidate disambiguation.
 - **Local Model Integration**: Real native inference tests for Qwen models alongside fast deterministic test suites for offline CI.
@@ -734,7 +829,7 @@ flowchart LR
 
 ---
 
-## 16. Engineering Principles
+## 18. Engineering Principles
 
 1. **One Source of Truth**: Never create a secondary ledger, shadow balance cache, or duplicate database simply to satisfy a new interface.
 2. **Domain Ownership**: Each domain strictly owns its database tables, lifecycle rules, and transaction boundaries.
@@ -747,13 +842,13 @@ flowchart LR
 
 ---
 
-## 17. Technology Stack
+## 19. Technology Stack
 
 ### Backend
 - **Language**: Java 21 (LTS)
 - **Framework**: Spring Boot 3.4+ (Web, Security, Validation, Data JPA)
 - **Database**: PostgreSQL 16+
-- **Database Migrations**: Flyway (append-only migrations)
+- **Database Migrations**: Flyway (append-only migrations V001..V033)
 - **Testing**: JUnit 5, Mockito, AssertJ, Testcontainers PostgreSQL
 
 ### Desktop & Frontend
@@ -763,6 +858,7 @@ flowchart LR
 - **Server State**: TanStack Query (React Query)
 - **UI State**: Zustand (restricted to theme, modals, and shell state)
 - **Command Menu**: cmdk (`SACommandPalette`)
+- **Realtime Telemetry**: `@stomp/stompjs` WebSocket client
 - **Styling**: Tailwind CSS, original local CSS design system
 - **Motion**: Motion (reduced-motion compliant, layout transitions)
 - **Icons**: Lucide React (single consistent icon family)
@@ -775,7 +871,7 @@ flowchart LR
 
 ---
 
-## 18. Design Language
+## 20. Design Language
 
 SA Command deliberately avoids generic enterprise dashboard templates, bright neon palettes, and noisy data tables. The visual design is tailored for focus and operational clarity:
 
@@ -788,7 +884,7 @@ SA Command deliberately avoids generic enterprise dashboard templates, bright ne
 
 ---
 
-## 19. Repository Structure
+## 21. Repository Structure
 
 ```text
 sa-controlcentre/
@@ -809,12 +905,14 @@ sa-controlcentre/
 │   │   │   │   ├── semantic/            # Embeddings, rerankers, cache & policy
 │   │   │   │   └── system/              # EveSystemModel concepts & domains
 │   │   │   ├── finance/                 # Canonical posting, read & workbook services
+│   │   │   │   └── access/              # Finance Privacy Veil guard, filter & session grants
 │   │   │   ├── headquarters/            # Equipment inventory & reservations
+│   │   │   ├── navigator/               # Field operations gateway client & live roster
 │   │   │   ├── payroll/                 # Minor-unit salary & payout ledger
 │   │   │   ├── production/              # Production core, crew & single intake
 │   │   │   └── work/                    # Tasks & operational assignments
 │   │   ├── src/main/resources/
-│   │   │   ├── db/migration/            # Flyway SQL migrations (V001..V031)
+│   │   │   ├── db/migration/            # Flyway SQL migrations (V001..V033)
 │   │   │   └── application.yml
 │   │   └── pom.xml
 │   │
@@ -826,7 +924,8 @@ sa-controlcentre/
 │       │   │   ├── productions/         # Production management & single intake
 │       │   │   ├── employees/           # Employee 360 & attendance
 │       │   │   ├── headquarters/        # Gear inventory & stock manager
-│       │   │   ├── finance/             # Canonical ledger & workbook views
+│       │   │   ├── navigator/           # Field operations live map, roster & teams
+│       │   │   ├── finance/             # Canonical ledger, workbook & privacy veil guard
 │       │   │   ├── billing/             # Invoices & Party 360
 │       │   │   ├── calendar/            # Schedule-X calendar integration
 │       │   │   └── eve/                 # EVE conversational console & suggestions
@@ -858,7 +957,7 @@ sa-controlcentre/
 
 ---
 
-## 20. Local Development
+## 22. Local Development
 
 ### Prerequisites
 - **Java**: OpenJDK 21 (LTS)
@@ -892,7 +991,7 @@ npm --prefix apps/desktop run tauri dev
 
 ---
 
-## 21. Verification Commands
+## 23. Verification Commands
 
 Run the full verification suite before committing changes:
 
@@ -919,7 +1018,7 @@ powershell -ExecutionPolicy Bypass -File scripts/reset-demo.ps1
 
 ---
 
-## 22. Intelligence Architecture References
+## 24. Intelligence Architecture References
 
 EVE's architectural design draws structural insights from leading open-source local-AI and document-intelligence projects:
 
@@ -930,7 +1029,7 @@ EVE's architectural design draws structural insights from leading open-source lo
 
 ---
 
-## 23. Documentation Directory
+## 25. Documentation Directory
 
 - **[Architecture Guide](docs/architecture.md)** — Core design principles, session token management, and domain event outbox.
 - **[Data Model](docs/data-model.md)** — Relational schema, PostgreSQL data types, and index strategies.
@@ -946,7 +1045,7 @@ EVE's architectural design draws structural insights from leading open-source lo
 
 ---
 
-## 24. Project Status
+## 26. Project Status
 
 SA Command is an actively evolving production-operations platform.
 
@@ -955,6 +1054,8 @@ SA Command is an actively evolving production-operations platform.
 - Headquarters equipment inventory, unit tracking, and availability reservations
 - Canonical double-entry finance, double-track party receivables, and invoice lifecycle
 - Integer-minor-unit payroll and immutable payout ledgers
+- **Finance Privacy Veil** (Zero-Knowledge Shoulder Privacy, steganographic unlock, 30m session grants, `FinanceAccessFilter`, DB migration V033)
+- **Navigator** (Consent-based field telemetry, dynamic teams, device pairing & revocation, STOMP realtime streaming)
 - EVE conversational session core, entity disambiguation, and antecedent resolution
 - EVE two-stage semantic resolution (`Qwen3-Embedding` + `Qwen3-Reranker`)
 - EVE Phase 3 governed execution (cryptographic plan hashing, explicit confirmation, Command Gateway)
@@ -972,3 +1073,4 @@ SA Command is an actively evolving production-operations platform.
   <strong>One company. One connected operational system.</strong><br>
   <sub>AI can help understand the business. The system remains responsible for the truth.</sub>
 </p>
+

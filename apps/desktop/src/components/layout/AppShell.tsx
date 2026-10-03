@@ -29,6 +29,7 @@ import { EmployeeForm } from "../../features/employees/EmployeeForm";
 import { api, clearSessionToken } from "../../lib/api";
 import type { Dashboard } from "../../types/domain";
 import { navigatorEnabled } from "../../features/navigator/navigator.types";
+import { useFinanceAccess } from "../../features/finance/financeAccess.api";
 
 const domains = [
   { label: "Overview", to: "/" },
@@ -91,9 +92,19 @@ export function AppShell({ children }: PropsWithChildren) {
 export function FloatingDomainSwitcher() {
   const location = useLocation();
   const setQuickCreateOpen = useUiStore((s) => s.setQuickCreateOpen);
+  const financeAccess = useFinanceAccess();
+  const isUnlocked = financeAccess.data?.unlocked ?? false;
+
+  const visibleDomains = domains.filter((item) => {
+    if (!isUnlocked && (item.to === "/finance" || item.to === "/billing")) {
+      return false;
+    }
+    return true;
+  });
+
   return (
     <nav className="top-switcher" aria-label="Business domains">
-      {domains.map((item) => (
+      {visibleDomains.map((item) => (
         <NavLink
           key={item.label}
           to={item.to}

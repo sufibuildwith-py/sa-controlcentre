@@ -32,4 +32,14 @@ public class ApiSession {
 
   @Column(name = "revoked_at")
   public Instant revokedAt;
+
+  @Column(name = "finance_granted_at")
+  public Instant financeGrantedAt;
+
+  @Column(name = "finance_expires_at")
+  public Instant financeExpiresAt;
+
+  @Column(name = "finance_revoked_at")
+  public Instant financeRevokedAt;
 }
+

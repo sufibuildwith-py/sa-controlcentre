@@ -12,10 +12,11 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ApiError, api, json } from "../../lib/api";
 import { financeApi, financeAmount } from "../finance/finance.api";
+import { useFinanceAccess } from "../finance/financeAccess.api";
 import { headquartersApi } from "../headquarters/headquarters.api";
 import type {
   Employee,
@@ -162,18 +163,29 @@ export function ProductionDetailPage() {
       >(`/audit?entityType=PRODUCTION&entityId=${id}`),
     enabled: !!id && tab === "activity",
   });
+  const financeAccess = useFinanceAccess();
+  const isUnlocked = financeAccess.data?.unlocked ?? false;
+
+  useEffect(() => {
+    if (!isUnlocked && tab === "finance") {
+      setTab("overview");
+    }
+  }, [isUnlocked, tab]);
+
   const finance = useQuery({
     queryKey: ["finance", "production", id],
     queryFn: () => financeApi.production(id!),
-    enabled: !!id,
+    enabled: !!id && isUnlocked,
   });
   const financeConfig = useQuery({
     queryKey: ["finance", "config"],
     queryFn: () => financeApi.config(),
+    enabled: isUnlocked,
   });
   const counterparties = useQuery({
     queryKey: ["counterparties"],
     queryFn: () => financeApi.counterparties(0),
+    enabled: isUnlocked,
   });
 
   const setContractMutation = useMutation({
@@ -588,9 +600,11 @@ export function ProductionDetailPage() {
               Set Contract
             </SAButton>
           )}
-          <SAButton onClick={() => navigate(`/billing?productionId=${p.id}`)}>
-            Create Bill
-          </SAButton>
+          {isUnlocked && (
+            <SAButton onClick={() => navigate(`/billing?productionId=${p.id}`)}>
+              Create Bill
+            </SAButton>
+          )}
         </div>
       </SABentoCard>
       <SATabs
@@ -602,7 +616,7 @@ export function ProductionDetailPage() {
           "tasks",
           "schedule",
           "equipment",
-          "finance",
+          ...(isUnlocked ? ["finance"] : []),
           "notes",
           "activity",
         ].map((value) => ({
@@ -990,7 +1004,7 @@ export function ProductionDetailPage() {
             </SABentoCard>
 
             {/* Financial Summary on Overview */}
-            {finance.data && (
+            {isUnlocked && finance.data && (
               <SABentoCard className="production-section-card">
                 <div className="production-section-header">
                   <h3>Financial Summary</h3>
@@ -1126,7 +1140,8 @@ export function ProductionDetailPage() {
             </SAButton>
           </SABentoCard>
         </SATabContent>
-        <SATabContent value="finance">
+        {isUnlocked && (
+          <SATabContent value="finance">
           {finance.isPending ? (
             <SkeletonCard />
           ) : finance.isError || !finance.data ? (
@@ -1403,6 +1418,7 @@ export function ProductionDetailPage() {
             })()
           )}
         </SATabContent>
+        )}
         <SATabContent value="schedule">
           <SABentoCard>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>

@@ -174,26 +174,28 @@ export function CommandPage() {
         />
         <div className="command-header-bar">
           <div className="command-header-left">
-            <span className="command-system-status">
-              <span
-                style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: "50%",
-                  backgroundColor:
-                    d.money.reconciliationStatus === "BROKEN"
-                      ? "#ef4444"
-                      : d.money.reconciliationStatus === "WARNING"
-                        ? "#f59e0b"
-                        : "#10b981",
-                }}
-              />
-              {d.money.reconciliationStatus === "BROKEN"
-                ? "Reconciliation Issue"
-                : d.money.reconciliationStatus === "WARNING"
-                  ? "Reconciliation Warning"
-                  : "Finance Reconciled"}
-            </span>
+            {d.money && (
+              <span className="command-system-status">
+                <span
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: "50%",
+                    backgroundColor:
+                      d.money.reconciliationStatus === "BROKEN"
+                        ? "#ef4444"
+                        : d.money.reconciliationStatus === "WARNING"
+                          ? "#f59e0b"
+                          : "#10b981",
+                  }}
+                />
+                {d.money.reconciliationStatus === "BROKEN"
+                  ? "Reconciliation Issue"
+                  : d.money.reconciliationStatus === "WARNING"
+                    ? "Reconciliation Warning"
+                    : "Finance Reconciled"}
+              </span>
+            )}
             <span style={{ fontSize: "12px", color: "var(--text-3)" }}>
               Viewing {isTodayView ? "Today" : d.date}
             </span>
@@ -351,173 +353,177 @@ export function CommandPage() {
         </div>
 
         {/* Money Today */}
-        <div
-          className="command-today-metric-card"
-          onClick={() => navigate("/finance")}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => e.key === "Enter" && navigate("/finance")}
-        >
-          <div className="command-today-metric-top">
-            <span className="command-today-metric-label">Money Today</span>
-            <CreditCard size={15} style={{ color: "var(--text-3)" }} />
+        {d.money && (
+          <div
+            className="command-today-metric-card"
+            onClick={() => navigate("/finance")}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => e.key === "Enter" && navigate("/finance")}
+          >
+            <div className="command-today-metric-top">
+              <span className="command-today-metric-label">Money Today</span>
+              <CreditCard size={15} style={{ color: "var(--text-3)" }} />
+            </div>
+            <strong className="command-today-metric-value">
+              {formatInr(d.today.moneyMovement.received)}
+            </strong>
+            <div className="command-today-metric-footer">
+              <span>
+                Out: {formatInr(d.today.moneyMovement.disbursed)} (
+                {d.today.moneyMovement.transactionCount} txs)
+              </span>
+              <ArrowUpRight
+                size={13}
+                style={{ marginLeft: "auto", color: "var(--text-3)" }}
+              />
+            </div>
           </div>
-          <strong className="command-today-metric-value">
-            {formatInr(d.today.moneyMovement.received)}
-          </strong>
-          <div className="command-today-metric-footer">
-            <span>
-              Out: {formatInr(d.today.moneyMovement.disbursed)} (
-              {d.today.moneyMovement.transactionCount} txs)
-            </span>
-            <ArrowUpRight
-              size={13}
-              style={{ marginLeft: "auto", color: "var(--text-3)" }}
-            />
-          </div>
-        </div>
+        )}
       </motion.div>
 
       {/* 3. Primary Grid: Business Position + Upcoming Productions (Left) & Attention Queue (Right) */}
       <motion.div className="command-primary-grid" {...anim(0.1)}>
         <div className="command-primary-left-col">
           {/* Business Position Hero Card with Spotlight */}
-          <FollowingPointer
-            content={
-              <div>
-                <strong>Canonical Finance Core</strong>
-                <p
-                  style={{
-                    margin: "2px 0 0",
-                    fontSize: "11px",
-                    color: "var(--text-3)",
-                  }}
-                >
-                  Click to explore ledger journals & account balances.
-                </p>
-              </div>
-            }
-          >
-            <CardSpotlight interactive onClick={() => navigate("/finance")}>
-              <div className="command-money-hero-header">
-                <div className="command-money-title-group">
-                  <h2>Business Position</h2>
-                  <div
-                    className={`command-money-hero-amount ${
-                      d.money.businessPosition >= 0 ? "positive" : "negative"
-                    }`}
+          {d.money && (
+            <FollowingPointer
+              content={
+                <div>
+                  <strong>Canonical Finance Core</strong>
+                  <p
+                    style={{
+                      margin: "2px 0 0",
+                      fontSize: "11px",
+                      color: "var(--text-3)",
+                    }}
                   >
-                    {formatInr(d.money.businessPosition)}
+                    Click to explore ledger journals & account balances.
+                  </p>
+                </div>
+              }
+            >
+              <CardSpotlight interactive onClick={() => navigate("/finance")}>
+                <div className="command-money-hero-header">
+                  <div className="command-money-title-group">
+                    <h2>Business Position</h2>
+                    <div
+                      className={`command-money-hero-amount ${
+                        d.money.businessPosition >= 0 ? "positive" : "negative"
+                      }`}
+                    >
+                      {formatInr(d.money.businessPosition)}
+                    </div>
                   </div>
+
+                  <Tooltip content="Reconciliation Control: Compares total journal postings to physical owner balances. Click to open control plane.">
+                    <div
+                      className={`command-money-badge status-${d.money.reconciliationStatus.toLowerCase()}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate("/finance?tab=RECONCILIATION");
+                      }}
+                      role="button"
+                      tabIndex={0}
+                    >
+                      <span
+                        style={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: "50%",
+                          backgroundColor: "currentColor",
+                        }}
+                      />
+                      {d.money.reconciliationStatus}
+                    </div>
+                  </Tooltip>
                 </div>
 
-                <Tooltip content="Reconciliation Control: Compares total journal postings to physical owner balances. Click to open control plane.">
-                  <div
-                    className={`command-money-badge status-${d.money.reconciliationStatus.toLowerCase()}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate("/finance?tab=RECONCILIATION");
-                    }}
-                    role="button"
-                    tabIndex={0}
-                  >
-                    <span
-                      style={{
-                        width: 6,
-                        height: 6,
-                        borderRadius: "50%",
-                        backgroundColor: "currentColor",
+                {/* Owner Account Positions */}
+                <div className="command-owner-positions-grid">
+                  <Tooltip content="Azeem (AZ-2): Current balance of owner capital. Negative position indicates capital drawn or funded beyond current balance, not third-party debt.">
+                    <div
+                      className="command-position-tile"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate("/finance?tab=OWNERS");
                       }}
-                    />
-                    {d.money.reconciliationStatus}
-                  </div>
-                </Tooltip>
-              </div>
-
-              {/* Owner Account Positions */}
-              <div className="command-owner-positions-grid">
-                <Tooltip content="Azeem (AZ-2): Current balance of owner capital. Negative position indicates capital drawn or funded beyond current balance, not third-party debt.">
-                  <div
-                    className="command-position-tile"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate("/finance?tab=OWNERS");
-                    }}
-                  >
-                    <div className="tile-label">
-                      <span>Azeem (AZ-2)</span>
-                      <ArrowUpRight size={13} />
+                    >
+                      <div className="tile-label">
+                        <span>Azeem (AZ-2)</span>
+                        <ArrowUpRight size={13} />
+                      </div>
+                      <strong className="tile-value">
+                        {formatInr(d.money.azeemPosition)}
+                      </strong>
+                      <span className="tile-hint">Owner capital position</span>
                     </div>
-                    <strong className="tile-value">
-                      {formatInr(d.money.azeemPosition)}
-                    </strong>
-                    <span className="tile-hint">Owner capital position</span>
-                  </div>
-                </Tooltip>
+                  </Tooltip>
 
-                <Tooltip content="Akash (AK-2): Current balance of owner capital associated with AK-2 account.">
-                  <div
-                    className="command-position-tile"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate("/finance?tab=OWNERS");
-                    }}
-                  >
-                    <div className="tile-label">
-                      <span>Akash (AK-2)</span>
-                      <ArrowUpRight size={13} />
+                  <Tooltip content="Akash (AK-2): Current balance of owner capital associated with AK-2 account.">
+                    <div
+                      className="command-position-tile"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate("/finance?tab=OWNERS");
+                      }}
+                    >
+                      <div className="tile-label">
+                        <span>Akash (AK-2)</span>
+                        <ArrowUpRight size={13} />
+                      </div>
+                      <strong className="tile-value">
+                        {formatInr(d.money.akashPosition)}
+                      </strong>
+                      <span className="tile-hint">Owner capital position</span>
                     </div>
-                    <strong className="tile-value">
-                      {formatInr(d.money.akashPosition)}
-                    </strong>
-                    <span className="tile-hint">Owner capital position</span>
-                  </div>
-                </Tooltip>
-              </div>
+                  </Tooltip>
+                </div>
 
-              {/* Receivables & Payables Breakdown */}
-              <div className="command-receivables-breakdown">
-                <Tooltip content="Direct counterparty charges outstanding on the direct ledger track.">
-                  <div
-                    className="command-sub-metric"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate("/finance?tab=PARTIES");
-                    }}
-                  >
-                    <span>Party Charges</span>
-                    <strong>{formatInr(d.money.customerReceivable)}</strong>
-                  </div>
-                </Tooltip>
+                {/* Receivables & Payables Breakdown */}
+                <div className="command-receivables-breakdown">
+                  <Tooltip content="Direct counterparty charges outstanding on the direct ledger track.">
+                    <div
+                      className="command-sub-metric"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate("/finance?tab=PARTIES");
+                      }}
+                    >
+                      <span>Party Charges</span>
+                      <strong>{formatInr(d.money.customerReceivable)}</strong>
+                    </div>
+                  </Tooltip>
 
-                <Tooltip content="Formal GST / standard invoices pending payment on the invoice track.">
-                  <div
-                    className="command-sub-metric"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate("/finance?tab=INVOICES");
-                    }}
-                  >
-                    <span>Formal Invoices</span>
-                    <strong>{formatInr(d.money.invoiceReceivable)}</strong>
-                  </div>
-                </Tooltip>
+                  <Tooltip content="Formal GST / standard invoices pending payment on the invoice track.">
+                    <div
+                      className="command-sub-metric"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate("/finance?tab=INVOICES");
+                      }}
+                    >
+                      <span>Formal Invoices</span>
+                      <strong>{formatInr(d.money.invoiceReceivable)}</strong>
+                    </div>
+                  </Tooltip>
 
-                <Tooltip content="Pending salary and manual earning obligations owed to employees.">
-                  <div
-                    className="command-sub-metric"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate("/payroll");
-                    }}
-                  >
-                    <span>Crew Payable</span>
-                    <strong>{formatInr(d.money.employeePayable)}</strong>
-                  </div>
-                </Tooltip>
-              </div>
-            </CardSpotlight>
-          </FollowingPointer>
+                  <Tooltip content="Pending salary and manual earning obligations owed to employees.">
+                    <div
+                      className="command-sub-metric"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate("/payroll");
+                      }}
+                    >
+                      <span>Crew Payable</span>
+                      <strong>{formatInr(d.money.employeePayable)}</strong>
+                    </div>
+                  </Tooltip>
+                </div>
+              </CardSpotlight>
+            </FollowingPointer>
+          )}
 
           {/* Dedicated Upcoming Productions Section */}
           <UpcomingProductions
@@ -842,83 +848,85 @@ export function CommandPage() {
         </div>
 
         {/* Recent Financial Movement */}
-        <div className="command-panel-card">
-          <div className="command-panel-header">
-            <h3>Recent Financial Activity</h3>
-            <span
-              style={{
-                fontSize: "11.5px",
-                color: "var(--text-3)",
-                cursor: "pointer",
-              }}
-              role="button"
-              tabIndex={0}
-              onClick={() => navigate("/finance?tab=TRANSACTIONS")}
-              onKeyDown={(e) =>
-                e.key === "Enter" && navigate("/finance?tab=TRANSACTIONS")
-              }
-            >
-              View ledger →
-            </span>
-          </div>
+        {d.money && (
+          <div className="command-panel-card">
+            <div className="command-panel-header">
+              <h3>Recent Financial Activity</h3>
+              <span
+                style={{
+                  fontSize: "11.5px",
+                  color: "var(--text-3)",
+                  cursor: "pointer",
+                }}
+                role="button"
+                tabIndex={0}
+                onClick={() => navigate("/finance?tab=TRANSACTIONS")}
+                onKeyDown={(e) =>
+                  e.key === "Enter" && navigate("/finance?tab=TRANSACTIONS")
+                }
+              >
+                View ledger →
+              </span>
+            </div>
 
-          <div className="command-timeline-list">
-            {d.recentFinancialActivity.length > 0 ? (
-              d.recentFinancialActivity.map((tx) => {
-                const isPositive =
-                  tx.type.includes("RECEIPT") || tx.type === "INVOICE_PAYMENT";
-                const entity =
-                  tx.counterpartyName ||
-                  tx.employeeName ||
-                  tx.productionTitle ||
-                  "Operating";
-                const txRoute = activityRoute(tx.type);
-                return (
-                  <div
-                    key={tx.id}
-                    className="command-timeline-row"
-                    onClick={() => navigate(txRoute)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => e.key === "Enter" && navigate(txRoute)}
-                    aria-label={`${formatTxType(tx.type)}: ${entity} — ${formatInr(tx.amount)}`}
-                  >
-                    <div className="command-timeline-left">
-                      <span className="command-timeline-badge">
-                        {formatTxType(tx.type)}
-                      </span>
-                      <div className="command-timeline-desc">
-                        <strong>{entity}</strong>
-                        <span>{tx.description}</span>
+            <div className="command-timeline-list">
+              {d.recentFinancialActivity.length > 0 ? (
+                d.recentFinancialActivity.map((tx) => {
+                  const isPositive =
+                    tx.type.includes("RECEIPT") || tx.type === "INVOICE_PAYMENT";
+                  const entity =
+                    tx.counterpartyName ||
+                    tx.employeeName ||
+                    tx.productionTitle ||
+                    "Operating";
+                  const txRoute = activityRoute(tx.type);
+                  return (
+                    <div
+                      key={tx.id}
+                      className="command-timeline-row"
+                      onClick={() => navigate(txRoute)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => e.key === "Enter" && navigate(txRoute)}
+                      aria-label={`${formatTxType(tx.type)}: ${entity} — ${formatInr(tx.amount)}`}
+                    >
+                      <div className="command-timeline-left">
+                        <span className="command-timeline-badge">
+                          {formatTxType(tx.type)}
+                        </span>
+                        <div className="command-timeline-desc">
+                          <strong>{entity}</strong>
+                          <span>{tx.description}</span>
+                        </div>
+                      </div>
+                      <div className="command-timeline-right">
+                        <strong
+                          className={`command-timeline-amount ${
+                            isPositive ? "positive" : "neutral"
+                          }`}
+                        >
+                          {isPositive ? "+" : "-"}
+                          {formatInr(tx.amount)}
+                        </strong>
+                        <span className="command-timeline-date">{tx.date}</span>
                       </div>
                     </div>
-                    <div className="command-timeline-right">
-                      <strong
-                        className={`command-timeline-amount ${
-                          isPositive ? "positive" : "neutral"
-                        }`}
-                      >
-                        {isPositive ? "+" : "-"}
-                        {formatInr(tx.amount)}
-                      </strong>
-                      <span className="command-timeline-date">{tx.date}</span>
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <p
-                style={{
-                  fontSize: "12.5px",
-                  color: "var(--text-3)",
-                  padding: "16px 0",
-                }}
-              >
-                No recent financial transactions posted.
-              </p>
-            )}
+                  );
+                })
+              ) : (
+                <p
+                  style={{
+                    fontSize: "12.5px",
+                    color: "var(--text-3)",
+                    padding: "16px 0",
+                  }}
+                >
+                  No recent financial transactions posted.
+                </p>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </motion.div>
 
       {/* 5. Quick Actions Dock — Phase 3 polished command surface */}
@@ -939,42 +947,46 @@ export function CommandPage() {
               icon: <Clapperboard size={14} />,
               route: "/productions?create=production",
             },
-            {
-              id: "record-receipt",
-              label: "Record Receipt",
-              hint: "Finance · Production Receipt",
-              icon: <ArrowDownLeft size={14} />,
-              route: "/finance?tab=PRODUCTIONS",
-            },
-            {
-              id: "log-expense",
-              label: "Log Expense",
-              hint: "Finance overview",
-              icon: <ReceiptText size={14} />,
-              route: "/finance",
-            },
-            {
-              id: "disburse-salary",
-              label: "Disburse Salary",
-              hint: "Payroll",
-              icon: <Wallet size={14} />,
-              route: "/payroll",
-            },
-            {
-              id: "create-bill",
-              label: "Create Bill",
-              hint: "Billing",
-              icon: <FileText size={14} />,
-              route: "/billing",
-            },
-            {
-              id: "finance-console",
-              label: "Finance Console",
-              hint: "Finance overview",
-              icon: <PieChart size={14} />,
-              route: "/finance",
-            },
-          ] as const
+            ...(d.money
+              ? [
+                  {
+                    id: "record-receipt",
+                    label: "Record Receipt",
+                    hint: "Finance · Production Receipt",
+                    icon: <ArrowDownLeft size={14} />,
+                    route: "/finance?tab=PRODUCTIONS",
+                  },
+                  {
+                    id: "log-expense",
+                    label: "Log Expense",
+                    hint: "Finance overview",
+                    icon: <ReceiptText size={14} />,
+                    route: "/finance",
+                  },
+                  {
+                    id: "disburse-salary",
+                    label: "Disburse Salary",
+                    hint: "Payroll",
+                    icon: <Wallet size={14} />,
+                    route: "/payroll",
+                  },
+                  {
+                    id: "create-bill",
+                    label: "Create Bill",
+                    hint: "Billing",
+                    icon: <FileText size={14} />,
+                    route: "/billing",
+                  },
+                  {
+                    id: "finance-console",
+                    label: "Finance Console",
+                    hint: "Finance overview",
+                    icon: <PieChart size={14} />,
+                    route: "/finance",
+                  },
+                ]
+              : []),
+          ]
         ).map((action, i) => (
           <motion.div
             key={action.id}

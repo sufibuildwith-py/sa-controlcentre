@@ -32,6 +32,7 @@ public class Employee360Service {
   private final JdbcTemplate jdbc;
   private final ZoneId zone;
   private final NavigatorConfig navigatorConfig;
+  private final com.saproduction.command.finance.access.FinanceAccessGuard financeAccessGuard;
 
   @Autowired
   public Employee360Service(
@@ -41,7 +42,8 @@ public class Employee360Service {
       AttendanceService attendanceService,
       JdbcTemplate jdbc,
       @Value("${app.time-zone:Asia/Kolkata}") String timeZone,
-      @Autowired(required = false) NavigatorConfig navigatorConfig) {
+      @Autowired(required = false) NavigatorConfig navigatorConfig,
+      @Autowired(required = false) com.saproduction.command.finance.access.FinanceAccessGuard financeAccessGuard) {
     this.employeeService = employeeService;
     this.financeReads = financeReads;
     this.attendanceRepo = attendanceRepo;
@@ -49,6 +51,18 @@ public class Employee360Service {
     this.jdbc = jdbc;
     this.zone = ZoneId.of(timeZone);
     this.navigatorConfig = navigatorConfig;
+    this.financeAccessGuard = financeAccessGuard;
+  }
+
+  public Employee360Service(
+      EmployeeService employeeService,
+      FinanceReadService financeReads,
+      AttendanceRepository attendanceRepo,
+      AttendanceService attendanceService,
+      JdbcTemplate jdbc,
+      String timeZone,
+      NavigatorConfig navigatorConfig) {
+    this(employeeService, financeReads, attendanceRepo, attendanceService, jdbc, timeZone, navigatorConfig, null);
   }
 
   @Transactional(readOnly = true)
@@ -89,24 +103,65 @@ public class Employee360Service {
             activeProductionsCount);
 
     // 2. MONEY SUMMARY (Authoritative canonical FinanceReadService)
-    Map<String, Object> fin = financeReads.employee(id);
-    BigDecimal earned = (BigDecimal) fin.getOrDefault("earned", BigDecimal.ZERO);
-    BigDecimal paid = (BigDecimal) fin.getOrDefault("paid", BigDecimal.ZERO);
-    BigDecimal outstanding = (BigDecimal) fin.getOrDefault("outstanding", BigDecimal.ZERO);
+    boolean financeUnlocked = financeAccessGuard == null || financeAccessGuard.isFinanceUnlocked();
+    if (!financeUnlocked) {
+      employeeView =
+          new EmployeeDtos.View(
+              employeeView.id(),
+              employeeView.employeeCode(),
+              employeeView.firstName(),
+              employeeView.lastName(),
+              employeeView.displayName(),
+              employeeView.phone(),
+              employeeView.whatsappPhone(),
+              employeeView.email(),
+              employeeView.roleTitle(),
+              employeeView.department(),
+              employeeView.employmentType(),
+              employeeView.joiningDate(),
+              0L,
+              employeeView.salaryCurrency(),
+              employeeView.status(),
+              employeeView.profilePhotoUrl(),
+              employeeView.notes(),
+              employeeView.createdAt(),
+              employeeView.updatedAt(),
+              employeeView.todayAttendance(),
+              employeeView.activeTasksCount(),
+              employeeView.activeProductionsCount());
+    }
 
-    PayrollStatus latestPayroll = getLatestPayroll(id);
-    String payrollStatus = latestPayroll != null ? latestPayroll.status() : null;
-    String payrollPeriod = latestPayroll != null ? latestPayroll.period() : null;
+    MoneySummary moneySummary;
+    if (financeUnlocked) {
+      Map<String, Object> fin = financeReads.employee(id);
+      BigDecimal earned = (BigDecimal) fin.getOrDefault("earned", BigDecimal.ZERO);
+      BigDecimal paid = (BigDecimal) fin.getOrDefault("paid", BigDecimal.ZERO);
+      BigDecimal outstanding = (BigDecimal) fin.getOrDefault("outstanding", BigDecimal.ZERO);
 
-    MoneySummary moneySummary =
-        new MoneySummary(
-            earned,
-            paid,
-            outstanding,
-            employeeView.baseSalaryMinor(),
-            employeeView.salaryCurrency(),
-            payrollStatus,
-            payrollPeriod);
+      PayrollStatus latestPayroll = getLatestPayroll(id);
+      String payrollStatus = latestPayroll != null ? latestPayroll.status() : null;
+      String payrollPeriod = latestPayroll != null ? latestPayroll.period() : null;
+
+      moneySummary =
+          new MoneySummary(
+              earned,
+              paid,
+              outstanding,
+              employeeView.baseSalaryMinor(),
+              employeeView.salaryCurrency(),
+              payrollStatus,
+              payrollPeriod);
+    } else {
+      moneySummary =
+          new MoneySummary(
+              BigDecimal.ZERO,
+              BigDecimal.ZERO,
+              BigDecimal.ZERO,
+              0L,
+              employeeView.salaryCurrency(),
+              null,
+              null);
+    }
 
     // 3. OPERATIONS SUMMARY
     long completedProductionsCount =

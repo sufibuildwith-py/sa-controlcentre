@@ -13,6 +13,8 @@ import {
   Video,
   WalletCards,
   Boxes,
+  PieChart,
+  ReceiptText,
   X,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -22,11 +24,14 @@ import { useUiStore } from "../../app/store/ui";
 import type { NavigateFunction } from "react-router-dom";
 import { useOverlayFocusRestore } from "../ui/sa";
 import { headquartersApi } from "../../features/headquarters/headquarters.api";
+import { useFinanceAccess } from "../../features/finance/financeAccess.api";
 export function SACommandPalette({
   onNavigate,
 }: {
   onNavigate: NavigateFunction;
 }) {
+  const financeAccess = useFinanceAccess();
+  const isUnlocked = financeAccess.data?.unlocked ?? false;
   const focus = useOverlayFocusRestore();
   const open = useUiStore((s) => s.paletteOpen),
     setOpen = useUiStore((s) => s.setPaletteOpen),
@@ -109,12 +114,28 @@ export function SACommandPalette({
                 >
                   Open Calendar
                 </Item>
-                <Item
-                  icon={WalletCards}
-                  onSelect={() => act(() => onNavigate("/payroll"))}
-                >
-                  Open Payroll
-                </Item>
+                {isUnlocked && (
+                  <>
+                    <Item
+                      icon={PieChart}
+                      onSelect={() => act(() => onNavigate("/finance"))}
+                    >
+                      Open Finance
+                    </Item>
+                    <Item
+                      icon={ReceiptText}
+                      onSelect={() => act(() => onNavigate("/billing"))}
+                    >
+                      Open Billing
+                    </Item>
+                    <Item
+                      icon={WalletCards}
+                      onSelect={() => act(() => onNavigate("/payroll"))}
+                    >
+                      Open Payroll
+                    </Item>
+                  </>
+                )}
                 <Item
                   icon={MessageCircle}
                   onSelect={() => act(() => onNavigate("/communications"))}
@@ -216,19 +237,23 @@ export function SACommandPalette({
                       <span>{employee.displayName} — Work</span>
                       <small>Open assigned work</small>
                     </Item>,
-                    <Item
-                      key={`${employee.id}-payroll`}
-                      value={`${employee.displayName} payroll`}
-                      icon={WalletCards}
-                      onSelect={() =>
-                        act(() =>
-                          onNavigate(`/people/${employee.id}?tab=payroll`),
-                        )
-                      }
-                    >
-                      <span>{employee.displayName} — Payroll</span>
-                      <small>Open private payroll history</small>
-                    </Item>,
+                    ...(isUnlocked
+                      ? [
+                          <Item
+                            key={`${employee.id}-payroll`}
+                            value={`${employee.displayName} payroll`}
+                            icon={WalletCards}
+                            onSelect={() =>
+                              act(() =>
+                                onNavigate(`/people/${employee.id}?tab=payroll`),
+                              )
+                            }
+                          >
+                            <span>{employee.displayName} — Payroll</span>
+                            <small>Open private payroll history</small>
+                          </Item>,
+                        ]
+                      : []),
                   ])}
                 </CommandMenu.Group>
               )}

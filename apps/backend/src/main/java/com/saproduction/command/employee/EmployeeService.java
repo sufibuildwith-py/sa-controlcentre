@@ -20,22 +20,63 @@ public class EmployeeService {
   private final AuditService audit;
   private final DomainEventService events;
   private final JdbcTemplate jdbc;
+  private final com.saproduction.command.finance.access.FinanceAccessGuard financeAccessGuard;
 
   @Autowired
   public EmployeeService(
       EmployeeRepository employees,
       AuditService audit,
       DomainEventService events,
-      @Autowired(required = false) JdbcTemplate jdbc) {
+      @Autowired(required = false) JdbcTemplate jdbc,
+      @Autowired(required = false) com.saproduction.command.finance.access.FinanceAccessGuard financeAccessGuard) {
     this.employees = employees;
     this.audit = audit;
     this.events = events;
     this.jdbc = jdbc;
+    this.financeAccessGuard = financeAccessGuard;
+  }
+
+  public EmployeeService(
+      EmployeeRepository employees, AuditService audit, DomainEventService events, JdbcTemplate jdbc) {
+    this(employees, audit, events, jdbc, null);
   }
 
   public EmployeeService(
       EmployeeRepository employees, AuditService audit, DomainEventService events) {
-    this(employees, audit, events, null);
+    this(employees, audit, events, null, null);
+  }
+
+  private boolean isFinanceUnlocked() {
+    return financeAccessGuard == null || financeAccessGuard.isFinanceUnlocked();
+  }
+
+  private EmployeeDtos.View maskIfLocked(EmployeeDtos.View v) {
+    if (v == null || isFinanceUnlocked()) {
+      return v;
+    }
+    return new EmployeeDtos.View(
+        v.id(),
+        v.employeeCode(),
+        v.firstName(),
+        v.lastName(),
+        v.displayName(),
+        v.phone(),
+        v.whatsappPhone(),
+        v.email(),
+        v.roleTitle(),
+        v.department(),
+        v.employmentType(),
+        v.joiningDate(),
+        0L,
+        v.salaryCurrency(),
+        v.status(),
+        v.profilePhotoUrl(),
+        v.notes(),
+        v.createdAt(),
+        v.updatedAt(),
+        v.todayAttendance(),
+        v.activeTasksCount(),
+        v.activeProductionsCount());
   }
 
   @Transactional(readOnly = true)
@@ -83,7 +124,7 @@ public class EmployeeService {
             Sort.by(Sort.Direction.ASC, "displayName"));
 
     if (jdbc == null || raw.isEmpty()) {
-      return raw.stream().map(EmployeeDtos::view).toList();
+      return raw.stream().map(EmployeeDtos::view).map(this::maskIfLocked).toList();
     }
 
     LocalDate today = LocalDate.now(ZoneId.of("Asia/Kolkata"));
@@ -126,7 +167,7 @@ public class EmployeeService {
                   v.department(),
                   v.employmentType(),
                   v.joiningDate(),
-                  v.baseSalaryMinor(),
+                  isFinanceUnlocked() ? v.baseSalaryMinor() : 0L,
                   v.salaryCurrency(),
                   v.status(),
                   v.profilePhotoUrl(),
@@ -152,7 +193,7 @@ public class EmployeeService {
 
   @Transactional(readOnly = true)
   public EmployeeDtos.View get(UUID id) {
-    return EmployeeDtos.view(getEntity(id));
+    return maskIfLocked(EmployeeDtos.view(getEntity(id)));
   }
 
   @Transactional
@@ -173,7 +214,7 @@ public class EmployeeService {
         "EMPLOYEE",
         e.id,
         Map.of("employeeId", e.id, "displayName", e.displayName));
-    return EmployeeDtos.view(e);
+    return maskIfLocked(EmployeeDtos.view(e));
   }
 
   @Transactional
@@ -195,7 +236,7 @@ public class EmployeeService {
           id.toString(),
           Map.of("amountMinor", salary, "currency", "INR"),
           Map.of("amountMinor", e.baseSalaryMinor, "currency", "INR"));
-    return after;
+    return maskIfLocked(after);
   }
 
   @Transactional
@@ -211,7 +252,7 @@ public class EmployeeService {
         id.toString(),
         Map.of("status", before),
         Map.of("status", e.status));
-    return after;
+    return maskIfLocked(after);
   }
 
   private void apply(Employee e, EmployeeDtos.Input in) {

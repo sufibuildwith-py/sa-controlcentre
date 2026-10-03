@@ -46,7 +46,8 @@ public class SecurityConfig {
   SecurityFilterChain security(
       HttpSecurity http,
       BearerSessionFilter bearerSessionFilter,
-      DesktopBoundaryFilter desktopBoundaryFilter)
+      DesktopBoundaryFilter desktopBoundaryFilter,
+      com.saproduction.command.finance.access.FinanceAccessFilter financeAccessFilter)
       throws Exception {
     return http
         // The native API is authenticated only by an explicit Authorization bearer token.
@@ -66,6 +67,8 @@ public class SecurityConfig {
                     .permitAll()
                     .requestMatchers(
                         "/api/v1/finance/**",
+                        "/api/v1/billing/**",
+                        "/api/v1/payroll/**",
                         "/api/v1/productions/*/finance",
                         "/api/v1/employees/*/finance",
                         "/api/v1/eve/**")
@@ -76,6 +79,8 @@ public class SecurityConfig {
         .headers(h -> h.frameOptions(f -> f.deny()).contentTypeOptions(c -> {}))
         .addFilterBefore(bearerSessionFilter, UsernamePasswordAuthenticationFilter.class)
         .addFilterBefore(desktopBoundaryFilter, BearerSessionFilter.class)
+        .addFilterAfter(financeAccessFilter, BearerSessionFilter.class)
         .build();
   }
 }
+

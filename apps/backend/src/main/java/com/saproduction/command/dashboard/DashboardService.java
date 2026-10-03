@@ -47,10 +47,15 @@ public class DashboardService {
 
   private final JdbcTemplate jdbc;
   private final ZoneId zone;
+  private final com.saproduction.command.finance.access.FinanceAccessGuard financeAccessGuard;
 
-  public DashboardService(JdbcTemplate jdbc, @Value("${app.time-zone:Asia/Kolkata}") String zone) {
+  public DashboardService(
+      JdbcTemplate jdbc,
+      @Value("${app.time-zone:Asia/Kolkata}") String zone,
+      com.saproduction.command.finance.access.FinanceAccessGuard financeAccessGuard) {
     this.jdbc = jdbc;
     this.zone = ZoneId.of(zone);
+    this.financeAccessGuard = financeAccessGuard;
   }
 
   @Transactional(readOnly = true)
@@ -103,22 +108,26 @@ public class DashboardService {
             (r, n) ->
                 new Workload(
                     r.getObject(1, UUID.class), r.getString(2), r.getLong(3), r.getLong(4)));
-    Payroll payroll =
-        jdbc.query(
-            "select p.id,p.year,p.month,p.status,coalesce((select sum(i.net_salary_minor) from payroll_items i where i.payroll_period_id=p.id),0),coalesce((select sum(pp.amount_minor) from payroll_payments pp join payroll_items i on i.id=pp.payroll_item_id where i.payroll_period_id=p.id),0),(select count(*) from payroll_items i where i.payroll_period_id=p.id and i.payment_status='PARTIALLY_PAID'),(select count(*) from payroll_items i where i.payroll_period_id=p.id and i.payment_status='UNPAID') from payroll_periods p order by p.year desc,p.month desc limit 1",
-            r ->
-                r.next()
-                    ? new Payroll(
-                        r.getObject(1, UUID.class),
-                        r.getInt(2),
-                        r.getInt(3),
-                        r.getString(4),
-                        r.getLong(5),
-                        r.getLong(6),
-                        Math.max(r.getLong(5) - r.getLong(6), 0),
-                        r.getLong(7),
-                        r.getLong(8))
-                    : null);
+    boolean financeUnlocked = financeAccessGuard.isFinanceUnlocked();
+    Payroll payroll = null;
+    if (financeUnlocked) {
+      payroll =
+          jdbc.query(
+              "select p.id,p.year,p.month,p.status,coalesce((select sum(i.net_salary_minor) from payroll_items i where i.payroll_period_id=p.id),0),coalesce((select sum(pp.amount_minor) from payroll_payments pp join payroll_items i on i.id=pp.payroll_item_id where i.payroll_period_id=p.id),0),(select count(*) from payroll_items i where i.payroll_period_id=p.id and i.payment_status='PARTIALLY_PAID'),(select count(*) from payroll_items i where i.payroll_period_id=p.id and i.payment_status='UNPAID') from payroll_periods p order by p.year desc,p.month desc limit 1",
+              r ->
+                  r.next()
+                      ? new Payroll(
+                          r.getObject(1, UUID.class),
+                          r.getInt(2),
+                          r.getInt(3),
+                          r.getString(4),
+                          r.getLong(5),
+                          r.getLong(6),
+                          Math.max(r.getLong(5) - r.getLong(6), 0),
+                          r.getLong(7),
+                          r.getLong(8))
+                      : null);
+    }
     Communications communications =
         jdbc.query(
             "select count(*) filter(where status in ('QUEUED','SENDING')),count(*) filter(where status='SENT'),count(*) filter(where status in ('DELIVERED','READ')),count(*) filter(where status='READ'),count(*) filter(where status='FAILED'),count(*) filter(where requires_response and response is null and status not in ('FAILED','QUEUED')) from outbound_messages",
@@ -133,10 +142,15 @@ public class DashboardService {
                   r.getLong(6));
             });
     return new View(
-        team, schedule, productions, workload, payroll, attention(today), communications);
+        team, schedule, productions, workload, payroll, attention(today, financeUnlocked), communications);
   }
 
   public List<Attention> attention(LocalDate today) {
+    return attention(today, financeAccessGuard.isFinanceUnlocked());
+  }
+
+  public List<Attention> attention(LocalDate today, boolean financeUnlocked) {
+
     List<Attention> result = new ArrayList<>();
     long failed = count("select count(*) from outbound_messages where status='FAILED'");
     if (failed > 0)
@@ -217,36 +231,39 @@ public class DashboardService {
               high + " high-priority production" + (high == 1 ? "" : "s") + " within seven days",
               "warning",
               "/productions"));
-    String payroll =
-        jdbc.query(
-            "select status from payroll_periods order by year desc,month desc limit 1",
-            r -> r.next() ? r.getString(1) : null);
-    if (payroll == null || Set.of("DRAFT", "CALCULATED", "APPROVED").contains(payroll))
-      result.add(
-          new Attention(
-              "PAYROLL_ACTION",
-              "Payroll awaits action",
-              payroll == null
-                  ? "Current payroll has not been calculated"
-                  : payroll.toLowerCase().replace('_', ' '),
-              "neutral",
-              "/payroll"));
-    long partial =
-        count(
-            "select count(*) from payroll_items i join payroll_periods p on p.id=i.payroll_period_id where (p.year,p.month)=(select year,month from payroll_periods order by year desc,month desc limit 1) and i.payment_status='PARTIALLY_PAID'");
-    long unpaid =
-        count(
-            "select count(*) from payroll_items i join payroll_periods p on p.id=i.payroll_period_id where (p.year,p.month)=(select year,month from payroll_periods order by year desc,month desc limit 1) and i.payment_status='UNPAID'");
-    if (partial + unpaid > 0)
-      result.add(
-          new Attention(
-              "PAYROLL_BALANCES",
-              "Payroll balances remain",
-              partial + " partially paid · " + unpaid + " unpaid",
-              "warning",
-              "/payroll?paymentStatus=OPEN"));
+    if (financeUnlocked) {
+      String payroll =
+          jdbc.query(
+              "select status from payroll_periods order by year desc,month desc limit 1",
+              r -> r.next() ? r.getString(1) : null);
+      if (payroll == null || Set.of("DRAFT", "CALCULATED", "APPROVED").contains(payroll))
+        result.add(
+            new Attention(
+                "PAYROLL_ACTION",
+                "Payroll awaits action",
+                payroll == null
+                    ? "Current payroll has not been calculated"
+                    : payroll.toLowerCase().replace('_', ' '),
+                "neutral",
+                "/payroll"));
+      long partial =
+          count(
+              "select count(*) from payroll_items i join payroll_periods p on p.id=i.payroll_period_id where (p.year,p.month)=(select year,month from payroll_periods order by year desc,month desc limit 1) and i.payment_status='PARTIALLY_PAID'");
+      long unpaid =
+          count(
+              "select count(*) from payroll_items i join payroll_periods p on p.id=i.payroll_period_id where (p.year,p.month)=(select year,month from payroll_periods order by year desc,month desc limit 1) and i.payment_status='UNPAID'");
+      if (partial + unpaid > 0)
+        result.add(
+            new Attention(
+                "PAYROLL_BALANCES",
+                "Payroll balances remain",
+                partial + " partially paid · " + unpaid + " unpaid",
+                "warning",
+                "/payroll?paymentStatus=OPEN"));
+    }
     return result;
   }
+
 
   private long count(String sql, Object... args) {
     return Objects.requireNonNull(jdbc.queryForObject(sql, Long.class, args));
