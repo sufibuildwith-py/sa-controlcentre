@@ -78,3 +78,15 @@ All demo seeders, simulation controllers, and data truncation endpoints have bee
 4. **Web Browser Session Persistence**: Updated `apps/desktop/src/lib/api.ts` so `sessionStorage` preserves bearer tokens across page refreshes in browser mode.
 5. **Vite Web Build Mode**: Updated `apps/desktop/vite.config.ts` to support pure web builds (`build:web`) without native Tauri CSP constraints.
 6. **Developer Path Sanitization**: Removed local machine path in `BillingServiceTest.java`.
+
+---
+
+## 5. EVE Operational Modes & Production Reality
+
+Core SA Command (People, Productions, Attendance, Work, Meetings, Billing, Finance, Privacy Veil) is **production-ready independently** of EVE.
+
+EVE provider status is structured into three explicit operational states:
+1. **REAL AI PROVIDER (`LOCAL_QWEN_THINKING`)**: External dedicated server running Qwen3-4B-Thinking via `vLLM` or `llama.cpp` at `EVE_LOCAL_MODEL_URL`.
+2. **TEST / DETERMINISTIC PROVIDER (`TEST`)**: Safe degraded/testing mode only. Rule/grammar-based parsing. **NOT real AI inference** and never represented as such.
+3. **UNAVAILABLE**: Explicit failure state (`EVE_MODEL_FAILED`) if external AI provider is unreachable or times out. Zero silent fallback to cloud APIs.
+

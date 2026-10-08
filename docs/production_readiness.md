@@ -98,9 +98,11 @@ The Finance Privacy Veil protects all company financial records:
 
 - **Architecture**: Decoupled via `EveModelProvider`.
 - **System of Record**: Domain services remain authoritative; EVE performs no direct SQL or ledger modifications.
-- **Production Mode**: Defaults to `EVE_MODEL_PROVIDER=TEST` (pure deterministic grammar routing).
-- **External Model Server**: For LLM reasoning in production, set `EVE_MODEL_PROVIDER=LOCAL_QWEN_THINKING` and point `EVE_LOCAL_MODEL_URL` to an external inference container (e.g. `vLLM` or `llama.cpp` on a GPU host).
-- **Graceful Failure**: If the model service is unreachable, EVE returns an explicit `EVE_MODEL_FAILED` error code rather than crashing.
+- **Provider Modes**:
+  1. `LOCAL_QWEN_THINKING`: **Real AI Provider** executing actual LLM inference against an external inference server (`EVE_LOCAL_MODEL_URL`).
+  2. `TEST`: **Safe Degraded / Testing Mode Only**. Purely deterministic grammar parsing; **NOT real AI inference** and must never be represented as an AI model.
+  3. `UNAVAILABLE`: Explicit error state when an external provider cannot be reached. Zero silent cloud fallback.
+- **Independence**: Core SA Command operates with 100% production readiness completely independently of EVE.
 
 ---
 

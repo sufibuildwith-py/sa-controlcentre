@@ -63,30 +63,29 @@ SA Command **strictly forbids**:
 
 ---
 
-## 4. Production Deployment Configurations
+## 4. Operational Modes & Production Reality
 
-Operators deploying SA Command in production must choose one of two supported modes:
+Core SA Command (People, Productions, Attendance, Work, Meetings, Billing, Finance, Privacy Veil) is **production-ready independently** of EVE.
 
-### Mode A: Deterministic Rule & Grammar Engine (Default)
+EVE operates in exactly one of three distinct modes:
+
+### 1. REAL AI PROVIDER (Production EVE Intelligence)
+- **Configuration**:
+  ```env
+  EVE_MODEL_PROVIDER=LOCAL_QWEN_THINKING
+  EVE_LOCAL_MODEL_URL=https://your-dedicated-ai-host:8090
+  ```
+- **Nature**: Actual LLM inference powered by Qwen3-4B-Thinking or equivalent model.
+- **Requirements**: Dedicated external GPU or inference host running `vLLM`, `llama.cpp`, or `ollama`.
+
+### 2. TEST / DETERMINISTIC PROVIDER (Safe Degraded / Testing Mode Only)
 - **Configuration**:
   ```env
   EVE_MODEL_PROVIDER=TEST
   ```
-- **Capabilities**:
-  - Full deterministic intent routing for ERP queries (productions, crew, equipment stock, tasks, schedules, employee profiles).
-  - Fast, zero-memory-overhead execution.
-  - Zero external dependencies.
-  - 100% cloud-compatible on minimal server instances.
+- **Nature**: **NOT real AI inference**. Purely grammar- and regex-based slot extraction.
+- **Representation**: Must NEVER be represented as an AI model or production AI intelligence. It exists solely as a safe degraded fallback and automated test harness.
 
-### Mode B: External Dedicated Model Inference Server
-- **Configuration**:
-  ```env
-  EVE_MODEL_PROVIDER=LOCAL_QWEN_THINKING
-  EVE_LOCAL_MODEL_URL=http://your-ai-inference-host:8090
-  ```
-- **Requirements**:
-  - A separate Linux/GPU container running `llama-server`, `vLLM`, or `ollama` with OpenAI-compatible completions API.
-  - Serving the `Qwen3-4B-Thinking` or equivalent GGUF/HF weights.
-  - Point `EVE_LOCAL_MODEL_URL` to this dedicated private service.
-- **Degraded State Handling**:
-  If the configured endpoint is unreachable or times out, EVE returns an explicit `EVE_MODEL_FAILED` response code. The application logs the integration failure and informs the operator without crashing.
+### 3. UNAVAILABLE (Explicit Failure State)
+- **Nature**: If an external AI provider is configured but unreachable, times out, or fails schema validation, EVE enters an explicit `EVE_MODEL_FAILED` / `UNAVAILABLE` state.
+- **Safety Invariant**: Zero silent fallback to public cloud APIs. Domain operations remain fully functional while EVE surfaces a transparent error code.
