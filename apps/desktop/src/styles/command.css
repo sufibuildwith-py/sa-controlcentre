@@ -1431,3 +1431,80 @@
     display: none;
   }
 }
+
+@media (max-width: 768px) {
+  .command-today-strip,
+  .command-skeleton-today {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  .command-primary-grid,
+  .command-skeleton-grid,
+  .command-secondary-grid {
+    grid-template-columns: 1fr;
+  }
+  .command-spotlight-card {
+    padding: 18px 16px;
+    border-radius: 18px;
+  }
+  .command-money-hero-amount {
+    font-size: 30px;
+  }
+  .command-quick-actions-bar {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+  .command-header-bar {
+    padding: 12px 14px;
+    border-radius: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .command-today-strip,
+  .command-skeleton-today {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .command-today-metric-card {
+    padding: 12px 14px;
+    border-radius: 14px;
+  }
+  .command-today-metric-value {
+    font-size: 26px;
+  }
+  .command-header-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .command-header-left,
+  .command-header-date-controls {
+    justify-content: space-between;
+    width: 100%;
+  }
+  .command-money-hero-amount {
+    font-size: 26px;
+  }
+  .command-quick-actions-bar {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding: 8px 10px;
+  }
+  .command-quick-actions-bar::-webkit-scrollbar {
+    display: none;
+  }
+  .command-quick-action-btn {
+    white-space: nowrap;
+    flex-shrink: 0;
+    padding: 6px 10px;
+    font-size: 11.5px;
+  }
+  .command-timeline-row {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
+

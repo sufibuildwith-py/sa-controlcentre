@@ -56,11 +56,17 @@ html,
 body,
 #root {
   margin: 0;
-  min-width: 1180px;
-  min-height: 720px;
   height: 100%;
   background: var(--app-bg);
   color: var(--text-1);
+}
+@media (min-width: 1025px) {
+  html,
+  body,
+  #root {
+    min-width: 1180px;
+    min-height: 720px;
+  }
 }
 body {
   font-size: 14px;
@@ -1389,3 +1395,221 @@ select option:disabled {
 .settings-row small {
   color: var(--text-3);
 }
+
+/* ─── Mobile Responsiveness (Scoped to <= 768px & <= 480px) ─── */
+@media (max-width: 768px) {
+  /* Modals & Dialogs */
+  .modal {
+    width: calc(100vw - 20px);
+    max-width: calc(100vw - 20px);
+    max-height: calc(100vh - 32px);
+    padding: 18px 16px;
+    border-radius: 20px;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  .modal > header {
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .modal h2 {
+    font-size: 18px;
+  }
+
+  .modal-actions {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .modal-actions button,
+  .modal-actions .sa-button {
+    min-height: 40px;
+  }
+
+  /* Drawer as Mobile Bottom Sheet */
+  .drawer {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
+    width: 100%;
+    max-width: 100vw;
+    max-height: 86vh;
+    border-radius: 22px 22px 0 0;
+    padding: 20px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+    transform: none;
+    box-shadow: 0 -8px 36px rgba(0, 0, 0, 0.28);
+  }
+
+  /* Command Palette */
+  .command-dialog {
+    width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
+    max-height: 82vh;
+    top: 12px;
+    left: 8px;
+    right: 8px;
+    transform: none;
+    border-radius: 20px;
+  }
+
+  .command-input {
+    height: 50px;
+    padding: 0 14px;
+  }
+
+  [cmdk-list] {
+    max-height: 52vh;
+  }
+
+  .command-dialog footer {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 14px;
+  }
+
+  /* Login Page Mobile Adaptation */
+  .login-page {
+    grid-template-columns: 1fr;
+    padding: 12px;
+    min-height: 100%;
+    height: auto;
+  }
+
+  .login-brand {
+    border-radius: 24px 24px 0 0;
+    padding: 28px 20px;
+    min-height: auto;
+  }
+
+  .login-brand h1 {
+    font-size: 34px;
+    margin: 4px 0 10px;
+  }
+
+  .login-bento {
+    display: none;
+  }
+
+  .login-panel {
+    border-left: 1px solid var(--border);
+    border-top: 0;
+    border-radius: 0 0 24px 24px;
+    padding: 28px 20px;
+    min-height: auto;
+  }
+
+  .login-form-wrap {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .login-form-wrap h2 {
+    font-size: 26px;
+  }
+
+  /* Touch Target & Form Safeguards */
+  .attention-list {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-stack {
+    max-width: 100%;
+  }
+
+  .settings-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  /* Horizontally Scrollable Tabs */
+  .sa-tabs {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    flex-wrap: nowrap;
+    gap: 4px;
+    margin-bottom: 14px;
+  }
+
+  .sa-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .sa-tabs button {
+    flex-shrink: 0;
+    white-space: nowrap;
+    padding: 0 10px;
+    font-size: 12px;
+  }
+
+  /* Horizontally Scrollable Segmented Controls */
+  .segmented {
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    flex-wrap: nowrap;
+  }
+
+  .segmented::-webkit-scrollbar {
+    display: none;
+  }
+
+  .segmented button {
+    flex-shrink: 0;
+    white-space: nowrap;
+    min-height: 34px;
+  }
+
+  /* Responsive Page Title */
+  .page-title {
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .page-title > div {
+    min-width: 0;
+  }
+
+  .page-title h1 {
+    font-size: 24px;
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+
+  /* Prevent Mobile Safari Input Auto-Zoom */
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .modal {
+    width: calc(100vw - 14px);
+    padding: 16px 12px;
+    border-radius: 16px;
+  }
+
+  .login-brand {
+    padding: 20px 14px;
+  }
+
+  .login-brand h1 {
+    font-size: 28px;
+  }
+
+  .login-panel {
+    padding: 20px 14px;
+  }
+}
+

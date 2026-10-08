@@ -610,6 +610,32 @@
     min-height: 390px;
   }
 }
+@media (max-width: 600px) {
+  .navigator-map-wrap {
+    min-height: 280px;
+    height: 320px;
+  }
+  .navigator-summary {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  .navigator-summary .sa-card,
+  .navigator-summary .sa-bento-card {
+    min-height: 70px;
+    padding: 10px 12px;
+  }
+  .navigator-summary strong {
+    font-size: 20px;
+  }
+  .navigator-roster-actions {
+    flex-wrap: wrap;
+  }
+}
+@media (max-width: 440px) {
+  .navigator-summary {
+    grid-template-columns: 1fr;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .navigator-marker {
     transition: none;

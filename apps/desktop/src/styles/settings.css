@@ -18,3 +18,10 @@
   flex-direction: column;
   gap: 3px;
 }
+
+@media (max-width: 600px) {
+  .health-grid {
+    grid-template-columns: 1fr;
+  }
+}
+

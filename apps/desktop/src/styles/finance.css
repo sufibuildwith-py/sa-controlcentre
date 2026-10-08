@@ -1519,3 +1519,53 @@
   gap: 16px;
   padding: 24px;
 }
+
+@media (max-width: 768px) {
+  .billing-layout {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .billing-preview-document {
+    padding: 16px 12px;
+    margin: 8px 0;
+    overflow-x: auto;
+  }
+  .billing-doc-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .billing-doc-meta {
+    text-align: left;
+  }
+  .billing-doc-info-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 10px 12px;
+  }
+  .billing-doc-bottom {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  .party-360-settlement-modal {
+    padding: 10px;
+  }
+  .party-360-settlement-content {
+    padding: 16px;
+    border-radius: 16px;
+  }
+  .production-finance-dock {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+  .billing-line {
+    min-width: 680px;
+  }
+  .billing-lines {
+    -webkit-overflow-scrolling: touch;
+  }
+  .billing-doc-table {
+    min-width: 540px;
+  }
+}
+
