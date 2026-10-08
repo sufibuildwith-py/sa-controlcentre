@@ -4,7 +4,8 @@ import { readFileSync } from 'node:fs';
 import react from '@vitejs/plugin-react';
 export default defineConfig(({ command, mode }) => {
   const env = { ...loadEnv(mode, process.cwd(), ''), ...process.env };
-  if (command === 'build' && mode !== 'demo' && mode !== 'desktop') {
+  const isWebBuild = mode === 'web' || env.VITE_BUILD_TARGET === 'web';
+  if (command === 'build' && mode !== 'demo' && mode !== 'desktop' && !isWebBuild) {
     if (env.VITE_APP_MODE === 'demo') throw new Error('Use an explicit demo build for demo credentials.');
     const url = new URL(env.VITE_API_URL || 'https://api.saproduction.in/api/v1');
     if (url.protocol !== 'https:' || url.username || url.password) throw new Error('Production API must use HTTPS without embedded credentials.');

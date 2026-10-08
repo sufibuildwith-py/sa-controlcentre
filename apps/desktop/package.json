@@ -8,6 +8,7 @@
     "dev:demo": "vite --mode demo --port 1420",
     "build:demo": "tsc -b && vite build --mode demo",
     "build": "tsc -b && vite build",
+    "build:web": "tsc -b && vite build --mode web",
     "build:production": "tsc -b && vite build --mode desktop",
     "preview": "vite preview --port 1420",
     "test": "vitest",

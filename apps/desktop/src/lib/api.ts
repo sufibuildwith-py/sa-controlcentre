@@ -37,8 +37,10 @@ async function restoreToken() {
       } catch {
         sessionToken = null;
       }
-    } else if (import.meta.env.VITE_APP_MODE === "demo") {
-      sessionToken = sessionStorage.getItem("sa-command-demo-session");
+    } else {
+      sessionToken =
+        sessionStorage.getItem("sa-command-session") ??
+        sessionStorage.getItem("sa-command-demo-session");
     }
     restored = true;
     return sessionToken;
@@ -55,8 +57,11 @@ export async function setSessionToken(token: string) {
   if (isTauri()) {
     const { invoke } = await import("@tauri-apps/api/core");
     await invoke("store_session_token", { token });
-  } else if (import.meta.env.VITE_APP_MODE === "demo") {
-    sessionStorage.setItem("sa-command-demo-session", token);
+  } else {
+    sessionStorage.setItem("sa-command-session", token);
+    if (import.meta.env.VITE_APP_MODE === "demo") {
+      sessionStorage.setItem("sa-command-demo-session", token);
+    }
   }
 }
 export async function clearSessionToken() {
@@ -66,6 +71,7 @@ export async function clearSessionToken() {
     const { invoke } = await import("@tauri-apps/api/core");
     await invoke("delete_session_token");
   } else {
+    sessionStorage.removeItem("sa-command-session");
     sessionStorage.removeItem("sa-command-demo-session");
   }
 }

@@ -324,16 +324,6 @@ class BillingServiceTest {
     assertThat(pdfBytes.length).isGreaterThan(1000);
     assertThat(new String(pdfBytes, 0, 5)).isEqualTo("%PDF-");
 
-    // Also copy to brain artifact scratch for user inspection if desired
-    try {
-      java.nio.file.Path scratchDir =
-          java.nio.file.Paths.get(
-              "C:\\Users\\xtrar\\.gemini\\antigravity\\brain\\1be62e58-c99c-4d1a-abaa-651f14f94244");
-      java.nio.file.Files.write(scratchDir.resolve("SA-2026-INSPECT.xlsx"), xlsxBytes);
-      java.nio.file.Files.write(scratchDir.resolve("SA-2026-INSPECT.pdf"), pdfBytes);
-    } catch (Exception ignored) {
-    }
-
     // Verify finance was never touched during export
     verifyNoInteractions(finance);
   }

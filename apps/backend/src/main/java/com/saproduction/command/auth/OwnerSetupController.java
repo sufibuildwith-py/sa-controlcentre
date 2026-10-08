@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/owner-setup")
-@ConditionalOnProperty(name = "app.deployment", havingValue = "desktop")
+@org.springframework.boot.autoconfigure.condition.ConditionalOnExpression("'${app.deployment:server}'.equals('desktop') || '${app.owner-setup.enabled:false}'.equals('true')")
 public class OwnerSetupController {
   public record Input(
       @NotBlank @Size(min = 12, max = 72) String password, @NotBlank String confirmation) {}

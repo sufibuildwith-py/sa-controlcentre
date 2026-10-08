@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/demo")
-@ConditionalOnProperty(name = "app.mode", havingValue = "demo", matchIfMissing = true)
+@ConditionalOnProperty(name = "app.mode", havingValue = "demo")
 public class DemoResetController {
   private final JdbcTemplate jdbc;
   private final CommandLineRunner phase1, phase2, headquarters;

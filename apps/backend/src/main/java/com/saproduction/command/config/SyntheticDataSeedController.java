@@ -1,12 +1,14 @@
 package com.saproduction.command.config;
 
 import com.saproduction.command.shared.ApiEnvelope;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/admin/seed")
+@ConditionalOnProperty(name = "app.seed-synthetic.enabled", havingValue = "true")
 public class SyntheticDataSeedController {
   private final SyntheticDatasetSeeder seeder;
 
