@@ -2,6 +2,10 @@ import * as maplibregl from "maplibre-gl";
 import type { Map as MapInstance, Marker } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
+
+if (typeof window !== "undefined" && !maplibregl.getWorkerUrl()) {
+  maplibregl.setWorkerUrl("/assets/maplibre-gl-worker.mjs");
+}
 import { initials } from "../employees/PeoplePage";
 import {
   isValidCoordinate,
@@ -180,7 +184,8 @@ export function NavigatorMap({
 
   // Handle team focus bounding box
   useEffect(() => {
-    if (!map.current || !focusedTeam || !focusedTeam.employeeRefs.length) return;
+    if (!map.current || !focusedTeam || !focusedTeam.employeeRefs.length)
+      return;
 
     const teamMembers = items.filter(
       (i) =>
