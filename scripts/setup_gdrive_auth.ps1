@@ -105,7 +105,7 @@ if (Test-Path $confPath) {
     Write-Host "======================================================================" -ForegroundColor Green
     Write-Host "`nThe rclone configuration has been copied directly to your CLIPBOARD." -ForegroundColor Cyan
     Write-Host "`nNext Step (10 seconds):" -ForegroundColor White
-    Write-Host "1. Go to: https://github.com/sufibuildwith-py/sa-controlcentre/settings/secrets/actions" -ForegroundColor White
+    Write-Host "1. Go to: https://github.com/delusional-deployments/sa-panel/settings/secrets/actions" -ForegroundColor White
     Write-Host "2. Click 'New repository secret'" -ForegroundColor White
     Write-Host "3. Name:  GDRIVE_RCLONE_CONFIG" -ForegroundColor Yellow
     Write-Host "4. Value: Paste your clipboard (Ctrl+V)" -ForegroundColor Yellow

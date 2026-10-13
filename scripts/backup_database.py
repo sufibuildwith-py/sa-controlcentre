@@ -321,34 +321,22 @@ def get_rclone_cmd():
     return None
 
 def upload_to_gdrive(enc_file, meta_file, timestamp_str, is_baseline=False):
+    # Security invariant: NEVER upload unencrypted plaintext dumps
+    if not enc_file.endswith(".dump.enc"):
+        raise RuntimeError(f"Security invariant violation: refusing to upload unencrypted file '{enc_file}'!")
+
     rclone = get_rclone_cmd()
     if not rclone:
-        print("\n" + "!"*70)
-        print("[STORAGE NOTICE] rclone binary not found in PATH or tools directory.")
-        print("Please install rclone or configure GDRIVE_RCLONE_CONFIG secret.")
-        print(f"The encrypted backup is safely persisted locally at: {enc_file}")
-        print("!"*70 + "\n")
-        return False
+        raise RuntimeError("rclone binary not found. Cannot perform off-site backup.")
         
     proc = subprocess.run([rclone, "listremotes"], capture_output=True, text=True)
     if "gdrive:" not in proc.stdout:
-        print("\n" + "!"*70)
-        print("[STORAGE NOTICE] rclone remote 'gdrive:' is not configured.")
-        print("Required configuration: Run scripts/setup_gdrive_auth.ps1 or set GDRIVE_RCLONE_CONFIG secret.")
-        print(f"The encrypted backup is safely persisted locally at: {enc_file}")
-        print("!"*70 + "\n")
-        return False
+        raise RuntimeError("rclone remote 'gdrive:' is not configured. Aborting.")
 
     base_name = os.path.basename(enc_file)
     meta_name = os.path.basename(meta_file)
 
-    # Check if root is already locked to SA_COMMAND_DB_BACKUPS or if it's a subfolder
-    proc_ls = subprocess.run([rclone, "lsd", "gdrive:"], capture_output=True, text=True)
-    if "SA_COMMAND_DB_BACKUPS" in proc_ls.stdout:
-        dest_prefix = "gdrive:SA_COMMAND_DB_BACKUPS"
-    else:
-        dest_prefix = "gdrive:"
-
+    dest_prefix = "gdrive:SA_COMMAND_DB_BACKUPS"
     subfolder = "pre-migration" if is_baseline else "daily"
     target_dump_path = f"{dest_prefix}/{subfolder}/{base_name}"
     target_meta_path = f"{dest_prefix}/manifests/{meta_name}"
@@ -356,41 +344,41 @@ def upload_to_gdrive(enc_file, meta_file, timestamp_str, is_baseline=False):
     print(f"[INFO] Uploading encrypted backup to Google Drive: {target_dump_path}...")
     proc_upload = subprocess.run([rclone, "copyto", enc_file, target_dump_path], capture_output=True, text=True)
     if proc_upload.returncode != 0:
-        print(f"[ERROR] Failed to upload dump to Google Drive: {proc_upload.stderr}", file=sys.stderr)
-        return False
+        raise RuntimeError(f"Failed to upload dump to Google Drive: {proc_upload.stderr.strip()}")
 
     print(f"[INFO] Uploading metadata manifest to Google Drive: {target_meta_path}...")
     proc_meta = subprocess.run([rclone, "copyto", meta_file, target_meta_path], capture_output=True, text=True)
     if proc_meta.returncode != 0:
-        print(f"[ERROR] Failed to upload manifest to Google Drive: {proc_meta.stderr}", file=sys.stderr)
-        return False
+        raise RuntimeError(f"Failed to upload manifest to Google Drive: {proc_meta.stderr.strip()}")
 
     # Verify upload presence and byte-size parity
     proc_check = subprocess.run([rclone, "lsjson", target_dump_path], capture_output=True, text=True)
-    if proc_check.returncode == 0:
-        try:
-            items = json.loads(proc_check.stdout)
-            if items:
-                remote_size = items[0].get("Size", 0)
-                local_size = os.path.getsize(enc_file)
-                if remote_size == local_size:
-                    print(f"[PASS] Google Drive upload verified: {remote_size} bytes match local archive.")
-                else:
-                    print(f"[WARN] Size mismatch on Google Drive: remote={remote_size}, local={local_size}")
-        except Exception as e:
-            print(f"[WARN] Failed to parse lsjson: {e}")
+    if proc_check.returncode != 0:
+        raise RuntimeError(f"Failed to inspect remote dump on Google Drive: {proc_check.stderr.strip()}")
+    try:
+        items = json.loads(proc_check.stdout)
+    except Exception as e:
+        raise RuntimeError(f"Failed to parse lsjson response from Google Drive: {e}")
+    if not items:
+        raise RuntimeError(f"Uploaded dump not found on Google Drive: {target_dump_path}")
+    remote_size = items[0].get("Size", 0)
+    local_size = os.path.getsize(enc_file)
+    if remote_size != local_size:
+        raise RuntimeError(f"Remote size mismatch on Google Drive: remote={remote_size} bytes, local={local_size} bytes")
+    print(f"[PASS] Google Drive upload verified: {remote_size} bytes match local archive exactly.")
 
     # Enforce retention policy for daily backups
     if not is_baseline:
         enforce_gdrive_retention(rclone, f"{dest_prefix}/daily", f"{dest_prefix}/manifests", min_backups=7)
 
-    return True
+    return target_dump_path
 
 def enforce_gdrive_retention(rclone, remote_daily_dir, remote_manifest_dir, min_backups=7):
     try:
+        min_backups = max(7, min_backups)
         proc = subprocess.run([rclone, "lsjson", remote_daily_dir], capture_output=True, text=True)
         if proc.returncode != 0:
-            print(f"[WARN] Failed to list daily backups for retention check: {proc.stderr}")
+            print(f"[WARN] Failed to list daily backups for retention check: {proc.stderr.strip()}")
             return
 
         files = json.loads(proc.stdout)
@@ -511,11 +499,19 @@ def verify_restore_into_target(enc_path, encryption_key, target_url, format_name
         assert u_cnt >= 1, "Missing users records"
         assert e_cnt >= 1, "Missing employees records"
         assert a_cnt >= 100, f"Audit logs record count low: {a_cnt}"
+
+        # Check constraints and sequences
+        cur.execute("SELECT count(*) FROM information_schema.table_constraints WHERE table_schema IN ('public', 'navigator');")
+        c_cnt = cur.fetchone()[0]
+        cur.execute("SELECT count(*) FROM information_schema.sequences WHERE sequence_schema IN ('public', 'navigator');")
+        s_cnt = cur.fetchone()[0]
+        print(f"[INFO] Verified schema invariants: constraints={c_cnt}, sequences={s_cnt}")
+        assert c_cnt > 0, "Missing constraints in restored database"
         
         conn.close()
         print("\n" + "="*70)
         print("[PASS] REAL POSTGRESQL RESTORE VERIFICATION PASSED (100%)")
-        print("All tables, schemas, Flyway histories, and critical business records verified.")
+        print("All tables, schemas, Flyway histories, sequences, constraints, and critical records verified.")
         print("="*70 + "\n")
         
     finally:
@@ -603,8 +599,8 @@ def main():
         print(f"Metadata Manifest: {meta_path}")
         print("="*70 + "\n")
         
-        # 6. Upload to Google Drive via rclone
-        upload_to_gdrive(enc_path, meta_path, ts_str, is_baseline=args.baseline)
+        # 6. Upload to Google Drive via rclone (hard failure on upload/size error)
+        remote_target_path = upload_to_gdrive(enc_path, meta_path, ts_str, is_baseline=args.baseline)
         
         # 7. Test decryption integrity check
         test_dec = os.path.join(args.output_dir, f"test_dec_{ts_str}.tmp")
@@ -618,7 +614,26 @@ def main():
             
         # 8. Isolated target database restore verification if requested
         if args.verify_restore_url:
-            verify_restore_into_target(enc_path, encryption_key, args.verify_restore_url, format_name)
+            rclone = get_rclone_cmd()
+            if remote_target_path and rclone:
+                dl_temp = os.path.join(args.output_dir, f"dl_verify_{ts_str}.dump.enc")
+                print(f"[INFO] Downloading uploaded backup from Google Drive for restore verification: {remote_target_path}...")
+                proc_dl = subprocess.run([rclone, "copyto", remote_target_path, dl_temp], capture_output=True, text=True)
+                if proc_dl.returncode != 0:
+                    raise RuntimeError(f"Failed to download remote backup from Google Drive: {proc_dl.stderr.strip()}")
+                dl_sha = sha256_file(dl_temp)
+                if dl_sha != enc_sha:
+                    raise RuntimeError(f"Downloaded backup SHA-256 mismatch! remote={dl_sha}, local={enc_sha}")
+                print(f"[PASS] Download from Google Drive verified: {os.path.getsize(dl_temp)} bytes, SHA-256 matches exactly.")
+                restore_archive = dl_temp
+            else:
+                restore_archive = enc_path
+
+            try:
+                verify_restore_into_target(restore_archive, encryption_key, args.verify_restore_url, format_name)
+            finally:
+                if remote_target_path and rclone and os.path.exists(dl_temp):
+                    os.remove(dl_temp)
             
         return enc_path, meta_path
         

@@ -121,7 +121,7 @@ def evaluate_renewal(created_at, expires_at, now=None, simulated_day=None):
 
 def dispatch_github_issue(level_name, tier, db_name, db_id, eval_result):
     token = os.environ.get("GITHUB_TOKEN")
-    repo = os.environ.get("GITHUB_REPOSITORY", "sufibuildwith-py/sa-controlcentre")
+    repo = os.environ.get("GITHUB_REPOSITORY", "delusional-deployments/sa-panel")
     if not token:
         print("[INFO] GITHUB_TOKEN not set; skipping GitHub Issue creation.")
         return False

@@ -48,14 +48,18 @@ jobs:
         env:
           GDRIVE_RCLONE_CONFIG: ${{ secrets.GDRIVE_RCLONE_CONFIG }}
         run: |
-          if [ -n "$GDRIVE_RCLONE_CONFIG" ]; then
-            mkdir -p ~/.config/rclone
-            echo "$GDRIVE_RCLONE_CONFIG" > ~/.config/rclone/rclone.conf
-            chmod 600 ~/.config/rclone/rclone.conf
-            echo "rclone configured successfully with remotes:"
-            rclone listremotes
-          else
-            echo "::warning::GDRIVE_RCLONE_CONFIG secret not set. Google Drive upload will be skipped until configured."
+          if [ -z "$GDRIVE_RCLONE_CONFIG" ]; then
+            echo "::error::GDRIVE_RCLONE_CONFIG secret is required for production off-site backup. Aborting."
+            exit 1
+          fi
+          mkdir -p ~/.config/rclone
+          echo "$GDRIVE_RCLONE_CONFIG" > ~/.config/rclone/rclone.conf
+          chmod 600 ~/.config/rclone/rclone.conf
+          echo "rclone configured successfully with remotes:"
+          rclone listremotes
+          if ! rclone listremotes | grep -q "^gdrive:"; then
+            echo "::error::rclone remote 'gdrive:' is missing in GDRIVE_RCLONE_CONFIG. Aborting."
+            exit 1
           fi
 
       - name: Start Isolated Docker PostgreSQL 16 for Restore Test
