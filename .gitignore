@@ -45,4 +45,5 @@ backups/
 scripts/.db_renewal_state.json
 __pycache__/
 *.pyc
+scratch/
 

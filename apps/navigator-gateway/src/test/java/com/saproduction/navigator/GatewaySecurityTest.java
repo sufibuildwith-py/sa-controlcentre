@@ -173,4 +173,42 @@ class GatewaySecurityTest {
         .andExpect(jsonPath("$.deviceId").value(activeDevice.id.toString()))
         .andExpect(jsonPath("$.revoked").value(false));
   }
+
+  @Test
+  @DisplayName("SEC-008: Simulator endpoint is disabled by default (404 SIMULATOR_DISABLED)")
+  void simulatorEndpointIsDisabledByDefault() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/v1/admin/simulator/start")
+                .header("X-Navigator-Service-Key", "test-admin-key")
+                .contentType("application/json")
+                .content("{\"employeeRefs\":[\"" + UUID.randomUUID() + "\"]}"))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.error.code").value("SIMULATOR_DISABLED"));
+  }
+
+  @Test
+  @DisplayName("RateLimits bounds map size and protects blocked entries against churn")
+  void rateLimitsBounding() {
+    RateLimits limits = new RateLimits();
+    for (int i = 0; i < 5; i++) {
+      try {
+        limits.check("test-block", "key1", 5, java.time.Duration.ofMinutes(1));
+      } catch (GatewayException ignored) {}
+    }
+    // key1 reached limit (5th attempt threw RATE_LIMITED)
+    org.junit.jupiter.api.Assertions.assertThrows(
+        GatewayException.class,
+        () -> limits.check("test-block", "key1", 5, java.time.Duration.ofMinutes(1)));
+
+    // Churn 2100 unblocked keys to trigger capacity eviction
+    for (int i = 0; i < 2100; i++) {
+      limits.check("churn", "k" + i, 10, java.time.Duration.ofMinutes(1));
+    }
+
+    // key1 must STILL be blocked (anti-churn preserved it)
+    org.junit.jupiter.api.Assertions.assertThrows(
+        GatewayException.class,
+        () -> limits.check("test-block", "key1", 5, java.time.Duration.ofMinutes(1)));
+  }
 }

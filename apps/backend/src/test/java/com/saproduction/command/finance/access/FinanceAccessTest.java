@@ -166,6 +166,58 @@ class FinanceAccessTest {
       assertThat(service.isUnlocked("owner-token")).isFalse();
       assertThat(ownerSession.financeRevokedAt).isEqualTo(clock.instant());
     }
+
+    @Test
+    void unconfiguredUnlockCodeFailsClosedWithServiceUnavailable() {
+      FinanceAccessService unconfiguredService =
+          new FinanceAccessService(
+              sessionRepository,
+              sessionService,
+              throttle,
+              audit,
+              clock,
+              "",
+              Duration.ofMinutes(30));
+
+      assertThat(unconfiguredService.isConfigured()).isFalse();
+      assertThatThrownBy(() -> unconfiguredService.unlock("owner-token", CORRECT_PIN, "127.0.0.1"))
+          .isInstanceOf(ApiException.class)
+          .satisfies(
+              e -> {
+                ApiException ae = (ApiException) e;
+                assertThat(ae.status).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+                assertThat(ae.code).isEqualTo("FINANCE_UNCONFIGURED");
+              });
+    }
+
+    @Test
+    void bcryptHashedPinUnlocksSuccessfully() {
+      // BCrypt hash for "987654"
+      String bcryptHash = org.springframework.security.crypto.bcrypt.BCrypt.hashpw("987654", org.springframework.security.crypto.bcrypt.BCrypt.gensalt(10));
+      FinanceAccessService bcryptService =
+          new FinanceAccessService(
+              sessionRepository,
+              sessionService,
+              throttle,
+              audit,
+              clock,
+              bcryptHash,
+              Duration.ofMinutes(30));
+
+      assertThat(bcryptService.isConfigured()).isTrue();
+      var result = bcryptService.unlock("owner-token", "987654", "127.0.0.1");
+      assertThat(result.unlocked()).isTrue();
+
+      // Wrong PIN fails against BCrypt service
+      assertThatThrownBy(() -> bcryptService.unlock("owner-token", "111111", "127.0.0.1"))
+          .isInstanceOf(ApiException.class)
+          .satisfies(
+              e -> {
+                ApiException ae = (ApiException) e;
+                assertThat(ae.status).isEqualTo(HttpStatus.BAD_REQUEST);
+                assertThat(ae.code).isEqualTo("INVALID_PIN");
+              });
+    }
   }
 
   @Nested

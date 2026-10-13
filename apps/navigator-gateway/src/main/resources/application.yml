@@ -32,7 +32,7 @@ navigator:
   admin-key: ${NAVIGATOR_ADMIN_KEY:demo-navigator-admin-change-me}
   pairing-pepper: ${NAVIGATOR_PAIRING_PEPPER:demo-pairing-pepper-change-me}
   allowed-origins: ${NAVIGATOR_ALLOWED_ORIGINS:https://sa-command.vercel.app,https://panel.saproduction.in,http://localhost:1420,http://localhost:5173,tauri://localhost,http://tauri.localhost}
-  simulator-enabled: ${NAVIGATOR_SIMULATOR_ENABLED:true}
+  simulator-enabled: ${NAVIGATOR_SIMULATOR_ENABLED:false}
   retention:
     raw-days: ${NAVIGATOR_RAW_RETENTION_DAYS:14}
     latest-hours: ${NAVIGATOR_LATEST_RETENTION_HOURS:24}

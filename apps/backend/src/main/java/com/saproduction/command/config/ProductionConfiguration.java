@@ -36,14 +36,16 @@ public class ProductionConfiguration {
       if (pinHash == null || pinHash.isBlank()) {
         throw new IllegalStateException("Production requires explicit FINANCE_UNLOCK_CODE_HASH.");
       }
-      String trimmedHash = pinHash.trim().toLowerCase();
-      if ("dd7a0bb1db3c404e514d61d0b8025f2c0a6023a17fb74c4461c38bf951d9ee47".equals(trimmedHash)) {
+      String trimmedHash = pinHash.trim();
+      if ("dd7a0bb1db3c404e514d61d0b8025f2c0a6023a17fb74c4461c38bf951d9ee47".equalsIgnoreCase(trimmedHash)) {
         throw new IllegalStateException(
             "Production cannot use the known insecure default finance unlock code hash.");
       }
-      if (!trimmedHash.matches("^[a-f0-9]{64}$")) {
+      boolean isBcrypt = trimmedHash.startsWith("$2a$") || trimmedHash.startsWith("$2b$") || trimmedHash.startsWith("$2y$");
+      boolean isSha256 = trimmedHash.toLowerCase().matches("^[a-f0-9]{64}$");
+      if (!isBcrypt && !isSha256) {
         throw new IllegalStateException(
-            "Production FINANCE_UNLOCK_CODE_HASH must be a valid 64-character lowercase SHA-256 hex string.");
+            "Production FINANCE_UNLOCK_CODE_HASH must be a valid 64-character SHA-256 hex string or BCrypt hash.");
       }
       for (String origin : env.getRequiredProperty("DESKTOP_ORIGINS").split(",")) {
         URI uri = URI.create(origin.trim());

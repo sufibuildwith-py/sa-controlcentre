@@ -59,7 +59,19 @@ class ProductionConfigurationTest {
 
     assertThatThrownBy(() -> config.validateProductionConfiguration(env, users, encoder).run(null))
         .isInstanceOf(IllegalStateException.class)
-        .hasMessageContaining("64-character lowercase SHA-256 hex string");
+        .hasMessageContaining("valid 64-character SHA-256 hex string or BCrypt hash");
+  }
+
+  @Test
+  @DisplayName("Production mode passes with valid BCrypt hash")
+  void productionPassesWithValidBcryptHash() {
+    MockEnvironment env = validProductionEnv();
+    env.setProperty(
+        "FINANCE_UNLOCK_CODE_HASH",
+        "$2a$12$e8pS9Q8V1A2B3C4D5E6F7G8H9I0J1K2L3M4N5O6P7Q8R9S0T1U2V3");
+
+    assertThatCode(() -> config.validateProductionConfiguration(env, users, encoder).run(null))
+        .doesNotThrowAnyException();
   }
 
   @Test
