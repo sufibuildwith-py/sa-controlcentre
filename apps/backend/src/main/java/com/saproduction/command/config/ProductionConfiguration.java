@@ -23,7 +23,8 @@ public class ProductionConfiguration {
             "DATABASE_USERNAME",
             "DATABASE_PASSWORD",
             "DESKTOP_ORIGINS",
-            "MESSAGING_PROVIDER"
+            "MESSAGING_PROVIDER",
+            "FINANCE_UNLOCK_CODE_HASH"
           }) {
         String value = env.getProperty(key);
         if (value == null || value.isBlank())
@@ -31,6 +32,19 @@ public class ProductionConfiguration {
       }
       if ("sa_command_dev".equals(env.getProperty("DATABASE_PASSWORD")))
         throw new IllegalStateException("Production cannot use the development database password.");
+      String pinHash = env.getProperty("FINANCE_UNLOCK_CODE_HASH");
+      if (pinHash == null || pinHash.isBlank()) {
+        throw new IllegalStateException("Production requires explicit FINANCE_UNLOCK_CODE_HASH.");
+      }
+      String trimmedHash = pinHash.trim().toLowerCase();
+      if ("dd7a0bb1db3c404e514d61d0b8025f2c0a6023a17fb74c4461c38bf951d9ee47".equals(trimmedHash)) {
+        throw new IllegalStateException(
+            "Production cannot use the known insecure default finance unlock code hash.");
+      }
+      if (!trimmedHash.matches("^[a-f0-9]{64}$")) {
+        throw new IllegalStateException(
+            "Production FINANCE_UNLOCK_CODE_HASH must be a valid 64-character lowercase SHA-256 hex string.");
+      }
       for (String origin : env.getRequiredProperty("DESKTOP_ORIGINS").split(",")) {
         URI uri = URI.create(origin.trim());
         if (!"https".equals(uri.getScheme())

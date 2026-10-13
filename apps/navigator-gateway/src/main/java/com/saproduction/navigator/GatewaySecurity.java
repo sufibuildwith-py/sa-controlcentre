@@ -22,7 +22,11 @@ class GatewaySecurityConfig {
   @Bean SecurityFilterChain security(HttpSecurity http) throws Exception {
     return http.csrf(c->c.disable()).cors(c->{})
       .sessionManagement(s->s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-      .authorizeHttpRequests(a->a.requestMatchers("/api/v1/mobile/pairings/redeem","/actuator/health","/ws/navigator/**").permitAll().anyRequest().permitAll())
+      .authorizeHttpRequests(a->a
+        .requestMatchers("/actuator/health").permitAll()
+        .requestMatchers("/actuator/**").denyAll()
+        .requestMatchers("/api/v1/mobile/pairings/redeem","/ws/navigator/**").permitAll()
+        .anyRequest().permitAll())
       .headers(h->h.httpStrictTransportSecurity(s->s.includeSubDomains(true).maxAgeInSeconds(31536000))).build();
   }
 }

@@ -9,6 +9,7 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.event.EventListener;
@@ -89,9 +90,17 @@ record NavigatorPrincipal(
 class RealtimeConfig implements WebSocketMessageBrokerConfigurer {
 
     private final RealtimeTickets tickets;
+    private final String[] allowedOrigins;
 
-    RealtimeConfig(RealtimeTickets tickets) {
+    RealtimeConfig(
+            RealtimeTickets tickets,
+            @Value("${navigator.allowed-origins:https://sa-command.vercel.app,https://panel.saproduction.in,http://localhost:1420,http://localhost:5173,tauri://localhost,http://tauri.localhost}")
+                    String allowedOrigins) {
         this.tickets = tickets;
+        this.allowedOrigins = java.util.Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toArray(String[]::new);
     }
 
     @Bean
@@ -115,10 +124,7 @@ class RealtimeConfig implements WebSocketMessageBrokerConfigurer {
     ) {
         registry
                 .addEndpoint("/ws/navigator")
-                .setAllowedOriginPatterns(
-                        "https://*",
-                        "http://localhost:*"
-                );
+                .setAllowedOriginPatterns(allowedOrigins);
     }
 
     @Override

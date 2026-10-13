@@ -17,6 +17,6 @@
     ],
     "android": {"package": "in.saproductions.navigator", "adaptiveIcon": {"foregroundImage": "./assets/sa-command-icon.png", "backgroundColor": "#191919"}, "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION", "ACCESS_BACKGROUND_LOCATION", "FOREGROUND_SERVICE", "FOREGROUND_SERVICE_LOCATION"]},
     "ios": {"bundleIdentifier": "in.saproductions.navigator", "infoPlist": {"UIBackgroundModes": ["location"]}},
-    "extra": {"gatewayUrl": "https://navigator-demo.saproduction.in"}
+    "extra": {"gatewayUrl": "https://sa-navigator-gateway-production.up.railway.app"}
   }
 }

@@ -32,7 +32,7 @@ SA Command is built as an enterprise-grade private operations platform:
 | `BOOTSTRAP_OWNER_EMAIL` | Clean Install | `owner@saproduction.in` | Initial owner email on clean database boot. |
 | `BOOTSTRAP_OWNER_PASSWORD` | Clean Install | *(Secret, min 8 chars)* | Initial owner password on clean database boot. |
 | `BOOTSTRAP_OWNER_NAME` | Optional | `Azeem Khan` | Display name of the initial owner. |
-| `FINANCE_UNLOCK_CODE_HASH` | Optional | `dd7a0bb1db3c404...` | SHA-256 hash of the 6-digit finance unlock code (`153011`). |
+| `FINANCE_UNLOCK_CODE_HASH` | **YES** | *(Secret SHA-256 hex)* | SHA-256 hash of the confidential 6-digit owner finance unlock PIN. Startup fails if unset or default. |
 | `FINANCE_ACCESS_TTL_MINUTES`| Optional | `30` | Duration of unlocked finance session in minutes. |
 | `VITE_API_URL` | Frontend | `https://panel.saproduction.in/api/v1` | Public API base URL accessed by browser client. |
 | `VITE_BUILD_TARGET` | Frontend | `web` | Directs Vite to bundle for standard web browser deployment. |
@@ -84,7 +84,7 @@ The Finance Privacy Veil protects all company financial records:
 - **Unlock Procedure**:
   - Eligible only to authenticated users with `ROLE_OWNER`.
   - Owner initiates unlock via the Developer Settings surface.
-  - Submits the 6-digit authorization code (`153011`).
+  - Submits their confidential 6-digit authorization PIN.
   - Server verifies code against `FINANCE_UNLOCK_CODE_HASH` using constant-time comparison.
   - A time-bound grant (`financeExpiresAt`) is issued on the active `api_sessions` record (default: 30 minutes).
 - **Protection Lifecycle**:
