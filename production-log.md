@@ -281,12 +281,26 @@ During post-deployment verification, two production-only regressions were diagno
 
 ---
 
-## 8. Summary of Active Live Endpoints
+## 8. Summary of Active Live Endpoints (Post-Render Migration)
 
-| Component | Host / Provider | Protocol | Production URL |
-| :--- | :--- | :--- | :--- |
-| **Web Frontend** | Vercel | HTTPS | [https://sa-command.vercel.app](https://sa-command.vercel.app) |
-| **Main REST API** | Railway | HTTPS | [https://sa-command-backend-production.up.railway.app](https://sa-command-backend-production.up.railway.app) |
-| **Navigator REST** | Railway | HTTPS | [https://sa-navigator-gateway-production.up.railway.app](https://sa-navigator-gateway-production.up.railway.app) |
-| **Navigator WSS** | Railway | WSS | `wss://sa-navigator-gateway-production.up.railway.app/ws/navigator` |
-| **PostgreSQL DB** | Railway | TCP (Private Mesh) | `postgres.railway.internal:5432` |
+| Component | Host / Provider | Protocol | Production URL / Endpoint | Tier |
+| :--- | :--- | :--- | :--- | :--- |
+| **Web Frontend** | Vercel | HTTPS | [https://sa-command.vercel.app](https://sa-command.vercel.app) | Hobby (₹0) |
+| **Main REST API** | Render | HTTPS | [https://sa-command-backend.onrender.com](https://sa-command-backend.onrender.com) | Free (₹0) |
+| **Navigator REST** | Railway | HTTPS | [https://sa-navigator-gateway-production.up.railway.app](https://sa-navigator-gateway-production.up.railway.app) | On-demand (₹0 baseline) |
+| **Navigator WSS** | Railway | WSS | `wss://sa-navigator-gateway-production.up.railway.app/ws/navigator` | On-demand (₹0 baseline) |
+| **PostgreSQL DB** | Render | TCP (SSL) | `dpg-db70sbaj9qps73ar0650-a:5432/sa_command_prod` | Free (₹0) |
+| *Historical Backend* | Railway | HTTPS | `https://sa-command-backend-production.up.railway.app` | *Pending Retirement Approval* |
+
+---
+
+## 9. Railway to Render Free Migration (2026-10-13)
+
+- **Target Goal:** ₹0 baseline monthly hosting cost without compromising production stability or data integrity.
+- **Render PostgreSQL:** Provisioned `sa-command-db` (ID: `dpg-db70sbaj9qps73ar0650-a`). Both `public` and `navigator` schemas restored and verified row-for-row (100% match).
+- **Render Spring Boot Backend:** Provisioned `sa-command-backend` (ID: `srv-db711nnf3r2c73crdh4g`). Containerized with Temurin 21 JRE, tuned for 512 MB memory limit (`-XX:+UseSerialGC -Xms128m -Xmx220m`).
+- **Security Hardening:** Owner Finance PIN rotated to `508169` (SHA-256 hash enforced). Actuator endpoints locked down with HTTP 403.
+- **Frontend Cutover:** `VITE_API_URL` updated to `https://sa-command-backend.onrender.com/api/v1` on Vercel; CSP `connect-src` patched.
+- **Verification:** 24/24 integration tests passed (100.0%).
+- **Reference Report:** See `SA_COMMAND_RENDER_MIGRATION_REPORT.md` for full test traces, credentials, and rollback instructions.
+
