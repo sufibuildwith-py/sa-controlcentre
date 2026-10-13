@@ -9,13 +9,14 @@
 
 param(
     [string]$ClientId = $env:GDRIVE_CLIENT_ID,
-    [string]$ClientSecret = $env:GDRIVE_CLIENT_SECRET
+    [string]$ClientSecret = $env:GDRIVE_CLIENT_SECRET,
+    [switch]$DryRun
 )
 
 $ErrorActionPreference = "Stop"
 
 Write-Host "======================================================================" -ForegroundColor Cyan
-Write-Host " SA COMMAND — GOOGLE DRIVE BACKUP AUTHORIZATION SETUP" -ForegroundColor Cyan
+Write-Host " SA COMMAND - GOOGLE DRIVE BACKUP AUTHORIZATION SETUP" -ForegroundColor Cyan
 Write-Host "======================================================================" -ForegroundColor Cyan
 
 # 1. Locate rclone
@@ -48,8 +49,17 @@ if (-not $ClientId -or -not $ClientSecret) {
 Write-Host "`n[2/4] Starting OAuth Authorization..." -ForegroundColor Yellow
 Write-Host "  -> A browser window will open shortly." -ForegroundColor Gray
 Write-Host "  -> Sign in to your Google Account." -ForegroundColor Gray
-Write-Host "  -> If you see 'Google hasn't verified this app', click 'Advanced' > 'Go to SA Command Backups (unsafe)'." -ForegroundColor Gray
-Write-Host "  -> Click 'Continue' to grant Google Drive backup access." -ForegroundColor Gray
+Write-Host "  -> If you see unverified app banner, click Advanced > Go to SA Command Backups (unsafe)." -ForegroundColor Gray
+Write-Host "  -> Click Continue to grant Google Drive backup access." -ForegroundColor Gray
+
+if ($DryRun) {
+    Write-Host "`n[DRY RUN] Parameters and rclone executable verified successfully." -ForegroundColor Yellow
+    Write-Host "  -> rclone executable: $rcloneExe" -ForegroundColor Gray
+    Write-Host "  -> ClientId length: $($ClientId.Length) characters" -ForegroundColor Gray
+    Write-Host "  -> ClientSecret length: $($ClientSecret.Length) characters" -ForegroundColor Gray
+    Write-Host "  -> Browser OAuth initiation skipped (-DryRun active)." -ForegroundColor Yellow
+    return
+}
 
 & $rcloneExe config create gdrive drive `
     client_id="$ClientId" `
