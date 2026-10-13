@@ -17,8 +17,8 @@ describe("SEC-002: Vercel Deployment Security Headers", () => {
     expect(
       config.rewrites.some(
         (r: { source: string; destination: string }) =>
-          r.source === "/(.*)" && r.destination === "/index.html"
-      )
+          r.source === "/(.*)" && r.destination === "/index.html",
+      ),
     ).toBe(true);
   });
 
@@ -26,7 +26,7 @@ describe("SEC-002: Vercel Deployment Security Headers", () => {
     const config = JSON.parse(fs.readFileSync(vercelConfigPath, "utf-8"));
     expect(config.headers).toBeDefined();
     const globalHeaderRule = config.headers.find(
-      (h: { source: string }) => h.source === "/(.*)"
+      (h: { source: string }) => h.source === "/(.*)",
     );
     expect(globalHeaderRule).toBeDefined();
 
@@ -42,21 +42,34 @@ describe("SEC-002: Vercel Deployment Security Headers", () => {
     expect(headersMap.get("X-Content-Type-Options")).toBe("nosniff");
 
     // 3. Referrer Policy
-    expect(headersMap.get("Referrer-Policy")).toBe("strict-origin-when-cross-origin");
+    expect(headersMap.get("Referrer-Policy")).toBe(
+      "strict-origin-when-cross-origin",
+    );
 
-    // 4. Permissions Policy
-    expect(headersMap.get("Permissions-Policy")).toContain("camera=()");
+    // 5. Strict Transport Security (HSTS)
+    expect(headersMap.get("Strict-Transport-Security")).toContain(
+      "max-age=63072000",
+    );
 
-    // 5. Content Security Policy
+    // 6. Content Security Policy
     const csp = headersMap.get("Content-Security-Policy");
     expect(csp).toBeDefined();
     expect(csp).toContain("frame-ancestors 'none'");
+    expect(csp).toContain("object-src 'none'");
     expect(csp).toContain("default-src 'self'");
     expect(csp).toContain("script-src 'self'");
-    expect(csp).toContain("https://sa-command-backend-production.up.railway.app");
-    expect(csp).toContain("https://sa-navigator-gateway-production.up.railway.app");
-    expect(csp).toContain("wss://sa-navigator-gateway-production.up.railway.app");
+    expect(csp).toContain("https://sa-command-backend.onrender.com");
+    expect(csp).toContain(
+      "https://sa-command-backend-production.up.railway.app",
+    );
+    expect(csp).toContain(
+      "https://sa-navigator-gateway-production.up.railway.app",
+    );
+    expect(csp).toContain(
+      "wss://sa-navigator-gateway-production.up.railway.app",
+    );
     expect(csp).toContain("https://tiles.openfreemap.org");
+    expect(csp).not.toContain("https://*.onrender.com");
     expect(csp).not.toContain("unsafe-eval");
   });
 });
