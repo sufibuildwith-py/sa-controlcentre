@@ -33,6 +33,13 @@ def sha256_file(filepath):
             h.update(chunk)
     return h.hexdigest()
 
+def md5_file(filepath):
+    h = hashlib.md5()
+    with open(filepath, "rb") as f:
+        while chunk := f.read(65536):
+            h.update(chunk)
+    return h.hexdigest()
+
 def get_connection_url(db_id, api_key=None):
     direct_url = os.environ.get("RENDER_DATABASE_URL")
     if direct_url:
@@ -366,6 +373,15 @@ def upload_to_gdrive(enc_file, meta_file, timestamp_str, is_baseline=False):
     if remote_size != local_size:
         raise RuntimeError(f"Remote size mismatch on Google Drive: remote={remote_size} bytes, local={local_size} bytes")
     print(f"[PASS] Google Drive upload verified: {remote_size} bytes match local archive exactly.")
+
+    # Verify remote MD5 hash parity via rclone md5sum
+    proc_md5 = subprocess.run([rclone, "md5sum", target_dump_path], capture_output=True, text=True)
+    if proc_md5.returncode == 0 and proc_md5.stdout.strip():
+        remote_md5 = proc_md5.stdout.split()[0].strip().lower()
+        local_md5 = md5_file(enc_file).lower()
+        if remote_md5 != local_md5:
+            raise RuntimeError(f"Remote MD5 mismatch on Google Drive! remote={remote_md5}, local={local_md5}")
+        print(f"[PASS] Google Drive remote MD5 verified: {remote_md5} matches local archive bit-for-bit.")
 
     # Enforce retention policy for daily backups
     if not is_baseline:
