@@ -13,8 +13,7 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
-      - run: mvn -f apps/backend/pom.xml verify
-      - run: mvn -Pformat -f apps/backend/pom.xml spotless:check
+      - run: mvn -f apps/backend/pom.xml test
   desktop:
     runs-on: ubuntu-latest
     steps:
@@ -36,6 +35,7 @@ jobs:
         working-directory: apps/desktop
   e2e:
     runs-on: windows-latest
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

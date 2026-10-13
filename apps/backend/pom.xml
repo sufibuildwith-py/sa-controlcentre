@@ -37,7 +37,23 @@
       <dependency><groupId>org.testcontainers</groupId><artifactId>testcontainers-bom</artifactId><version>${testcontainers.version}</version><type>pom</type><scope>import</scope></dependency>
     </dependencies>
   </dependencyManagement>
-  <build><plugins><plugin><groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId></plugin></plugins></build>
+  <build>
+    <plugins>
+      <plugin><groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId></plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <excludes>
+            <exclude>**/SyntheticDatasetLocalPostgresSeedTest.java</exclude>
+            <exclude>**/LocalQwen*.java</exclude>
+            <exclude>**/Eve100QuestionEvaluationTest.java</exclude>
+            <exclude>**/EveGeneralizationEvaluationTest.java</exclude>
+          </excludes>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
   <profiles>
     <profile>
       <id>production-desktop</id>

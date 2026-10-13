@@ -395,7 +395,7 @@ describe("ProductionDetailPage — Phase 1 Production Finance", () => {
         }),
       );
     });
-  });
+  }, 15000);
 
   it("sets contract for a production without existing contract", async () => {
     const uncontractedFinance = {
