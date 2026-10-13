@@ -33,6 +33,7 @@ class PostgresApplicationTest {
     properties.add("spring.datasource.password", postgres::getPassword);
     properties.add("app.demo-seed", () -> true);
     properties.add("app.mode", () -> "demo");
+    properties.add("FINANCE_UNLOCK_CODE_HASH", () -> "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f");
   }
 
   @Autowired JdbcTemplate jdbc;
@@ -138,6 +139,7 @@ class PostgresApplicationTest {
     assertThat(call(client, "GET", "/tasks", null).size()).isEqualTo(25);
     assertThat(call(client, "GET", "/calendar-events", null).size()).isEqualTo(34);
     assertThat(call(client, "GET", "/meetings", null).size()).isEqualTo(4);
+    call(client, "POST", "/finance-access/unlock", "{\"code\":\"123456\"}");
     assertThat(call(client, "GET", "/payroll", null).size()).isEqualTo(2);
     var dashboard = call(client, "GET", "/dashboard", null);
     assertThat(dashboard.path("productions").isArray()).isTrue();

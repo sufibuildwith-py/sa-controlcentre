@@ -40,6 +40,7 @@ class ProductionOwnerBootstrapIntegrationTest {
     p.add("DATABASE_USERNAME", postgres::getUsername);
     p.add("spring.datasource.password", postgres::getPassword);
     p.add("DATABASE_PASSWORD", postgres::getPassword);
+    p.add("FINANCE_UNLOCK_CODE_HASH", () -> "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f");
   }
 
   @Autowired UserRepository users;
