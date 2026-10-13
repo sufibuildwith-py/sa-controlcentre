@@ -40,8 +40,7 @@ public class FinanceAccessService {
       ApiSessionService sessionService,
       FinanceAccessThrottle throttle,
       AuditService audit,
-      @Value("${app.finance.unlock-code-hash:dd7a0bb1db3c404e514d61d0b8025f2c0a6023a17fb74c4461c38bf951d9ee47}")
-          String unlockCodeHash,
+      @Value("${app.finance.unlock-code-hash:}") String unlockCodeHash,
       @Value("${app.finance.access-ttl-minutes:30}") long ttlMinutes) {
     this(
         sessionRepository,
@@ -66,7 +65,7 @@ public class FinanceAccessService {
     this.throttle = throttle;
     this.audit = audit;
     this.clock = clock;
-    this.unlockCodeHash = unlockCodeHash != null ? unlockCodeHash.trim().toLowerCase() : "";
+    this.unlockCodeHash = unlockCodeHash != null ? unlockCodeHash.trim() : "";
     this.grantTtl = grantTtl;
   }
 
@@ -109,17 +108,23 @@ public class FinanceAccessService {
       throw new ApiException(HttpStatus.FORBIDDEN, "FORBIDDEN", "Only owners can access financial data.");
     }
 
-    // 3. Check rate limiting
+    // 3. Check configuration (fail closed if missing)
+    if (!isConfigured()) {
+      audit.record("FINANCE_ACCESS", "FINANCE_ACCESS_UNCONFIGURED", userId, null, Map.of("ip", ip));
+      throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "FINANCE_UNCONFIGURED", "Finance unlock code is not configured. Please contact the administrator.");
+    }
+
+    // 4. Check rate limiting
     throttle.check(userId, ip);
 
-    // 4. Verify unlock code
+    // 5. Verify unlock code
     boolean codeMatches = verifyCode(code);
     if (!codeMatches) {
       throttle.failed(userId, ip);
       throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_PIN", "Invalid finance unlock code.");
     }
 
-    // 5. Success: clear throttle and grant session access
+    // 6. Success: clear throttle and grant session access
     throttle.succeeded(userId, ip);
     Instant now = clock.instant();
     Instant expiresAt = now.plus(grantTtl);
@@ -152,6 +157,10 @@ public class FinanceAccessService {
     audit.record("FINANCE_ACCESS", "FINANCE_ACCESS_LOCKED", userId, null, Map.of("ip", ip));
   }
 
+  public boolean isConfigured() {
+    return unlockCodeHash != null && !unlockCodeHash.isBlank();
+  }
+
   private boolean isOwner(User user) {
     return user != null && "OWNER".equalsIgnoreCase(user.role);
   }
@@ -167,16 +176,19 @@ public class FinanceAccessService {
   }
 
   private boolean verifyCode(String code) {
-    if (code == null || code.isBlank()) return false;
+    if (code == null || code.isBlank() || !isConfigured()) return false;
     try {
+      if (unlockCodeHash.startsWith("$2a$") || unlockCodeHash.startsWith("$2b$") || unlockCodeHash.startsWith("$2y$")) {
+        return org.springframework.security.crypto.bcrypt.BCrypt.checkpw(code.trim(), unlockCodeHash);
+      }
       String hash =
           HexFormat.of()
               .formatHex(
                   MessageDigest.getInstance("SHA-256")
                       .digest(code.trim().getBytes(StandardCharsets.UTF_8)));
       return MessageDigest.isEqual(
-          unlockCodeHash.getBytes(StandardCharsets.UTF_8),
-          hash.getBytes(StandardCharsets.UTF_8));
+          unlockCodeHash.toLowerCase().getBytes(StandardCharsets.UTF_8),
+          hash.toLowerCase().getBytes(StandardCharsets.UTF_8));
     } catch (Exception e) {
       return false;
     }
