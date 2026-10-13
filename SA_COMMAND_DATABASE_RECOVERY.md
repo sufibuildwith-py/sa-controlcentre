@@ -69,7 +69,7 @@ To activate automated off-site archival, configure these secrets under **Setting
 
 | Secret Name | Description | Example / Recommended Value |
 |---|---|---|
-| `RENDER_API_KEY` | Render API Bearer token | `rnd_fIlzHhA4w17bxCF2oRQIL5QPMlbJ` |
+| `RENDER_API_KEY` | Render API Bearer token | Render Account Settings > API Keys (`rnd_...`) |
 | `RENDER_DATABASE_ID` | Render PostgreSQL Resource ID | `dpg-db70sbaj9qps73ar0650-a` |
 | `BACKUP_ENCRYPTION_KEY` | High-entropy AES-256 passphrase | User-generated 32+ character random secret |
 | `BACKUP_S3_BUCKET` | Destination S3/R2 Bucket name | `sa-command-backups` |
@@ -124,73 +124,116 @@ When Day 25 reminder fires, execute the replacement using [`scripts/renew_databa
 > **Explicit Operator Confirmation Required:**  
 > No automatic deletion, production database replacement, or credential cutover will execute without explicit operator authorization.
 
-### Standard Maintenance-Window Cutover Procedure (Option A)
+### Expected Maintenance Window & Downtime Specification
 
-1. **Pre-Flight Audit:**
-   ```bash
-   python scripts/renew_database.py --dry-run
+Due to Render's policy permitting **at most one active Free PostgreSQL database per workspace**, Option A involves a brief planned maintenance window:
+
+| Phase | Duration | Service State | Activity |
+|---|---|---|---|
+| **Phase 1: Write Freeze** | 15 seconds | Read-only / Veil | Stop inbound mutations; flush active connections; take final pre-cutover sync dump. |
+| **Phase 2: Retirement** | 5 seconds | Offline | Delete expiring database via Render API (`DELETE /postgres/{id}`). |
+| **Phase 3: Provisioning** | 60–90 seconds | Offline | Render spins up fresh PostgreSQL 16 instance until status is `available`. |
+| **Phase 4: Restoration** | 20–30 seconds | Offline | Decrypt dump and restore all 108 tables across `public` and `navigator` schemas. |
+| **Phase 5: Cutover & Restart** | 30–45 seconds | Recovering | Update backend `DATABASE_URL` environment variables; backend reboots and runs health check. |
+| **Total Expected Downtime** | **~2 to 3 minutes** | Planned Window | End-to-end cutover completed with 0 data loss. |
+
+---
+
+### Step-by-Step Maintenance-Window Cutover Procedure (Option A)
+
+#### Step 1: Pre-Flight Audit & Quota Check
+```bash
+python scripts/renew_database.py --dry-run
+```
+Verifies current database ID, creation/expiration dates, and ensures all tools (`pg_dump`, `openssl`, Python dependencies) are ready.
+
+#### Step 2: Inbound Write Freeze
+To guarantee zero transaction loss between the final backup and cutover:
+1. Temporarily pause or restrict inbound writes by scaling backend to maintenance mode or notifying active users.
+2. In the Render Dashboard (`sa-command-backend`), set environment variable:
+   `MAINTENANCE_MODE=true` (or suspend inbound write requests).
+3. Confirm no active write transactions are pending in PostgreSQL:
+   ```sql
+   SELECT count(*) FROM pg_stat_activity WHERE state = 'active' AND query NOT ILIKE '%pg_stat_activity%';
    ```
-2. **Execute Fresh Full Backup:**
-   ```bash
-   python scripts/backup_database.py --baseline
-   ```
-   Confirm output archive: `backups/archive/sa_command_baseline_*.dump.enc` exists, is non-empty, and decryption round-trip succeeds.
-3. **Delete Expiring Instance (Maintenance Window Begins):**
-   ```bash
-   # Via Render Dashboard or API
-   curl -X DELETE "https://api.render.com/v1/postgres/dpg-db70sbaj9qps73ar0650-a" \
-     -H "Authorization: Bearer $RENDER_API_KEY"
-   ```
-4. **Provision Replacement Instance:**
-   ```bash
-   curl -X POST "https://api.render.com/v1/postgres" \
-     -H "Authorization: Bearer $RENDER_API_KEY" \
-     -H "Content-Type: application/json" \
-     -d '{
-       "name": "sa-command-db",
-       "plan": "free",
-       "version": "16",
-       "databaseName": "sa_command_prod",
-       "databaseUser": "sa_command_user",
-       "region": "oregon",
-       "ownerId": "tea-db6vgcd9fdbs73eh5a2g",
-       "ipAllowList": [{"cidrBlock": "0.0.0.0/0", "description": "Everywhere"}]
-     }'
-   ```
-   Capture the new database ID (e.g. `dpg-new...`).
-5. **Restore Schemas and Data:**
-   Wait ~60 seconds until database status is `available`.
-   Retrieve connection info:
-   ```bash
-   curl "https://api.render.com/v1/postgres/<new_id>/connection-info" \
-     -H "Authorization: Bearer $RENDER_API_KEY"
-   ```
-   Decrypt and restore into the new database:
-   ```bash
-   python -c "
-   from scripts.backup_database import decrypt_dump
-   decrypt_dump('backups/archive/sa_command_baseline_latest.dump.enc', 'restore.dump', '$BACKUP_ENCRYPTION_KEY')
-   "
-   pg_restore --clean --if-exists --no-owner --no-acl -d "<new_external_url>" restore.dump
-   rm restore.dump
-   ```
-6. **Verify Row Counts & Flyway Migrations:**
-   Run dual database audit or row-count check:
-   - `public.flyway_schema_history` >= 33
-   - `navigator.flyway_schema_history` >= 3
-   - `public.users` >= 1
-   - `public.employees` >= 1
-   - `public.audit_logs` >= 123
-7. **Update Backend Database Credentials:**
-   Update Render Web Service `srv-db711nnf3r2c73crdh4g` environment variables via Render Dashboard or API:
-   - `DATABASE_URL`: `jdbc:postgresql://<new_host>:5432/sa_command_prod`
-   - `DATABASE_USERNAME`: `sa_command_user`
-   - `DATABASE_PASSWORD`: `<new_password>`
-8. **Verify Backend Health:**
-   ```bash
-   curl -i https://sa-command-backend.onrender.com/actuator/health
-   ```
-   Confirm HTTP 200 OK `{"status":"UP"}`. Test Owner login and Navigator ticket.
+
+#### Step 3: Final Pre-Cutover Backup & Verification
+```bash
+python scripts/backup_database.py --baseline
+```
+- Exports full database (`public` + `navigator`, Flyway, records).
+- Generates encrypted archive `sa_command_baseline_<timestamp>.dump.enc`.
+- Verifies SHA-256 decryption round-trip.
+- Uploads to Cloudflare R2 off-site bucket.
+
+#### Step 4: Delete Expiring Database (Maintenance Window Begins)
+```bash
+curl -X DELETE "https://api.render.com/v1/postgres/dpg-db70sbaj9qps73ar0650-a" \
+  -H "Authorization: Bearer $RENDER_API_KEY"
+```
+
+#### Step 5: Provision Replacement Instance
+```bash
+curl -X POST "https://api.render.com/v1/postgres" \
+  -H "Authorization: Bearer $RENDER_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "sa-command-db",
+    "plan": "free",
+    "version": "16",
+    "databaseName": "sa_command_prod",
+    "databaseUser": "sa_command_user",
+    "region": "oregon",
+    "ownerId": "tea-db6vgcd9fdbs73eh5a2g",
+    "ipAllowList": [{"cidrBlock": "0.0.0.0/0", "description": "Everywhere"}]
+  }'
+```
+Record the new database ID (e.g. `dpg-new...`). Poll `GET /postgres/{new_id}` until `status` is `"available"` (~60s).
+
+#### Step 6: Decrypt and Restore Data
+Retrieve external connection URL:
+```bash
+curl "https://api.render.com/v1/postgres/<new_id>/connection-info" \
+  -H "Authorization: Bearer $RENDER_API_KEY"
+```
+Execute restore using `verify_real_restore.py` or `pg_restore`:
+```bash
+python scratch/verify_real_restore.py
+```
+Validates:
+- All 108 tables restored (98 `public`, 10 `navigator`)
+- `public.flyway_schema_history` == 33 (latest `033`)
+- `navigator.flyway_schema_history` == 3 (latest `002`)
+- Critical record row counts match exactly.
+
+#### Step 7: Update Backend Connection Strings
+In Render Web Service `sa-command-backend` (`srv-db711nnf3r2c73crdh4g`), update:
+- `DATABASE_URL`: `jdbc:postgresql://<new_host>:5432/sa_command_prod`
+- `DATABASE_USERNAME`: `sa_command_user`
+- `DATABASE_PASSWORD`: `<new_password>`
+- Remove `MAINTENANCE_MODE=true`
+
+#### Step 8: Post-Cutover Verification
+```bash
+curl -i https://sa-command-backend.onrender.com/actuator/health
+```
+Verify `{"status":"UP"}`. Test login, Navigator ticket, and live employee locations.
+
+---
+
+### Rollback & Emergency Contingency Procedures
+
+If any failure occurs during the renewal window:
+
+#### Scenario 1: Provisioning Fails (Render API Error / Quota Exhaustion)
+- **Immediate Action:** The final backup archive (`sa_command_baseline_*.dump.enc`) is safely stored locally and in Cloudflare R2.
+- **Rollback Option 1 (Railway Hot-Spare):** Railway PostgreSQL is currently online and fully functional as a hot backup. Re-point Render backend `DATABASE_URL` directly to Railway PostgreSQL connection string (`postgresql://postgres:<password>@<railway-host>:5432/railway`). Restores service in < 60 seconds.
+- **Rollback Option 2 (Secondary Render Workspace):** Provision a free database in a secondary Render account/workspace and restore the verified dump.
+
+#### Scenario 2: Data Restore Errors or Corrupted Dump
+- **Immediate Action:** Do not point backend to partially restored database.
+- **Resolution:** Decrypt and restore from the verified daily backup archive on Cloudflare R2 (`backups/sa-command-db/YYYY-MM-DD/`) or local pre-migration baseline.
+- **Integrity Validation:** Run `python scratch/verify_real_restore.py` against the target database before directing traffic. All 108 tables must verify 100% PASS.
 
 ---
 

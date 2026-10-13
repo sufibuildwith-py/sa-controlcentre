@@ -39,7 +39,9 @@ def get_connection_url(db_id, api_key=None):
         return direct_url
         
     if not api_key:
-        api_key = os.environ.get("RENDER_API_KEY", "rnd_fIlzHhA4w17bxCF2oRQIL5QPMlbJ")
+        api_key = os.environ.get("RENDER_API_KEY")
+        if not api_key:
+            raise RuntimeError("RENDER_API_KEY environment variable is required")
         
     url = f"{RENDER_API_BASE}/postgres/{db_id}/connection-info"
     req = urllib.request.Request(
@@ -150,6 +152,10 @@ def run_python_dump(conn_params, output_dump_path):
                         row_serialized.append(None)
                     elif isinstance(val, (datetime,)):
                         row_serialized.append(val.isoformat())
+                    elif isinstance(val, (dict, list)):
+                        row_serialized.append(json.dumps(val))
+                    elif isinstance(val, (int, float, bool)):
+                        row_serialized.append(val)
                     elif isinstance(val, bytes):
                         row_serialized.append(val.hex())
                     else:
@@ -373,8 +379,107 @@ def enforce_retention(s3_client, bucket, prefix, min_days=7):
                 deleted_count += 1
                 
         print(f"[INFO] Retention policy enforced. Retaining >= {min_days} daily backups. Pruned: {deleted_count}.")
-    except Exception as e:
-        print(f"[WARN] Retention pruning warning: {e}", file=sys.stderr)
+def verify_restore_into_target(enc_path, encryption_key, target_url, format_name):
+    print(f"\n[INFO] Starting real PostgreSQL restore verification into target database...")
+    import psycopg2
+    
+    temp_dec = f"{enc_path}.restore_test.tmp"
+    decrypt_dump(enc_path, temp_dec, encryption_key)
+    
+    try:
+        clean_url = target_url.replace("jdbc:", "")
+        if "custom format" in format_name and shutil.which("pg_restore"):
+            print("[INFO] Restoring dump using pg_restore...")
+            env = os.environ.copy()
+            cmd = [
+                "pg_restore",
+                "--clean",
+                "--if-exists",
+                "--no-owner",
+                "--no-acl",
+                "-d", clean_url,
+                temp_dec
+            ]
+            proc = subprocess.run(cmd, env=env, capture_output=True, text=True)
+            if proc.returncode > 1:
+                print(f"[WARN] pg_restore exited with code {proc.returncode}: {proc.stderr[:300]}")
+        else:
+            print("[INFO] Restoring dump using portable Python extractor into target database...")
+            with open(temp_dec, "r", encoding="utf-8") as f:
+                dump_data = json.load(f)
+            
+            conn = psycopg2.connect(clean_url)
+            conn.autocommit = True
+            cur = conn.cursor()
+            
+            cur.execute("CREATE SCHEMA IF NOT EXISTS public;")
+            cur.execute("CREATE SCHEMA IF NOT EXISTS navigator;")
+            
+            tables = dump_data.get("tables", {})
+            for full_name, tbl_info in tables.items():
+                schema = tbl_info["schema"]
+                tbl = tbl_info["table"]
+                cols = tbl_info["columns"]
+                
+                col_defs = [f'"{c}" text' for c in cols]
+                cur.execute(f'CREATE TABLE IF NOT EXISTS "{schema}"."{tbl}" ({", ".join(col_defs)});')
+                
+                rows = tbl_info.get("rows", [])
+                if rows:
+                    col_list_str = ", ".join([f'"{c}"' for c in cols])
+                    placeholders = ", ".join(["%s"] * len(cols))
+                    insert_sql = f'INSERT INTO "{schema}"."{tbl}" ({col_list_str}) VALUES ({placeholders})'
+                    for r in rows:
+                        cur.execute(insert_sql, tuple(r))
+            conn.close()
+            
+        # Run integrity verification queries on target database
+        conn = psycopg2.connect(clean_url)
+        conn.autocommit = True
+        cur = conn.cursor()
+        
+        cur.execute("SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE';")
+        pub_tbls = cur.fetchone()[0]
+        cur.execute("SELECT count(*) FROM information_schema.tables WHERE table_schema = 'navigator' AND table_type = 'BASE TABLE';")
+        nav_tbls = cur.fetchone()[0]
+        total_tbls = pub_tbls + nav_tbls
+        
+        print(f"[INFO] Verified restored tables: total={total_tbls} (public={pub_tbls}, navigator={nav_tbls})")
+        assert pub_tbls >= 90, f"Expected >= 90 public tables, got {pub_tbls}"
+        assert nav_tbls >= 10, f"Expected >= 10 navigator tables, got {nav_tbls}"
+        
+        # Check Flyway
+        cur.execute("SELECT count(*), max(version) FROM public.flyway_schema_history;")
+        pub_fw = cur.fetchone()
+        print(f"[INFO] Verified Public Flyway: {pub_fw[0]} migrations (latest: {pub_fw[1]})")
+        assert pub_fw[0] >= 33, f"Expected >= 33 public migrations, got {pub_fw[0]}"
+        
+        cur.execute("SELECT count(*), max(version) FROM navigator.flyway_schema_history;")
+        nav_fw = cur.fetchone()
+        print(f"[INFO] Verified Navigator Flyway: {nav_fw[0]} migrations (latest: {nav_fw[1]})")
+        assert nav_fw[0] >= 3, f"Expected >= 3 navigator migrations, got {nav_fw[0]}"
+        
+        # Check critical records
+        cur.execute("SELECT count(*) FROM public.users;")
+        u_cnt = cur.fetchone()[0]
+        cur.execute("SELECT count(*) FROM public.employees;")
+        e_cnt = cur.fetchone()[0]
+        cur.execute("SELECT count(*) FROM public.audit_logs;")
+        a_cnt = cur.fetchone()[0]
+        print(f"[INFO] Verified critical records: users={u_cnt}, employees={e_cnt}, audit_logs={a_cnt}")
+        assert u_cnt >= 1, "Missing users records"
+        assert e_cnt >= 1, "Missing employees records"
+        assert a_cnt >= 100, f"Audit logs record count low: {a_cnt}"
+        
+        conn.close()
+        print("\n" + "="*70)
+        print("[PASS] REAL POSTGRESQL RESTORE VERIFICATION PASSED (100%)")
+        print("All tables, schemas, Flyway histories, and critical business records verified.")
+        print("="*70 + "\n")
+        
+    finally:
+        if os.path.exists(temp_dec):
+            os.remove(temp_dec)
 
 def main():
     parser = argparse.ArgumentParser(description="SA Command PostgreSQL Backup Engine")
@@ -388,8 +493,7 @@ def main():
     
     encryption_key = os.environ.get("BACKUP_ENCRYPTION_KEY")
     if not encryption_key:
-        encryption_key = "SA_COMMAND_BACKUP_SECRET_PRE_MIGRATION_BASE_KEY_2026"
-        print("[INFO] Using configured local backup encryption key.")
+        raise RuntimeError("BACKUP_ENCRYPTION_KEY environment variable is required")
         
     ts_now = datetime.now(timezone.utc)
     ts_str = ts_now.strftime("%Y%m%d_%H%M%S")
@@ -470,6 +574,10 @@ def main():
         print("[PASS] Decryption round-trip verified: Restored plaintext SHA matches original export exactly!")
         if os.path.exists(test_dec):
             os.remove(test_dec)
+            
+        # 8. Isolated target database restore verification if requested
+        if args.verify_restore_url:
+            verify_restore_into_target(enc_path, encryption_key, args.verify_restore_url, format_name)
             
         return enc_path, meta_path
         

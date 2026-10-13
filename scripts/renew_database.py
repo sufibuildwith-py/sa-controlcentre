@@ -24,7 +24,10 @@ BACKEND_SERVICE_ID = "srv-db711nnf3r2c73crdh4g"
 DEFAULT_DB_ID = "dpg-db70sbaj9qps73ar0650-a"
 
 def get_render_api_key():
-    return os.environ.get("RENDER_API_KEY", "rnd_fIlzHhA4w17bxCF2oRQIL5QPMlbJ")
+    key = os.environ.get("RENDER_API_KEY")
+    if not key:
+        raise RuntimeError("RENDER_API_KEY environment variable is required but not set")
+    return key
 
 def render_api_call(endpoint, method="GET", data=None):
     api_key = get_render_api_key()

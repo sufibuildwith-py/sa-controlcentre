@@ -24,7 +24,10 @@ RENDER_API_BASE = "https://api.render.com/v1"
 STATE_FILE = os.path.join(BASE_DIR, ".db_renewal_state.json")
 
 def get_render_api_key():
-    return os.environ.get("RENDER_API_KEY", "rnd_fIlzHhA4w17bxCF2oRQIL5QPMlbJ")
+    key = os.environ.get("RENDER_API_KEY")
+    if not key:
+        raise RuntimeError("RENDER_API_KEY environment variable is required but not set")
+    return key
 
 def fetch_render_db_info(db_id, api_key):
     url = f"{RENDER_API_BASE}/postgres/{db_id}"
@@ -116,6 +119,91 @@ def evaluate_renewal(created_at, expires_at, now=None, simulated_day=None):
         "requires_action": tier > 0
     }
 
+def dispatch_github_issue(level_name, tier, db_name, db_id, eval_result):
+    token = os.environ.get("GITHUB_TOKEN")
+    repo = os.environ.get("GITHUB_REPOSITORY", "sufibuildwith-py/sa-controlcentre")
+    if not token:
+        print("[INFO] GITHUB_TOKEN not set; skipping GitHub Issue creation.")
+        return False
+        
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/vnd.github+json",
+        "Content-Type": "application/json"
+    }
+    
+    # Check for existing open renewal issue
+    url_list = f"https://api.github.com/repos/{repo}/issues?labels=database-renewal&state=open"
+    req_list = urllib.request.Request(url_list, headers=headers)
+    existing_issue = None
+    try:
+        with urllib.request.urlopen(req_list) as resp:
+            issues = json.loads(resp.read().decode("utf-8"))
+            if issues:
+                existing_issue = issues[0]
+    except Exception as e:
+        print(f"[WARN] Failed to query existing issues: {e}")
+        
+    body_text = f"""### ⚠️ Database Renewal Alert: {level_name} (Tier {tier})
+
+cc @sufibuildwith-py
+
+- **Database:** `{db_name}` (`{db_id}`)
+- **Lifespan Age:** {eval_result['age_days']} days (of 30)
+- **Time Remaining:** {eval_result['remaining_days']} days
+- **Expiration Date:** `{eval_result['expires_at']}`
+- **Action Required:** {eval_result['message']}
+
+> [!IMPORTANT]
+> Render Free PostgreSQL instances are strictly limited to a 30-day lifecycle.
+> Refer to [`SA_COMMAND_DATABASE_RECOVERY.md`](https://github.com/{repo}/blob/production/SA_COMMAND_DATABASE_RECOVERY.md) for the replacement runbook.
+"""
+
+    if existing_issue:
+        issue_num = existing_issue["number"]
+        comment_url = f"https://api.github.com/repos/{repo}/issues/{issue_num}/comments"
+        payload = json.dumps({"body": body_text}).encode("utf-8")
+        req_post = urllib.request.Request(comment_url, data=payload, headers=headers, method="POST")
+        try:
+            with urllib.request.urlopen(req_post) as resp:
+                print(f"[INFO] Successfully added escalation comment to GitHub Issue #{issue_num}.")
+                return True
+        except Exception as e:
+            print(f"[WARN] Failed to post comment to issue #{issue_num}: {e}")
+            return False
+    else:
+        create_url = f"https://api.github.com/repos/{repo}/issues"
+        payload = json.dumps({
+            "title": f"🚨 ACTION REQUIRED: Render PostgreSQL Renewal Window Open (Day {int(eval_result['age_days'])})",
+            "body": body_text,
+            "labels": ["database-renewal", "urgent"]
+        }).encode("utf-8")
+        req_post = urllib.request.Request(create_url, data=payload, headers=headers, method="POST")
+        try:
+            with urllib.request.urlopen(req_post) as resp:
+                created = json.loads(resp.read().decode("utf-8"))
+                print(f"[INFO] Successfully opened GitHub Issue #{created.get('number')} notifying @sufibuildwith-py.")
+                return True
+        except Exception as e:
+            print(f"[WARN] Failed to create GitHub Issue: {e}")
+            return False
+
+def dispatch_webhook(eval_result, db_name, db_id):
+    webhook_url = os.environ.get("NOTIFICATION_WEBHOOK_URL")
+    if not webhook_url:
+        return
+    msg = f"🚨 **SA Command Database Renewal Alert [{eval_result['level_name']}]**: {eval_result['remaining_days']} days remaining for `{db_name}` ({db_id}). Expiration: `{eval_result['expires_at']}`."
+    req = urllib.request.Request(
+        webhook_url,
+        data=json.dumps({"content": msg, "text": msg}).encode("utf-8"),
+        headers={"Content-Type": "application/json"}
+    )
+    try:
+        with urllib.request.urlopen(req) as resp:
+            print("[INFO] Webhook notification dispatched successfully.")
+    except Exception as e:
+        print(f"[WARN] Webhook dispatch failed: {e}")
+
 def dispatch_notification(eval_result, db_info, is_simulation=False):
     tier = eval_result["tier"]
     level_name = eval_result["level_name"]
@@ -160,6 +248,10 @@ def dispatch_notification(eval_result, db_info, is_simulation=False):
             sf.write(f"- **Expiration Date:** `{eval_result['expires_at']}`\n")
             sf.write(f"- **Action Required:** {eval_result['message']}\n\n")
             sf.write(f"Refer to [`SA_COMMAND_DATABASE_RECOVERY.md`](../SA_COMMAND_DATABASE_RECOVERY.md) for renewal procedure.\n")
+
+    # Dispatch GitHub Issue to trigger direct email and mobile notifications to repository owner
+    dispatch_github_issue(level_name, tier, db_name, db_id, eval_result)
+    dispatch_webhook(eval_result, db_name, db_id)
             
     # Update state
     db_state["last_notified_tier"] = tier
@@ -178,9 +270,6 @@ def main():
     parser.add_argument("--force", action="store_true", help="Force notification dispatch even if tier has not changed")
     args = parser.parse_args()
 
-    api_key = get_render_api_key()
-    print(f"[INFO] Checking renewal status for database {args.db_id}...")
-    
     if args.simulate_day is not None:
         db_info = {
             "id": args.db_id,
@@ -191,6 +280,9 @@ def main():
         res = evaluate_renewal(None, None, simulated_day=args.simulate_day)
         dispatch_notification(res, db_info, is_simulation=True)
         return
+
+    api_key = get_render_api_key()
+    print(f"[INFO] Checking renewal status for database {args.db_id}...")
 
     try:
         db_info = fetch_render_db_info(args.db_id, api_key)
