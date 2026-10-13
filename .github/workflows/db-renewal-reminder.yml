@@ -1,0 +1,46 @@
+name: Render PostgreSQL Renewal Reminder
+
+on:
+  schedule:
+    # Run daily at 04:00 UTC (09:30 IST)
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+    inputs:
+      simulate_day:
+        description: 'Simulate day of lifecycle (leave blank for live check)'
+        required: false
+        type: string
+
+concurrency:
+  group: db-renewal-reminder
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check-renewal:
+    name: Check Render Database Expiration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run Renewal Checker
+        id: checker
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_DATABASE_ID: ${{ secrets.RENDER_DATABASE_ID || 'dpg-db70sbaj9qps73ar0650-a' }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -n "${{ github.event.inputs.simulate_day }}" ]; then
+            python scripts/renewal_reminder.py --simulate-day "${{ github.event.inputs.simulate_day }}"
+          else
+            python scripts/renewal_reminder.py
+          fi

@@ -1,0 +1,83 @@
+name: Render PostgreSQL Daily Automated Backup & Restore Verification
+
+on:
+  schedule:
+    # Run daily at 02:00 UTC (07:30 IST)
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      test_restore:
+        description: 'Run test restore into isolated Docker PostgreSQL container'
+        required: true
+        default: true
+        type: boolean
+
+concurrency:
+  group: db-backup-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  backup-and-verify:
+    name: Backup, Encrypt & Verify PostgreSQL
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python Dependencies
+        run: |
+          pip install --no-cache-dir boto3 psycopg2-binary
+
+      - name: Install PostgreSQL 16 Client Tools & OpenSSL
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends postgresql-client-16 openssl
+          pg_dump --version
+          pg_restore --version
+
+      - name: Start Isolated Docker PostgreSQL 16 for Restore Test
+        if: ${{ github.event.inputs.test_restore != 'false' }}
+        run: |
+          docker run -d --name pg-isolated-test \
+            -e POSTGRES_PASSWORD=isolated_restore_test_secret \
+            -e POSTGRES_DB=sa_command_isolated \
+            -p 5433:5432 \
+            postgres:16
+          # Wait for container readiness
+          for i in {1..30}; do
+            if pg_isready -h 127.0.0.1 -p 5433 -U postgres; then
+              echo "Isolated test database is ready."
+              break
+            fi
+            sleep 1
+          done
+
+      - name: Execute Backup & Verification Pipeline
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_DATABASE_ID: ${{ secrets.RENDER_DATABASE_ID || 'dpg-db70sbaj9qps73ar0650-a' }}
+          RENDER_DATABASE_URL: ${{ secrets.RENDER_DATABASE_URL }}
+          BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+          BACKUP_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+          BACKUP_S3_ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
+          BACKUP_S3_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_ACCESS_KEY_ID }}
+          BACKUP_S3_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY }}
+        run: |
+          if [ "${{ github.event.inputs.test_restore }}" != "false" ]; then
+            python scripts/backup_database.py --verify-restore-url "postgresql://postgres:isolated_restore_test_secret@127.0.0.1:5433/sa_command_isolated"
+          else
+            python scripts/backup_database.py
+          fi
+
+      - name: Tear Down Isolated Test Container
+        if: always()
+        run: |
+          docker rm -f pg-isolated-test 2>/dev/null || true

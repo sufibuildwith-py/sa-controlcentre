@@ -34,4 +34,15 @@ build/
 # Local EVE models and runtime binaries
 eve/models/*.gguf
 eve/runtime/
-*.sql
+*.sql
+
+# Database backup archives & local renewal state
+backups/
+*.dump
+*.dump.enc
+*.meta.json
+.db_renewal_state.json
+scripts/.db_renewal_state.json
+__pycache__/
+*.pyc
+
