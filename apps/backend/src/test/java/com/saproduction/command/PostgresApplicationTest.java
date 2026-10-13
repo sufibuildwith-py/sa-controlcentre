@@ -33,7 +33,8 @@ class PostgresApplicationTest {
     properties.add("spring.datasource.password", postgres::getPassword);
     properties.add("app.demo-seed", () -> true);
     properties.add("app.mode", () -> "demo");
-    properties.add("FINANCE_UNLOCK_CODE_HASH", () -> "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f");
+    properties.add("app.finance.unlock-code-hash", () -> "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92");
+    properties.add("FINANCE_UNLOCK_CODE_HASH", () -> "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92");
   }
 
   @Autowired JdbcTemplate jdbc;
