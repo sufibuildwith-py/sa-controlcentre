@@ -19,10 +19,11 @@ RUN groupadd -r appgroup && useradd -r -g appgroup -d /app -s /sbin/nologin appu
 
 WORKDIR /app
 
-# Copy the built jar
+# Copy the built jar and entrypoint
 COPY --from=build /workspace/target/*.jar /app/app.jar
+COPY entrypoint.sh /app/entrypoint.sh
 
-RUN chown -R appuser:appgroup /app
+RUN chmod +x /app/entrypoint.sh && chown -R appuser:appgroup /app
 
 USER appuser
 
@@ -34,9 +35,4 @@ ENV PORT=8080
 
 EXPOSE 8080
 
-ENTRYPOINT ["sh", "-c", "\
-if [ -n \"$DATABASE_URL\" ] && [ \"${DATABASE_URL#jdbc:}\" = \"$DATABASE_URL\" ]; then \
-  export DATABASE_URL=\"jdbc:$DATABASE_URL\"; \
-fi; \
-exec java $JAVA_OPTS -Dserver.port=${PORT:-8080} -Dserver.address=0.0.0.0 -jar /app/app.jar\
-"]
+ENTRYPOINT ["/app/entrypoint.sh"]
