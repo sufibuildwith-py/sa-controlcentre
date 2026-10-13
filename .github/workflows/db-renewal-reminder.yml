@@ -38,9 +38,14 @@ jobs:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
           RENDER_DATABASE_ID: ${{ secrets.RENDER_DATABASE_ID || 'dpg-db70sbaj9qps73ar0650-a' }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SIMULATE_DAY: ${{ github.event.inputs.simulate_day }}
         run: |
-          if [ -n "${{ github.event.inputs.simulate_day }}" ]; then
-            python scripts/renewal_reminder.py --simulate-day "${{ github.event.inputs.simulate_day }}"
+          if [ -n "$SIMULATE_DAY" ]; then
+            if ! [[ "$SIMULATE_DAY" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+              echo "::error::Invalid input: simulate_day must be numeric, got: $SIMULATE_DAY"
+              exit 1
+            fi
+            python scripts/renewal_reminder.py --simulate-day "$SIMULATE_DAY"
           else
             python scripts/renewal_reminder.py
           fi
