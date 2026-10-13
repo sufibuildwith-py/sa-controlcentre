@@ -312,73 +312,114 @@ def decrypt_dump(enc_path, dec_output_path, encryption_key):
     with open(dec_output_path, "wb") as f_out:
         f_out.write(plaintext)
 
-def upload_to_s3_storage(enc_file, meta_file, timestamp_str, is_baseline=False):
-    bucket = os.environ.get("BACKUP_S3_BUCKET")
-    endpoint = os.environ.get("BACKUP_S3_ENDPOINT")
-    access_key = os.environ.get("BACKUP_S3_ACCESS_KEY_ID")
-    secret_key = os.environ.get("BACKUP_S3_SECRET_ACCESS_KEY")
-    
-    if not (bucket and access_key and secret_key):
+def get_rclone_cmd():
+    if shutil.which("rclone"):
+        return "rclone"
+    portable = r"c:\Users\xtrar\tools\rclone\rclone.exe"
+    if os.path.exists(portable):
+        return portable
+    return None
+
+def upload_to_gdrive(enc_file, meta_file, timestamp_str, is_baseline=False):
+    rclone = get_rclone_cmd()
+    if not rclone:
         print("\n" + "!"*70)
-        print("[STORAGE NOTICE] S3-compatible off-site storage credentials not yet set.")
-        print("Required GitHub Secrets for off-site archival:")
-        print("  - BACKUP_S3_BUCKET (e.g. 'sa-command-backups')")
-        print("  - BACKUP_S3_ENDPOINT (e.g. 'https://<account-id>.r2.cloudflarestorage.com')")
-        print("  - BACKUP_S3_ACCESS_KEY_ID")
-        print("  - BACKUP_S3_SECRET_ACCESS_KEY")
-        print(f"The encrypted backup is safely persisted at: {enc_file}")
+        print("[STORAGE NOTICE] rclone binary not found in PATH or tools directory.")
+        print("Please install rclone or configure GDRIVE_RCLONE_CONFIG secret.")
+        print(f"The encrypted backup is safely persisted locally at: {enc_file}")
         print("!"*70 + "\n")
         return False
         
-    try:
-        import boto3
-        from botocore.config import Config
-        s3 = boto3.client(
-            "s3",
-            endpoint_url=endpoint,
-            aws_access_key_id=access_key,
-            aws_secret_access_key=secret_key,
-            config=Config(signature_version="s3v4")
-        )
-        
-        prefix = "backups/sa-command-db"
-        base_name = os.path.basename(enc_file)
-        meta_name = os.path.basename(meta_file)
-        
-        target_dump_key = f"{prefix}/{'baseline' if is_baseline else timestamp_str[:10]}/{base_name}"
-        target_meta_key = f"{prefix}/{'baseline' if is_baseline else timestamp_str[:10]}/{meta_name}"
-        
-        print(f"[INFO] Uploading encrypted backup to s3://{bucket}/{target_dump_key}...")
-        s3.upload_file(enc_file, bucket, target_dump_key)
-        
-        print(f"[INFO] Uploading metadata to s3://{bucket}/{target_meta_key}...")
-        s3.upload_file(meta_file, bucket, target_meta_key)
-        
-        if not is_baseline:
-            enforce_retention(s3, bucket, prefix, min_days=7)
-        return True
-    except Exception as e:
-        print(f"[ERROR] Failed to upload to S3-compatible storage: {e}", file=sys.stderr)
+    proc = subprocess.run([rclone, "listremotes"], capture_output=True, text=True)
+    if "gdrive:" not in proc.stdout:
+        print("\n" + "!"*70)
+        print("[STORAGE NOTICE] rclone remote 'gdrive:' is not configured.")
+        print("Required configuration: Run scripts/setup_gdrive_auth.ps1 or set GDRIVE_RCLONE_CONFIG secret.")
+        print(f"The encrypted backup is safely persisted locally at: {enc_file}")
+        print("!"*70 + "\n")
         return False
 
-def enforce_retention(s3_client, bucket, prefix, min_days=7):
+    base_name = os.path.basename(enc_file)
+    meta_name = os.path.basename(meta_file)
+
+    # Check if root is already locked to SA_COMMAND_DB_BACKUPS or if it's a subfolder
+    proc_ls = subprocess.run([rclone, "lsd", "gdrive:"], capture_output=True, text=True)
+    if "SA_COMMAND_DB_BACKUPS" in proc_ls.stdout:
+        dest_prefix = "gdrive:SA_COMMAND_DB_BACKUPS"
+    else:
+        dest_prefix = "gdrive:"
+
+    subfolder = "pre-migration" if is_baseline else "daily"
+    target_dump_path = f"{dest_prefix}/{subfolder}/{base_name}"
+    target_meta_path = f"{dest_prefix}/manifests/{meta_name}"
+
+    print(f"[INFO] Uploading encrypted backup to Google Drive: {target_dump_path}...")
+    proc_upload = subprocess.run([rclone, "copyto", enc_file, target_dump_path], capture_output=True, text=True)
+    if proc_upload.returncode != 0:
+        print(f"[ERROR] Failed to upload dump to Google Drive: {proc_upload.stderr}", file=sys.stderr)
+        return False
+
+    print(f"[INFO] Uploading metadata manifest to Google Drive: {target_meta_path}...")
+    proc_meta = subprocess.run([rclone, "copyto", meta_file, target_meta_path], capture_output=True, text=True)
+    if proc_meta.returncode != 0:
+        print(f"[ERROR] Failed to upload manifest to Google Drive: {proc_meta.stderr}", file=sys.stderr)
+        return False
+
+    # Verify upload presence and byte-size parity
+    proc_check = subprocess.run([rclone, "lsjson", target_dump_path], capture_output=True, text=True)
+    if proc_check.returncode == 0:
+        try:
+            items = json.loads(proc_check.stdout)
+            if items:
+                remote_size = items[0].get("Size", 0)
+                local_size = os.path.getsize(enc_file)
+                if remote_size == local_size:
+                    print(f"[PASS] Google Drive upload verified: {remote_size} bytes match local archive.")
+                else:
+                    print(f"[WARN] Size mismatch on Google Drive: remote={remote_size}, local={local_size}")
+        except Exception as e:
+            print(f"[WARN] Failed to parse lsjson: {e}")
+
+    # Enforce retention policy for daily backups
+    if not is_baseline:
+        enforce_gdrive_retention(rclone, f"{dest_prefix}/daily", f"{dest_prefix}/manifests", min_backups=7)
+
+    return True
+
+def enforce_gdrive_retention(rclone, remote_daily_dir, remote_manifest_dir, min_backups=7):
     try:
-        resp = s3_client.list_objects_v2(Bucket=bucket, Prefix=prefix)
-        contents = resp.get("Contents", [])
-        
-        cutoff = datetime.now(timezone.utc) - timedelta(days=min_days)
-        deleted_count = 0
-        
-        for obj in contents:
-            key = obj["Key"]
-            last_modified = obj["LastModified"]
-            if "baseline" in key.lower() or "pre-migration" in key.lower():
-                continue
-            if last_modified < cutoff:
-                s3_client.delete_object(Bucket=bucket, Key=key)
-                deleted_count += 1
-                
-        print(f"[INFO] Retention policy enforced. Retaining >= {min_days} daily backups. Pruned: {deleted_count}.")
+        proc = subprocess.run([rclone, "lsjson", remote_daily_dir], capture_output=True, text=True)
+        if proc.returncode != 0:
+            print(f"[WARN] Failed to list daily backups for retention check: {proc.stderr}")
+            return
+
+        files = json.loads(proc.stdout)
+        dump_files = [f for f in files if f.get("Name", "").endswith(".dump.enc")]
+        dump_files.sort(key=lambda x: x.get("ModTime", ""))
+
+        total_backups = len(dump_files)
+        print(f"[INFO] Current daily backups in Google Drive: {total_backups} (minimum retained: {min_backups})")
+
+        if total_backups <= min_backups:
+            print(f"[INFO] Retention policy satisfied ({total_backups} <= {min_backups}). No backups pruned.")
+            return
+
+        excess_count = total_backups - min_backups
+        to_delete = dump_files[:excess_count]
+
+        for item in to_delete:
+            fname = item["Name"]
+            target_file = f"{remote_daily_dir}/{fname}"
+            print(f"[INFO] Pruning aged daily backup: {fname}...")
+            subprocess.run([rclone, "deletefile", target_file], capture_output=True, text=True)
+
+            meta_name = fname.replace(".dump.enc", ".meta.json")
+            target_meta = f"{remote_manifest_dir}/{meta_name}"
+            subprocess.run([rclone, "deletefile", target_meta], capture_output=True, text=True)
+
+        print(f"[INFO] Retention pruning complete. Pruned {len(to_delete)} backups. {min_backups} verified backups retained.")
+    except Exception as e:
+        print(f"[WARN] Retention pruning warning: {e}", file=sys.stderr)
 def verify_restore_into_target(enc_path, encryption_key, target_url, format_name):
     print(f"\n[INFO] Starting real PostgreSQL restore verification into target database...")
     import psycopg2
@@ -562,8 +603,8 @@ def main():
         print(f"Metadata Manifest: {meta_path}")
         print("="*70 + "\n")
         
-        # 6. Upload
-        upload_to_s3_storage(enc_path, meta_path, ts_str, is_baseline=args.baseline)
+        # 6. Upload to Google Drive via rclone
+        upload_to_gdrive(enc_path, meta_path, ts_str, is_baseline=args.baseline)
         
         # 7. Test decryption integrity check
         test_dec = os.path.join(args.output_dir, f"test_dec_{ts_str}.tmp")

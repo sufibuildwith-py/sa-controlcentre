@@ -50,32 +50,32 @@ This requires one of two renewal architectures:
 - **Export Format:** `pg_dump --format=custom --no-owner --no-acl --verbose` (captures `public` and `navigator` schemas, tables, sequences, constraints, and Flyway history).
 - **Encryption:** OpenSSL / Python AES-256-CBC with PBKDF2 (100,000 iterations). Plaintext dumps are securely shredded from runner disk immediately after encryption.
 
-### Independent Off-Site Storage Options
+### Independent Off-Site Storage: Google Drive (rclone)
 
-| Storage Provider | Monthly Cost | Free Storage Limit | Egress Fees | Protocol | Recommendation |
-|---|---|---|---|---|---|
-| **Cloudflare R2** | **₹0 ($0.00)** | **10 GB forever** | **₹0 ($0.00)** | S3-Compatible | **Recommended** |
-| **Backblaze B2** | **₹0 ($0.00)** | **10 GB forever** | 1 GB / day free | S3-Compatible | Alternative |
-| **AWS S3** | **₹0 ($0.00)** | 5 GB (12 months) | Paid after 100 GB | S3 Standard | 12-month limit |
+| Component | Specification | Details |
+|---|---|---|
+| **Storage Destination** | **Google Drive** | Primary dedicated folder: `SA_COMMAND_DB_BACKUPS` |
+| **Transport Utility** | **rclone** | Native Go binary for authenticated, encrypted cloud transfers |
+| **Billing Requirement** | **₹0 ($0.00)** | Zero-cost baseline; no payment method or credit card required |
+| **Authentication** | Dedicated OAuth Client | Installed Desktop OAuth app in Google Cloud (`SA Command Backups`) |
+| **Directory Layout** | Dedicated subfolders | `daily/`, `pre-migration/`, `manifests/` |
 
 ### Retention Policy
-- **Daily Retention:** Minimum **7 recent daily backups** retained in off-site storage prefix `backups/sa-command-db/YYYY-MM-DD/`.
-- **Permanent Baseline:** Pre-migration baseline (`sa_command_baseline_*.dump.enc`) is protected by immutable retention rules and never pruned.
-- **Automated Pruning:** Objects older than 7 days (excluding baseline archives) are pruned automatically.
+- **Daily Retention:** Minimum **7 recent daily backups** retained in Google Drive under `SA_COMMAND_DB_BACKUPS/daily/`.
+- **Permanent Baseline:** Pre-migration baseline (`sa_command_baseline_*.dump.enc`) is stored in `SA_COMMAND_DB_BACKUPS/pre-migration/` and never pruned.
+- **Automated Pruning:** Older daily backups beyond the 7 most recent are safely pruned only after successful upload verification.
+- **Fail-Safe Guarantee:** If an upload fails, cleanup is aborted. The last known-good backup is never deleted.
 
 ### Required GitHub Secrets
 
 To activate automated off-site archival, configure these secrets under **Settings > Secrets and variables > Actions**:
 
-| Secret Name | Description | Example / Recommended Value |
+| Secret Name | Description | Status / Source |
 |---|---|---|
-| `RENDER_API_KEY` | Render API Bearer token | Render Account Settings > API Keys (`rnd_...`) |
-| `RENDER_DATABASE_ID` | Render PostgreSQL Resource ID | `dpg-db70sbaj9qps73ar0650-a` |
-| `BACKUP_ENCRYPTION_KEY` | High-entropy AES-256 passphrase | User-generated 32+ character random secret |
-| `BACKUP_S3_BUCKET` | Destination S3/R2 Bucket name | `sa-command-backups` |
-| `BACKUP_S3_ENDPOINT` | S3-compatible API endpoint | `https://<account-id>.r2.cloudflarestorage.com` |
-| `BACKUP_S3_ACCESS_KEY_ID` | Storage Access Key ID | Generated from Cloudflare R2 / AWS IAM |
-| `BACKUP_S3_SECRET_ACCESS_KEY` | Storage Secret Access Key | Generated from Cloudflare R2 / AWS IAM |
+| `RENDER_API_KEY` | Render API Bearer token | Configured in GitHub Secrets |
+| `RENDER_DATABASE_ID` | Render PostgreSQL Resource ID | Configured (`dpg-db70sbaj9qps73ar0650-a`) |
+| `BACKUP_ENCRYPTION_KEY` | High-entropy AES-256 passphrase | Configured in GitHub Secrets |
+| `GDRIVE_RCLONE_CONFIG` | Complete rclone config file contents | Generated via `scripts/setup_gdrive_auth.ps1` |
 
 ---
 
@@ -242,7 +242,11 @@ If any failure occurs during the renewal window:
 If Render PostgreSQL disappears unexpectedly or is dropped prematurely:
 
 1. **Locate Latest Verified Encrypted Backup:**
-   From S3/R2 bucket (`s3://sa-command-backups/backups/sa-command-db/YYYY-MM-DD/`) or local archive (`backups/archive/`).
+   From Google Drive:
+   ```bash
+   rclone copyto gdrive:SA_COMMAND_DB_BACKUPS/daily/<latest_file>.dump.enc ./latest_backup.dump.enc
+   ```
+   Or from local archive (`backups/archive/`).
 2. **Provision Fresh Database:**
    Follow Step 4 above to provision a new Render Free PostgreSQL 16 instance.
 3. **Decrypt and Restore:**

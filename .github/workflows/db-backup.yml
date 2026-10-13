@@ -34,14 +34,29 @@ jobs:
 
       - name: Install Python Dependencies
         run: |
-          pip install --no-cache-dir boto3 psycopg2-binary
+          pip install --no-cache-dir psycopg2-binary
 
-      - name: Install PostgreSQL 16 Client Tools & OpenSSL
+      - name: Install PostgreSQL 16 Client Tools, OpenSSL & rclone
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends postgresql-client-16 openssl
+          sudo apt-get install -y --no-install-recommends postgresql-client-16 openssl rclone
           pg_dump --version
           pg_restore --version
+          rclone version
+
+      - name: Configure rclone Google Drive Remote
+        env:
+          GDRIVE_RCLONE_CONFIG: ${{ secrets.GDRIVE_RCLONE_CONFIG }}
+        run: |
+          if [ -n "$GDRIVE_RCLONE_CONFIG" ]; then
+            mkdir -p ~/.config/rclone
+            echo "$GDRIVE_RCLONE_CONFIG" > ~/.config/rclone/rclone.conf
+            chmod 600 ~/.config/rclone/rclone.conf
+            echo "rclone configured successfully with remotes:"
+            rclone listremotes
+          else
+            echo "::warning::GDRIVE_RCLONE_CONFIG secret not set. Google Drive upload will be skipped until configured."
+          fi
 
       - name: Start Isolated Docker PostgreSQL 16 for Restore Test
         if: ${{ github.event.inputs.test_restore != 'false' }}
@@ -66,10 +81,6 @@ jobs:
           RENDER_DATABASE_ID: ${{ secrets.RENDER_DATABASE_ID || 'dpg-db70sbaj9qps73ar0650-a' }}
           RENDER_DATABASE_URL: ${{ secrets.RENDER_DATABASE_URL }}
           BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
-          BACKUP_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
-          BACKUP_S3_ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
-          BACKUP_S3_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_ACCESS_KEY_ID }}
-          BACKUP_S3_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY }}
         run: |
           if [ "${{ github.event.inputs.test_restore }}" != "false" ]; then
             python scripts/backup_database.py --verify-restore-url "postgresql://postgres:isolated_restore_test_secret@127.0.0.1:5433/sa_command_isolated"
