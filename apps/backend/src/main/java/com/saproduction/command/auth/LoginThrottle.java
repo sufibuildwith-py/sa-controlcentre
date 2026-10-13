@@ -5,30 +5,44 @@ import com.saproduction.command.shared.ApiException;
 import java.time.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 @Service
 public class LoginThrottle {
+  public static final int DEFAULT_MAX_ENTRIES = 5000;
+  private static final Duration MAX_WINDOW = Duration.ofMinutes(30);
+
   private final Map<String, Deque<Instant>> failures = new ConcurrentHashMap<>();
   private final Clock clock;
   private final AuditService audit;
+  private final int maxEntries;
+  private final AtomicInteger opCounter = new AtomicInteger(0);
 
   @Autowired
   public LoginThrottle(AuditService audit) {
-    this(audit, Clock.systemUTC());
+    this(audit, Clock.systemUTC(), DEFAULT_MAX_ENTRIES);
   }
 
   LoginThrottle(AuditService audit, Clock clock) {
+    this(audit, clock, DEFAULT_MAX_ENTRIES);
+  }
+
+  LoginThrottle(AuditService audit, Clock clock, int maxEntries) {
     this.audit = audit;
     this.clock = clock;
+    this.maxEntries = maxEntries;
   }
 
   public void check(String email, String ip) {
-    if (blocked("ip:" + ip, 5, Duration.ofMinutes(10))
-        || blocked("account:" + email.toLowerCase(Locale.ROOT), 10, Duration.ofMinutes(30))) {
-      audit.record("AUTH", "AUTH_LOGIN_RATE_LIMITED", email, null, Map.of("ip", ip));
+    String cleanIp = sanitizeIp(ip);
+    String cleanEmail = email != null ? email.trim().toLowerCase(Locale.ROOT) : "unknown";
+
+    if (blocked("ip:" + cleanIp, 5, Duration.ofMinutes(10))
+        || blocked("account:" + cleanEmail, 10, Duration.ofMinutes(30))) {
+      audit.record("AUTH", "AUTH_LOGIN_RATE_LIMITED", cleanEmail, null, Map.of("ip", cleanIp));
       throw new ApiException(
           HttpStatus.TOO_MANY_REQUESTS,
           "LOGIN_RATE_LIMITED",
@@ -38,29 +52,118 @@ public class LoginThrottle {
 
   public void failed(String email, String ip) {
     Instant now = clock.instant();
-    add("ip:" + ip, now);
-    add("account:" + email.toLowerCase(Locale.ROOT), now);
-    audit.record("AUTH", "AUTH_LOGIN_FAILED", email, null, Map.of("ip", ip));
+    String cleanIp = sanitizeIp(ip);
+    String cleanEmail = email != null ? email.trim().toLowerCase(Locale.ROOT) : "unknown";
+
+    add("ip:" + cleanIp, now, 5, Duration.ofMinutes(10));
+    add("account:" + cleanEmail, now, 10, Duration.ofMinutes(30));
+    audit.record("AUTH", "AUTH_LOGIN_FAILED", cleanEmail, null, Map.of("ip", cleanIp));
+
+    // Periodic cleanup of expired entries
+    if ((opCounter.incrementAndGet() & 63) == 0) {
+      cleanupExpired();
+    }
   }
 
   public void succeeded(String email, String ip) {
-    failures.remove("ip:" + ip);
-    failures.remove("account:" + email.toLowerCase(Locale.ROOT));
+    String cleanIp = sanitizeIp(ip);
+    String cleanEmail = email != null ? email.trim().toLowerCase(Locale.ROOT) : "unknown";
+    failures.remove("ip:" + cleanIp);
+    failures.remove("account:" + cleanEmail);
   }
 
-  private void add(String key, Instant now) {
-    Deque<Instant> bucket = failures.computeIfAbsent(key, ignored -> new ArrayDeque<>());
+  public int size() {
+    return failures.size();
+  }
+
+  public void cleanupExpired() {
+    Instant cutoff = clock.instant().minus(MAX_WINDOW);
+    failures.entrySet().removeIf(entry -> {
+      Deque<Instant> bucket = entry.getValue();
+      synchronized (bucket) {
+        while (!bucket.isEmpty() && !bucket.peekFirst().isAfter(cutoff)) {
+          bucket.removeFirst();
+        }
+        return bucket.isEmpty();
+      }
+    });
+  }
+
+  private void add(String key, Instant now, int blockThreshold, Duration window) {
+    Deque<Instant> bucket = failures.get(key);
+    if (bucket == null) {
+      if (failures.size() >= maxEntries) {
+        cleanupExpired();
+      }
+      if (failures.size() >= maxEntries) {
+        // Anti-churn eviction: Evict only unblocked, low-count entries.
+        // Protected: Entries that are currently BLOCKED (active count >= threshold).
+        evictUnblockedCandidate();
+      }
+      // If map is still at capacity (all entries are actively blocked), skip adding new key
+      if (failures.size() >= maxEntries && !failures.containsKey(key)) {
+        return;
+      }
+      bucket = failures.computeIfAbsent(key, ignored -> new ArrayDeque<>());
+    }
+
     synchronized (bucket) {
       bucket.addLast(now);
     }
   }
 
+  private void evictUnblockedCandidate() {
+    Instant now = clock.instant();
+    String candidateKey = null;
+    int minSize = Integer.MAX_VALUE;
+
+    for (Map.Entry<String, Deque<Instant>> entry : failures.entrySet()) {
+      Deque<Instant> q = entry.getValue();
+      synchronized (q) {
+        boolean isIp = entry.getKey().startsWith("ip:");
+        int threshold = isIp ? 5 : 10;
+        Duration win = isIp ? Duration.ofMinutes(10) : Duration.ofMinutes(30);
+        Instant cutoff = now.minus(win);
+
+        int activeCount = 0;
+        for (Instant t : q) {
+          if (t.isAfter(cutoff)) activeCount++;
+        }
+
+        // If currently blocked, strictly protect from eviction!
+        if (activeCount >= threshold) {
+          continue;
+        }
+
+        if (activeCount < minSize) {
+          minSize = activeCount;
+          candidateKey = entry.getKey();
+          if (minSize <= 1) {
+            break;
+          }
+        }
+      }
+    }
+
+    if (candidateKey != null) {
+      failures.remove(candidateKey);
+    }
+  }
+
   private boolean blocked(String key, int limit, Duration window) {
-    Deque<Instant> bucket = failures.computeIfAbsent(key, ignored -> new ArrayDeque<>());
+    Deque<Instant> bucket = failures.get(key);
+    if (bucket == null) return false;
     Instant cutoff = clock.instant().minus(window);
     synchronized (bucket) {
       while (!bucket.isEmpty() && !bucket.peekFirst().isAfter(cutoff)) bucket.removeFirst();
       return bucket.size() >= limit;
     }
+  }
+
+  private String sanitizeIp(String ip) {
+    if (ip == null || ip.isBlank() || "0:0:0:0:0:0:0:1".equals(ip) || "::1".equals(ip)) {
+      return "127.0.0.1";
+    }
+    return ip.trim();
   }
 }

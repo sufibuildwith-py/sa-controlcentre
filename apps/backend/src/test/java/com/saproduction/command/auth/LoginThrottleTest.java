@@ -154,4 +154,53 @@ class LoginThrottleTest {
     // IP block should be lifted
     assertThatCode(() -> throttle.check(email, ip)).doesNotThrowAnyException();
   }
+
+  @Test
+  @DisplayName("Anti-churn protection: Blocked entries are never evicted by new unblocked keys")
+  void antiChurnProtectsBlockedEntries() {
+    // Create a throttle with small capacity (e.g. max 10 entries)
+    LoginThrottle smallThrottle = new LoginThrottle(audit, clock, 10);
+    String blockedIp = "192.0.2.1";
+    String blockedAccount = "admin@saproduction.com";
+
+    // 5 failures to block this IP
+    for (int i = 0; i < 5; i++) {
+      smallThrottle.failed(blockedAccount, blockedIp);
+    }
+
+    // Verify it is blocked
+    assertThatThrownBy(() -> smallThrottle.check(blockedAccount, blockedIp))
+        .isInstanceOf(ApiException.class);
+
+    // Attacker attempts key-churn attack: floods 50 distinct fake IPs with single failure
+    for (int i = 0; i < 50; i++) {
+      smallThrottle.failed("fake" + i + "@example.com", "10.0.0." + i);
+    }
+
+    // Map size must remain bounded at maxEntries (10)
+    org.junit.jupiter.api.Assertions.assertTrue(smallThrottle.size() <= 10, "Map size exceeded limit: " + smallThrottle.size());
+
+    // The blocked IP MUST STILL BE BLOCKED! Anti-churn eviction protected it!
+    assertThatThrownBy(() -> smallThrottle.check(blockedAccount, blockedIp))
+        .isInstanceOf(ApiException.class)
+        .satisfies(ex -> {
+          ApiException apiEx = (ApiException) ex;
+          org.junit.jupiter.api.Assertions.assertEquals(HttpStatus.TOO_MANY_REQUESTS, apiEx.status);
+          org.junit.jupiter.api.Assertions.assertEquals("LOGIN_RATE_LIMITED", apiEx.code);
+        });
+  }
+
+  @Test
+  @DisplayName("CleanupExpired purges stale entries older than 30 minutes")
+  void cleanupExpiredPurgesStaleEntries() {
+    LoginThrottle expThrottle = new LoginThrottle(audit, clock, 100);
+    expThrottle.failed("old@saproduction.com", "10.1.1.1");
+    org.junit.jupiter.api.Assertions.assertTrue(expThrottle.size() > 0);
+
+    // Advance past 30 minute window
+    clock.advance(Duration.ofMinutes(31));
+
+    expThrottle.cleanupExpired();
+    org.junit.jupiter.api.Assertions.assertEquals(0, expThrottle.size(), "Expired entries were not pruned");
+  }
 }

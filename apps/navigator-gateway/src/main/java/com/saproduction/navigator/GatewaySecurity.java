@@ -62,11 +62,24 @@ final class Hashing {
 
 @Component
 class RateLimits {
+  private static final int MAX_WINDOWS = 2000;
   private record Window(Instant start,int count) {}
   private final Map<String,Window> windows=new ConcurrentHashMap<>();
   synchronized void check(String scope,String key,int max,Duration duration) {
     var now=Instant.now(); var id=scope+":"+key; var current=windows.get(id);
-    if(current==null || current.start.plus(duration).isBefore(now)){windows.put(id,new Window(now,1));return;}
+    if(current==null || current.start.plus(duration).isBefore(now)){
+      if(windows.size()>=MAX_WINDOWS){
+        windows.entrySet().removeIf(e -> e.getValue().start.plus(duration).isBefore(now));
+      }
+      if(windows.size()>=MAX_WINDOWS && !windows.containsKey(id)){
+        windows.entrySet().stream()
+          .filter(e -> e.getValue().count < max)
+          .min(Comparator.comparingInt(e -> e.getValue().count))
+          .ifPresent(e -> windows.remove(e.getKey()));
+      }
+      windows.put(id,new Window(now,1));
+      return;
+    }
     if(current.count>=max) throw new GatewayException(HttpStatus.TOO_MANY_REQUESTS,"RATE_LIMITED","Too many requests. Please retry shortly.",Math.max(1,Duration.between(now,current.start.plus(duration)).toSeconds()));
     windows.put(id,new Window(current.start,current.count+1));
   }
