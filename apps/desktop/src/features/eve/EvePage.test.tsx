@@ -68,7 +68,9 @@ describe("EvePage — Phase 1 Grounded Command Console", () => {
     expect(screen.getByText("Eve")).toBeInTheDocument();
     expect(screen.getByText("Command Composer")).toBeInTheDocument();
     expect(screen.getByText("Eve is ready")).toBeInTheDocument();
-    expect(screen.getByText("How much does Sharma still need?")).toBeInTheDocument();
+    expect(
+      screen.getByText("How much does Sharma still need?"),
+    ).toBeInTheDocument();
   });
 
   it("displays local intelligence status badge when status is ready", async () => {
@@ -94,14 +96,16 @@ describe("EvePage — Phase 1 Grounded Command Console", () => {
         {
           sequence: 1,
           stage: "GOAL_INTERPRETATION",
-          summary: "Identified goal: COUNT productions with temporal constraint",
+          summary:
+            "Identified goal: COUNT productions with temporal constraint",
           status: "COMPLETED",
           timestamp: "2026-10-01T10:00:00.100Z",
         },
         {
           sequence: 2,
           stage: "TEMPORAL_GROUNDING",
-          summary: "Resolved 'next week' to 2026-10-05 through 2026-10-11 in Asia/Kolkata",
+          summary:
+            "Resolved 'next week' to 2026-10-05 through 2026-10-11 in Asia/Kolkata",
           status: "COMPLETED",
           timestamp: "2026-10-01T10:00:00.200Z",
         },
@@ -123,7 +127,9 @@ describe("EvePage — Phase 1 Grounded Command Console", () => {
     renderEvePage();
     const user = userEvent.setup();
 
-    const textarea = screen.getByPlaceholderText(/Ask Eve about employee finance/i);
+    const textarea = screen.getByPlaceholderText(
+      /Ask Eve about employee finance/i,
+    );
     await user.type(textarea, "next week kitne events hai");
 
     const sendButton = screen.getByRole("button", { name: /Send/i });
@@ -134,9 +140,13 @@ describe("EvePage — Phase 1 Grounded Command Console", () => {
     });
 
     expect(screen.getByText("GOAL_INTERPRETATION")).toBeInTheDocument();
-    expect(screen.getByText(/Identified goal: COUNT productions/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Identified goal: COUNT productions/),
+    ).toBeInTheDocument();
     expect(screen.getByText("TEMPORAL_GROUNDING")).toBeInTheDocument();
-    expect(screen.getByText(/Resolved 'next week' to 2026-10-05/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Resolved 'next week' to 2026-10-05/),
+    ).toBeInTheDocument();
     expect(screen.getByText("TOOL_EXECUTION")).toBeInTheDocument();
     expect(screen.getByText("search_productions")).toBeInTheDocument();
   });
@@ -238,7 +248,9 @@ describe("EvePage — Phase 1 Grounded Command Console", () => {
 
     // Verify assistant answer appears
     expect(
-      await screen.findByText(/Raj Sharma \(SA-01\) currently has ₹40,000.00 outstanding/i),
+      await screen.findByText(
+        /Raj Sharma \(SA-01\) currently has ₹40,000.00 outstanding/i,
+      ),
     ).toBeInTheDocument();
 
     // Verify activity trace appears
@@ -310,12 +322,16 @@ describe("EvePage — Phase 1 Grounded Command Console", () => {
     renderEvePage();
     const user = userEvent.setup();
 
-    const textarea = screen.getByPlaceholderText(/Ask Eve about employee finance/i);
+    const textarea = screen.getByPlaceholderText(
+      /Ask Eve about employee finance/i,
+    );
     await user.type(textarea, "Sharma");
     await user.click(screen.getByRole("button", { name: /Send/i }));
 
     expect(
-      await screen.findByText(/I found multiple matching team members for "Sharma"/i),
+      await screen.findByText(
+        /I found multiple matching team members for "Sharma"/i,
+      ),
     ).toBeInTheDocument();
 
     expect(screen.getByText("Raj Sharma")).toBeInTheDocument();
@@ -330,7 +346,8 @@ describe("EvePage — Phase 1 Grounded Command Console", () => {
         id: "msg-t1",
         sessionId: "session-multi-1",
         role: "ASSISTANT",
-        content: "Royal Wedding has 2 assigned crew members: Raj Sharma, Amit Kumar.",
+        content:
+          "Royal Wedding has 2 assigned crew members: Raj Sharma, Amit Kumar.",
         createdAt: "2026-09-28T10:00:00Z",
       },
       trace: [
@@ -349,11 +366,14 @@ describe("EvePage — Phase 1 Grounded Command Console", () => {
         timezone: "Asia/Kolkata",
         date: "2026-09-28",
         referencedEntities: [
-          { id: "prod-1", type: "PRODUCTION", name: "Royal Wedding", code: "PROD-01" },
+          {
+            id: "prod-1",
+            type: "PRODUCTION",
+            name: "Royal Wedding",
+            code: "PROD-01",
+          },
         ],
-        evidence: [
-          { domain: "PRODUCTION", label: "Crew Count", value: "2" },
-        ],
+        evidence: [{ domain: "PRODUCTION", label: "Crew Count", value: "2" }],
       },
       status: "COMPLETED",
       candidates: [],
@@ -365,7 +385,8 @@ describe("EvePage — Phase 1 Grounded Command Console", () => {
         id: "msg-t2",
         sessionId: "session-multi-1",
         role: "ASSISTANT",
-        content: "Yes, Raj Sharma was assigned to Royal Wedding as Lead Sound Engineer.",
+        content:
+          "Yes, Raj Sharma was assigned to Royal Wedding as Lead Sound Engineer.",
         createdAt: "2026-09-28T10:01:00Z",
       },
       trace: [
@@ -384,7 +405,12 @@ describe("EvePage — Phase 1 Grounded Command Console", () => {
         timezone: "Asia/Kolkata",
         date: "2026-09-28",
         referencedEntities: [
-          { id: "prod-1", type: "PRODUCTION", name: "Royal Wedding", code: "PROD-01" },
+          {
+            id: "prod-1",
+            type: "PRODUCTION",
+            name: "Royal Wedding",
+            code: "PROD-01",
+          },
           { id: "emp-1", type: "EMPLOYEE", name: "Raj Sharma", code: "SA-01" },
         ],
         evidence: [
@@ -402,7 +428,9 @@ describe("EvePage — Phase 1 Grounded Command Console", () => {
     renderEvePage();
     const user = userEvent.setup();
 
-    const textarea = screen.getByPlaceholderText(/Ask Eve about employee finance/i);
+    const textarea = screen.getByPlaceholderText(
+      /Ask Eve about employee finance/i,
+    );
     await user.type(textarea, "Royal Wedding mein kaun kaun tha?");
     await user.click(screen.getByRole("button", { name: /Send/i }));
 
@@ -439,7 +467,9 @@ describe("EvePage — Phase 1 Grounded Command Console", () => {
     renderEvePage();
     const user = userEvent.setup();
 
-    const newSessionBtn = screen.getByRole("button", { name: /\+ New Session/i });
+    const newSessionBtn = screen.getByRole("button", {
+      name: /\+ New Session/i,
+    });
     await user.click(newSessionBtn);
 
     await waitFor(() => {
@@ -454,7 +484,8 @@ describe("EvePage — Phase 1 Grounded Command Console", () => {
       planId: "plan-456",
       sessionId: "session-p3",
       intent: "PROPOSE_EMPLOYEE_PAYMENT",
-      summary: "Post employee payment of ₹3,000.00 to Raj Sharma (SA-01) from Azeem Khan (AZ-2)",
+      summary:
+        "Post employee payment of ₹3,000.00 to Raj Sharma (SA-01) from Azeem Khan (AZ-2)",
       riskTier: "FINANCIAL_WRITE",
       confirmationRequired: true,
       planHash: "hash-1234567890abcdef",
@@ -475,7 +506,8 @@ describe("EvePage — Phase 1 Grounded Command Console", () => {
             payerAccountId: "AZ-2",
             payerAccountName: "Azeem Khan",
           },
-          estimatedEffect: "Employee payable decreases by ₹3,000.00; Azeem Khan cash balance decreases by ₹3,000.00",
+          estimatedEffect:
+            "Employee payable decreases by ₹3,000.00; Azeem Khan cash balance decreases by ₹3,000.00",
           status: "PENDING",
         },
       ],
@@ -487,7 +519,8 @@ describe("EvePage — Phase 1 Grounded Command Console", () => {
         id: "msg-p3",
         sessionId: "session-p3",
         role: "ASSISTANT",
-        content: "I have prepared an execution plan to post ₹3,000.00 to Raj Sharma.",
+        content:
+          "I have prepared an execution plan to post ₹3,000.00 to Raj Sharma.",
         createdAt: "2026-09-28T10:00:00Z",
       },
       trace: [],
@@ -506,7 +539,8 @@ describe("EvePage — Phase 1 Grounded Command Console", () => {
         id: "msg-executed",
         sessionId: "session-p3",
         role: "ASSISTANT",
-        content: "Payment of ₹3,000.00 to Raj Sharma has been posted and verified. Transaction ID: txn-789.",
+        content:
+          "Payment of ₹3,000.00 to Raj Sharma has been posted and verified. Transaction ID: txn-789.",
         createdAt: "2026-09-28T10:01:00Z",
       },
       actions: [
@@ -530,13 +564,19 @@ describe("EvePage — Phase 1 Grounded Command Console", () => {
     renderEvePage();
     const user = userEvent.setup();
 
-    const textarea = screen.getByPlaceholderText(/Ask Eve about employee finance/i);
+    const textarea = screen.getByPlaceholderText(
+      /Ask Eve about employee finance/i,
+    );
     await user.type(textarea, "Sharma ko 3000 de do");
     await user.click(screen.getByRole("button", { name: /Send/i }));
 
-    expect(await screen.findByText("Governed Execution Plan")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Governed Execution Plan"),
+    ).toBeInTheDocument();
     expect(screen.getByText("FINANCIAL WRITE")).toBeInTheDocument();
-    expect(screen.getByText(/Post employee payment of ₹3,000.00/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Post employee payment of ₹3,000.00/i),
+    ).toBeInTheDocument();
     expect(screen.getByText("Confirm & Post Payment")).toBeInTheDocument();
 
     await user.click(screen.getByText("Confirm & Post Payment"));
@@ -552,7 +592,9 @@ describe("EvePage — Phase 1 Grounded Command Console", () => {
     });
 
     expect(
-      await screen.findByText(/Payment of ₹3,000.00 to Raj Sharma has been posted and verified/i),
+      await screen.findByText(
+        /Payment of ₹3,000.00 to Raj Sharma has been posted and verified/i,
+      ),
     ).toBeInTheDocument();
   });
 
@@ -593,7 +635,9 @@ describe("EvePage — Phase 1 Grounded Command Console", () => {
     renderEvePage();
     const user = userEvent.setup();
 
-    const textarea = screen.getByPlaceholderText(/Ask Eve about employee finance/i);
+    const textarea = screen.getByPlaceholderText(
+      /Ask Eve about employee finance/i,
+    );
     await user.type(textarea, "Sharma payout");
     await user.click(screen.getByRole("button", { name: /Send/i }));
 
@@ -609,7 +653,9 @@ describe("EvePage — Phase 1 Grounded Command Console", () => {
     });
 
     expect(
-      await screen.findByText(/Plan was cancelled. No changes were made to system of record/i),
+      await screen.findByText(
+        /Plan was cancelled. No changes were made to system of record/i,
+      ),
     ).toBeInTheDocument();
   });
 
@@ -650,15 +696,21 @@ describe("EvePage — Phase 1 Grounded Command Console", () => {
     renderEvePage();
     const user = userEvent.setup();
 
-    const textarea = screen.getByPlaceholderText(/Ask Eve about employee finance/i);
+    const textarea = screen.getByPlaceholderText(
+      /Ask Eve about employee finance/i,
+    );
     await user.type(textarea, "Sharma 5000");
     await user.click(screen.getByRole("button", { name: /Send/i }));
 
-    expect(await screen.findByText("Confirm & Post Payment")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Confirm & Post Payment"),
+    ).toBeInTheDocument();
     await user.click(screen.getByText("Confirm & Post Payment"));
 
     expect(
-      await screen.findByText(/Execution failed: Preconditions changed: payable balance updated/i),
+      await screen.findByText(
+        /Execution failed: Preconditions changed: payable balance updated/i,
+      ),
     ).toBeInTheDocument();
   });
 });
@@ -672,7 +724,8 @@ describe("EvePage — Phase 4 Continuous Intelligence & Proactive Suggestions", 
         status: "ACTIVE",
         priority: "HIGH",
         title: "Outstanding payable balance for Rehan Ali",
-        summary: "Rehan Ali has ₹6000.00 outstanding payable balance. Review or schedule payment.",
+        summary:
+          "Rehan Ali has ₹6000.00 outstanding payable balance. Review or schedule payment.",
         targetDomain: "FINANCE",
         canonicalEntityType: "EMPLOYEE",
         canonicalEntityId: "emp-rehan-1",
@@ -696,8 +749,12 @@ describe("EvePage — Phase 4 Continuous Intelligence & Proactive Suggestions", 
     renderEvePage();
     const user = userEvent.setup();
 
-    expect(await screen.findByText("Outstanding payable balance for Rehan Ali")).toBeInTheDocument();
-    expect(screen.getByText(/₹6000.00 outstanding payable balance/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText("Outstanding payable balance for Rehan Ali"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/₹6000.00 outstanding payable balance/i),
+    ).toBeInTheDocument();
     expect(screen.getByText("HIGH")).toBeInTheDocument();
 
     // Inspect evidence
@@ -710,7 +767,9 @@ describe("EvePage — Phase 4 Continuous Intelligence & Proactive Suggestions", 
     const investigateBtn = screen.getByText("Investigate in EVE");
     await user.click(investigateBtn);
 
-    const textarea = screen.getByPlaceholderText(/Ask Eve about employee finance/i);
+    const textarea = screen.getByPlaceholderText(
+      /Ask Eve about employee finance/i,
+    );
     expect(textarea).toHaveValue("Review payment for Rehan Ali");
   });
 
@@ -752,7 +811,11 @@ describe("EvePage — Phase 4 Continuous Intelligence & Proactive Suggestions", 
     renderEvePage();
     const user = userEvent.setup();
 
-    expect(await screen.findByText("Cultural Event MIPS is approaching with 3 open tasks")).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        "Cultural Event MIPS is approaching with 3 open tasks",
+      ),
+    ).toBeInTheDocument();
     const dismissBtn = screen.getByRole("button", { name: "Dismiss" });
     await user.click(dismissBtn);
 

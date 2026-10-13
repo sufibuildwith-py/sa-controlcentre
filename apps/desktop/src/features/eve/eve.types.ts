@@ -100,7 +100,8 @@ export interface EvePlanAction {
   parameters: Record<string, unknown>;
   estimatedEffect?: string;
   requiredPermission?: string;
-  status: "PENDING" | "EXECUTED" | "VERIFIED" | "FAILED" | "VERIFICATION_FAILED";
+  status:
+    "PENDING" | "EXECUTED" | "VERIFIED" | "FAILED" | "VERIFICATION_FAILED";
   canonicalRecordId?: string;
   executionResult?: Record<string, unknown>;
   verificationResult?: EveVerificationResult;
@@ -115,7 +116,14 @@ export interface EvePlan {
   confirmationRequired: boolean;
   planHash: string;
   version: number;
-  status: "PROPOSED" | "CONFIRMED" | "EXECUTING" | "COMPLETED" | "FAILED" | "CANCELLED" | "STALE_PLAN";
+  status:
+    | "PROPOSED"
+    | "CONFIRMED"
+    | "EXECUTING"
+    | "COMPLETED"
+    | "FAILED"
+    | "CANCELLED"
+    | "STALE_PLAN";
   actions: EvePlanAction[];
 }
 
@@ -194,7 +202,8 @@ export interface SuggestionEvidenceItem {
 export interface EveSuggestion {
   id: string;
   type: string;
-  status: "ACTIVE" | "DISMISSED" | "RESOLVED" | "EXPIRED" | "SUPERSEDED" | "STALE";
+  status:
+    "ACTIVE" | "DISMISSED" | "RESOLVED" | "EXPIRED" | "SUPERSEDED" | "STALE";
   priority: "LOW" | "MEDIUM" | "HIGH";
   title: string;
   summary: string;
@@ -237,4 +246,3 @@ export interface EveStatusView {
   modelVersion: string;
   details?: string;
 }
-

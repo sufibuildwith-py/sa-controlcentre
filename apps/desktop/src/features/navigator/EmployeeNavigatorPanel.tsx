@@ -116,7 +116,10 @@ export function EmployeeNavigatorPanel({ employeeId }: { employeeId: string }) {
           onChange={(event) => setMessage(event.target.value)}
           placeholder="Send a simple operational update"
         />
-        <SAButton disabled={!message.trim() || send.isPending} onClick={() => send.mutate()}>
+        <SAButton
+          disabled={!message.trim() || send.isPending}
+          onClick={() => send.mutate()}
+        >
           {send.isPending ? "Sending…" : "Send message"}
         </SAButton>
       </SABentoCard>

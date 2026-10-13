@@ -44,9 +44,17 @@ export function FinanceControlPlane() {
 
   if (overview.isPending || reconciliation.isPending) return <SkeletonCard />;
 
-  if (overview.isError || reconciliation.isError || !overview.data || !reconciliation.data) {
+  if (
+    overview.isError ||
+    reconciliation.isError ||
+    !overview.data ||
+    !reconciliation.data
+  ) {
     return (
-      <SABentoCard className="finance-control-plane" aria-label="Financial control plane">
+      <SABentoCard
+        className="finance-control-plane"
+        aria-label="Financial control plane"
+      >
         <EmptyState
           title="Financial control unavailable"
           description="The owner control surface could not load the current finance position."
@@ -70,12 +78,17 @@ export function FinanceControlPlane() {
   const tone = data.status === "RECONCILED" ? "success" : "warning";
 
   return (
-    <section className="finance-control-plane" aria-label="Financial control plane">
+    <section
+      className="finance-control-plane"
+      aria-label="Financial control plane"
+    >
       <div className="finance-section-head">
         <div>
           <span className="eyebrow">Owner control surface</span>
           <h2>Financial Control</h2>
-          <p>Current position, outstanding obligations and accounting integrity.</p>
+          <p>
+            Current position, outstanding obligations and accounting integrity.
+          </p>
         </div>
         <div className="finance-actions">
           <StatusBadge tone={tone}>{data.status}</StatusBadge>
@@ -87,7 +100,10 @@ export function FinanceControlPlane() {
             <RefreshCw size={14} />
             {rebuild.isPending ? "Rebuilding…" : "Rebuild positions"}
           </SAButton>
-          <Link className="sa-button sa-button--secondary sa-button--sm" to="/finance?tab=RECONCILIATION">
+          <Link
+            className="sa-button sa-button--secondary sa-button--sm"
+            to="/finance?tab=RECONCILIATION"
+          >
             Open reconciliation →
           </Link>
         </div>
@@ -122,18 +138,25 @@ export function FinanceControlPlane() {
           <div className="finance-kpis">
             <div>
               <span>Azeem · AZ-2</span>
-              <strong className={data.azeemPosition < 0 ? "finance-negative" : ""}>
+              <strong
+                className={data.azeemPosition < 0 ? "finance-negative" : ""}
+              >
                 {signedMoney(data.azeemPosition)}
               </strong>
             </div>
             <div>
               <span>Akash · AK-2</span>
-              <strong className={data.akashPosition < 0 ? "finance-negative" : ""}>
+              <strong
+                className={data.akashPosition < 0 ? "finance-negative" : ""}
+              >
                 {signedMoney(data.akashPosition)}
               </strong>
             </div>
           </div>
-          <small>Signed account positions. A negative position is shown as a position, not automatically classified as a debt.</small>
+          <small>
+            Signed account positions. A negative position is shown as a
+            position, not automatically classified as a debt.
+          </small>
           <Link to="/finance?owner=AZ">Open owner history →</Link>
         </SABentoCard>
 
@@ -164,9 +187,18 @@ export function FinanceControlPlane() {
         <div className="finance-section-head">
           <div>
             <span className="eyebrow">Control check</span>
-            <h2>{isReconciled ? <ShieldCheck size={18} /> : <TriangleAlert size={18} />} Journal integrity</h2>
+            <h2>
+              {isReconciled ? (
+                <ShieldCheck size={18} />
+              ) : (
+                <TriangleAlert size={18} />
+              )}{" "}
+              Journal integrity
+            </h2>
           </div>
-          <strong className={data.controlDifference === 0 ? "" : "finance-negative"}>
+          <strong
+            className={data.controlDifference === 0 ? "" : "finance-negative"}
+          >
             Difference {signedMoney(data.controlDifference)}
           </strong>
         </div>
@@ -190,8 +222,9 @@ export function FinanceControlPlane() {
         </div>
         {!isReconciled && (
           <p role="alert">
-            Finance controls need review before treating the projection as fully reconciled.
-            Open the reconciliation workspace for the detailed evidence.
+            Finance controls need review before treating the projection as fully
+            reconciled. Open the reconciliation workspace for the detailed
+            evidence.
           </p>
         )}
         {rebuild.error && (

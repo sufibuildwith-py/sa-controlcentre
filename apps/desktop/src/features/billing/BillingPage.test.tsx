@@ -1,5 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
@@ -474,7 +480,10 @@ describe("BillingPage", () => {
     expect(daysInput).toHaveAttribute("step", "1");
 
     // Populate description, rate 1500, qty 2, days 2
-    await user.type(screen.getByLabelText("Description 1"), "Line Array System");
+    await user.type(
+      screen.getByLabelText("Description 1"),
+      "Line Array System",
+    );
     await user.clear(qtyInput);
     await user.type(qtyInput, "2");
     await user.clear(daysInput);
@@ -539,7 +548,9 @@ describe("BillingPage", () => {
     });
     expect(dialog).toBeInTheDocument();
     expect(within(dialog).getByText("SA PRODUCTION")).toBeInTheDocument();
-    expect(within(dialog).getByText("INVOICE #SA-2026-PREVIEW")).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("INVOICE #SA-2026-PREVIEW"),
+    ).toBeInTheDocument();
     expect(within(dialog).getByText("Grand Events Co.")).toBeInTheDocument();
     expect(within(dialog).getByText("Sound & Staging")).toBeInTheDocument();
     expect(within(dialog).getAllByText("₹25,000.00").length).toBeGreaterThan(0);

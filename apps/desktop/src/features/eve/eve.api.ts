@@ -11,14 +11,16 @@ import type {
 } from "./eve.types";
 
 export const eveApi = {
-  query: (prompt: string, sessionId?: string | null): Promise<EveQueryResponse> =>
+  query: (
+    prompt: string,
+    sessionId?: string | null,
+  ): Promise<EveQueryResponse> =>
     api<EveQueryResponse>("/eve/query", {
       method: "POST",
       ...json({ prompt, sessionId: sessionId ?? null }),
     }),
 
-  listSessions: (): Promise<EveSession[]> =>
-    api<EveSession[]>("/eve/sessions"),
+  listSessions: (): Promise<EveSession[]> => api<EveSession[]>("/eve/sessions"),
 
   getSession: (id: string): Promise<EveSession> =>
     api<EveSession>(`/eve/sessions/${id}`),
@@ -29,8 +31,7 @@ export const eveApi = {
       ...json({ title: title ?? null }),
     }),
 
-  listMemories: (): Promise<EveMemory[]> =>
-    api<EveMemory[]>("/eve/memory"),
+  listMemories: (): Promise<EveMemory[]> => api<EveMemory[]>("/eve/memory"),
 
   remember: (
     term: string,
@@ -49,7 +50,10 @@ export const eveApi = {
       method: "DELETE",
     }),
 
-  confirmPlan: (planId: string, req: ConfirmPlanRequest): Promise<PlanExecutionResponse> =>
+  confirmPlan: (
+    planId: string,
+    req: ConfirmPlanRequest,
+  ): Promise<PlanExecutionResponse> =>
     api<PlanExecutionResponse>(`/eve/plans/${planId}/confirm`, {
       method: "POST",
       ...json(req),
@@ -67,25 +71,37 @@ export const eveApi = {
   listPlansForSession: (sessionId: string): Promise<EvePlan[]> =>
     api<EvePlan[]>(`/eve/sessions/${sessionId}/plans`),
 
-  listSuggestions: (status: string = "ACTIVE", domain?: string, priority?: string): Promise<import("./eve.types").EveSuggestion[]> => {
+  listSuggestions: (
+    status: string = "ACTIVE",
+    domain?: string,
+    priority?: string,
+  ): Promise<import("./eve.types").EveSuggestion[]> => {
     const params = new URLSearchParams();
     if (status) params.append("status", status);
     if (domain) params.append("domain", domain);
     if (priority) params.append("priority", priority);
     const query = params.toString() ? `?${params.toString()}` : "";
-    return api<import("./eve.types").EveSuggestion[]>(`/eve/suggestions${query}`);
+    return api<import("./eve.types").EveSuggestion[]>(
+      `/eve/suggestions${query}`,
+    );
   },
 
   getSuggestion: (id: string): Promise<import("./eve.types").EveSuggestion> =>
     api<import("./eve.types").EveSuggestion>(`/eve/suggestions/${id}`),
 
-  dismissSuggestion: (id: string, reason?: string): Promise<import("./eve.types").EveSuggestion> =>
+  dismissSuggestion: (
+    id: string,
+    reason?: string,
+  ): Promise<import("./eve.types").EveSuggestion> =>
     api<import("./eve.types").EveSuggestion>(`/eve/suggestions/${id}/dismiss`, {
       method: "POST",
       ...json({ reason: reason ?? null }),
     }),
 
-  resolveSuggestion: (id: string, note?: string): Promise<import("./eve.types").EveSuggestion> =>
+  resolveSuggestion: (
+    id: string,
+    note?: string,
+  ): Promise<import("./eve.types").EveSuggestion> =>
     api<import("./eve.types").EveSuggestion>(`/eve/suggestions/${id}/resolve`, {
       method: "POST",
       ...json({ note: note ?? null }),
@@ -96,6 +112,5 @@ export const eveApi = {
       method: "POST",
     }),
 
-  getStatus: (): Promise<EveStatusView> =>
-    api<EveStatusView>("/eve/status"),
+  getStatus: (): Promise<EveStatusView> => api<EveStatusView>("/eve/status"),
 };

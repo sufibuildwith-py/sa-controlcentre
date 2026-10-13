@@ -261,9 +261,7 @@ describe("ProductionDetailPage — Phase 1 Production Finance", () => {
     });
   });
 
-  it(
-    "opens Log Expense modal and calls financeApi.logExpense with owner and category",
-    async () => {
+  it("opens Log Expense modal and calls financeApi.logExpense with owner and category", async () => {
     vi.mocked(api).mockImplementation((path: string) => {
       if (path === "/productions/p1") return Promise.resolve(mockProduction);
       if (path === "/employees") return Promise.resolve(mockEmployees);
@@ -570,8 +568,20 @@ describe("ProductionDetailPage — Production V2 Command Sheet", () => {
 
   const mockCatalog = {
     items: [
-      { id: "eq1", name: "Digital Mixing Console", internalCode: "DMC-32", available: 1, symbol: "pcs" },
-      { id: "eq2", name: "Subwoofer 18-inch", internalCode: "SUB-18", available: 5, symbol: "pcs" },
+      {
+        id: "eq1",
+        name: "Digital Mixing Console",
+        internalCode: "DMC-32",
+        available: 1,
+        symbol: "pcs",
+      },
+      {
+        id: "eq2",
+        name: "Subwoofer 18-inch",
+        internalCode: "SUB-18",
+        available: 5,
+        symbol: "pcs",
+      },
     ],
     total: 2,
     page: 0,
@@ -589,7 +599,12 @@ describe("ProductionDetailPage — Production V2 Command Sheet", () => {
 
     vi.mocked(financeApi.production).mockResolvedValue(mockFinanceData);
     vi.mocked(financeApi.config).mockResolvedValue(mockFinanceConfig);
-    vi.mocked(financeApi.counterparties).mockResolvedValue({ items: [], page: 0, size: 50, total: 0 });
+    vi.mocked(financeApi.counterparties).mockResolvedValue({
+      items: [],
+      page: 0,
+      size: 50,
+      total: 0,
+    });
 
     renderPage("p1");
 
@@ -598,33 +613,55 @@ describe("ProductionDetailPage — Production V2 Command Sheet", () => {
     });
 
     // Check Command Sheet sections
-    expect(screen.getByRole("heading", { name: "Operational Brief" })).toBeInTheDocument();
-    expect(screen.getAllByText("Annual gala audio and lighting production").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByRole("heading", { name: /schedule/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Operational Brief" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("Annual gala audio and lighting production").length,
+    ).toBeGreaterThanOrEqual(1);
+    expect(
+      screen.getByRole("heading", { name: /schedule/i }),
+    ).toBeInTheDocument();
     expect(screen.getByText("18:00 – 23:00")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /operational checklist/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /operational checklist/i }),
+    ).toBeInTheDocument();
     expect(screen.getByText("Stage speaker cabling")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /crew/i })).toBeInTheDocument();
     expect(screen.getAllByText("John Doe").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByRole("heading", { name: /assigned equipment/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /assigned equipment/i }),
+    ).toBeInTheDocument();
     expect(screen.getByText("Digital Mixing Console")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Production Notes" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Production Notes" }),
+    ).toBeInTheDocument();
   });
 
   it("toggles task completion status directly from the operational checklist", async () => {
     vi.mocked(api).mockImplementation((path: string, options?: any) => {
       if (path === "/productions/p1") return Promise.resolve(mockV2Production);
       if (path === "/employees") return Promise.resolve(mockEmployees);
-      if (path.startsWith("/tasks") && !options?.method) return Promise.resolve(mockV2Tasks);
+      if (path.startsWith("/tasks") && !options?.method)
+        return Promise.resolve(mockV2Tasks);
       if (path === "/tasks/task-1/updates" && options?.method === "POST") {
-        return Promise.resolve({ id: "task-1", status: "DONE", progressPercent: 100 });
+        return Promise.resolve({
+          id: "task-1",
+          status: "DONE",
+          progressPercent: 100,
+        });
       }
       return Promise.resolve(null);
     });
 
     vi.mocked(financeApi.production).mockResolvedValue(mockFinanceData);
     vi.mocked(financeApi.config).mockResolvedValue(mockFinanceConfig);
-    vi.mocked(financeApi.counterparties).mockResolvedValue({ items: [], page: 0, size: 50, total: 0 });
+    vi.mocked(financeApi.counterparties).mockResolvedValue({
+      items: [],
+      page: 0,
+      size: 50,
+      total: 0,
+    });
 
     renderPage("p1");
 
@@ -656,16 +693,27 @@ describe("ProductionDetailPage — Production V2 Command Sheet", () => {
     vi.mocked(api).mockImplementation((path: string, options?: any) => {
       if (path === "/productions/p1") return Promise.resolve(mockV2Production);
       if (path === "/employees") return Promise.resolve(mockEmployees);
-      if (path.startsWith("/tasks") && !options?.method) return Promise.resolve(mockV2Tasks);
+      if (path.startsWith("/tasks") && !options?.method)
+        return Promise.resolve(mockV2Tasks);
       if (path === "/tasks" && options?.method === "POST") {
-        return Promise.resolve({ id: "task-2", title: "Truss safety checks", priority: "URGENT", status: "TODO" });
+        return Promise.resolve({
+          id: "task-2",
+          title: "Truss safety checks",
+          priority: "URGENT",
+          status: "TODO",
+        });
       }
       return Promise.resolve(null);
     });
 
     vi.mocked(financeApi.production).mockResolvedValue(mockFinanceData);
     vi.mocked(financeApi.config).mockResolvedValue(mockFinanceConfig);
-    vi.mocked(financeApi.counterparties).mockResolvedValue({ items: [], page: 0, size: 50, total: 0 });
+    vi.mocked(financeApi.counterparties).mockResolvedValue({
+      items: [],
+      page: 0,
+      size: 50,
+      total: 0,
+    });
 
     renderPage("p1");
 
@@ -676,7 +724,9 @@ describe("ProductionDetailPage — Production V2 Command Sheet", () => {
     const addTaskBtns = screen.getAllByRole("button", { name: /add task/i });
     await userEvent.click(addTaskBtns[0]);
 
-    expect(screen.getByRole("heading", { name: "Add Operational Task" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Add Operational Task" }),
+    ).toBeInTheDocument();
 
     const titleInput = screen.getByLabelText("New task title");
     await userEvent.type(titleInput, "Truss safety checks");
@@ -718,7 +768,12 @@ describe("ProductionDetailPage — Production V2 Command Sheet", () => {
     vi.mocked(headquartersApi.equipment).mockResolvedValue(mockCatalog as any);
     vi.mocked(financeApi.production).mockResolvedValue(mockFinanceData);
     vi.mocked(financeApi.config).mockResolvedValue(mockFinanceConfig);
-    vi.mocked(financeApi.counterparties).mockResolvedValue({ items: [], page: 0, size: 50, total: 0 });
+    vi.mocked(financeApi.counterparties).mockResolvedValue({
+      items: [],
+      page: 0,
+      size: 50,
+      total: 0,
+    });
 
     renderPage("p1");
 
@@ -729,7 +784,9 @@ describe("ProductionDetailPage — Production V2 Command Sheet", () => {
     const addEqBtn = screen.getByRole("button", { name: "Add equipment" });
     await userEvent.click(addEqBtn);
 
-    expect(screen.getByRole("heading", { name: "Assign Equipment" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Assign Equipment" }),
+    ).toBeInTheDocument();
 
     const eqSelect = screen.getByLabelText("Assign equipment select");
     await userEvent.selectOptions(eqSelect, "eq2");
@@ -762,7 +819,10 @@ describe("ProductionDetailPage — Production V2 Command Sheet", () => {
       if (path.startsWith("/tasks")) return Promise.resolve(mockV2Tasks);
       if (path === "/productions/p1/equipment" && options?.method === "POST") {
         return Promise.reject(
-          new ApiError("CONFLICT", "Selected equipment is no longer available in the requested quantity"),
+          new ApiError(
+            "CONFLICT",
+            "Selected equipment is no longer available in the requested quantity",
+          ),
         );
       }
       return Promise.resolve(null);
@@ -771,7 +831,12 @@ describe("ProductionDetailPage — Production V2 Command Sheet", () => {
     vi.mocked(headquartersApi.equipment).mockResolvedValue(mockCatalog as any);
     vi.mocked(financeApi.production).mockResolvedValue(mockFinanceData);
     vi.mocked(financeApi.config).mockResolvedValue(mockFinanceConfig);
-    vi.mocked(financeApi.counterparties).mockResolvedValue({ items: [], page: 0, size: 50, total: 0 });
+    vi.mocked(financeApi.counterparties).mockResolvedValue({
+      items: [],
+      page: 0,
+      size: 50,
+      total: 0,
+    });
 
     renderPage("p1");
 
@@ -782,7 +847,9 @@ describe("ProductionDetailPage — Production V2 Command Sheet", () => {
     const addEqBtn = screen.getByRole("button", { name: "Add equipment" });
     await userEvent.click(addEqBtn);
 
-    expect(screen.getByRole("heading", { name: "Assign Equipment" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Assign Equipment" }),
+    ).toBeInTheDocument();
 
     const eqSelect = screen.getByLabelText("Assign equipment select");
     await userEvent.selectOptions(eqSelect, "eq2");
@@ -792,12 +859,16 @@ describe("ProductionDetailPage — Production V2 Command Sheet", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText("Selected equipment is no longer available in the requested quantity"),
+        screen.getByText(
+          "Selected equipment is no longer available in the requested quantity",
+        ),
       ).toBeInTheDocument();
     });
 
     // Modal is still open for correction
-    expect(screen.getByRole("heading", { name: "Assign Equipment" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Assign Equipment" }),
+    ).toBeInTheDocument();
   });
 
   it("validates equipment quantity against available stock", async () => {
@@ -811,7 +882,12 @@ describe("ProductionDetailPage — Production V2 Command Sheet", () => {
     vi.mocked(headquartersApi.equipment).mockResolvedValue(mockCatalog as any);
     vi.mocked(financeApi.production).mockResolvedValue(mockFinanceData);
     vi.mocked(financeApi.config).mockResolvedValue(mockFinanceConfig);
-    vi.mocked(financeApi.counterparties).mockResolvedValue({ items: [], page: 0, size: 50, total: 0 });
+    vi.mocked(financeApi.counterparties).mockResolvedValue({
+      items: [],
+      page: 0,
+      size: 50,
+      total: 0,
+    });
 
     renderPage("p1");
 
@@ -846,7 +922,11 @@ describe("ProductionDetailPage — Production V2 Command Sheet", () => {
   it("updates schedule directly from the Command Sheet", async () => {
     vi.mocked(api).mockImplementation((path: string, options?: any) => {
       if (path === "/productions/p1" && options?.method === "PATCH") {
-        return Promise.resolve({ ...mockV2Production, startTime: "17:00:00", endTime: "23:30:00" });
+        return Promise.resolve({
+          ...mockV2Production,
+          startTime: "17:00:00",
+          endTime: "23:30:00",
+        });
       }
       if (path === "/productions/p1") return Promise.resolve(mockV2Production);
       if (path === "/employees") return Promise.resolve(mockEmployees);
@@ -856,7 +936,12 @@ describe("ProductionDetailPage — Production V2 Command Sheet", () => {
 
     vi.mocked(financeApi.production).mockResolvedValue(mockFinanceData);
     vi.mocked(financeApi.config).mockResolvedValue(mockFinanceConfig);
-    vi.mocked(financeApi.counterparties).mockResolvedValue({ items: [], page: 0, size: 50, total: 0 });
+    vi.mocked(financeApi.counterparties).mockResolvedValue({
+      items: [],
+      page: 0,
+      size: 50,
+      total: 0,
+    });
 
     renderPage("p1");
 
@@ -864,10 +949,14 @@ describe("ProductionDetailPage — Production V2 Command Sheet", () => {
       expect(screen.getByText("18:00 – 23:00")).toBeInTheDocument();
     });
 
-    const editScheduleBtn = screen.getByRole("button", { name: "Edit schedule" });
+    const editScheduleBtn = screen.getByRole("button", {
+      name: "Edit schedule",
+    });
     await userEvent.click(editScheduleBtn);
 
-    expect(screen.getByRole("heading", { name: "Edit Production Schedule" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Edit Production Schedule" }),
+    ).toBeInTheDocument();
 
     const startInput = screen.getByLabelText("Schedule start time input");
     await userEvent.clear(startInput);

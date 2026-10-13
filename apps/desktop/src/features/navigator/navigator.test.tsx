@@ -190,9 +190,7 @@ describe("Navigator desktop", () => {
       expect(screen.getByText("Camera Unit A")).toBeVisible();
       expect(screen.getByText("Drone Crew")).toBeVisible();
       expect(screen.getByText("General Crew")).toBeVisible();
-      expect(
-        screen.getByText("GENERAL FIELD TEAM / UNASSIGNED"),
-      ).toBeVisible();
+      expect(screen.getByText("GENERAL FIELD TEAM / UNASSIGNED")).toBeVisible();
       expect(screen.getByText("Vikram Singh")).toBeVisible();
     });
 
@@ -227,9 +225,7 @@ describe("Navigator desktop", () => {
 
     it("filters the roster to production members", async () => {
       render(<NavigatorRoster items={items} onSelect={() => {}} />);
-      await userEvent.click(
-        screen.getByRole("button", { name: "Production" }),
-      );
+      await userEvent.click(screen.getByRole("button", { name: "Production" }));
       expect(screen.getByText("Amaan Khan")).toBeVisible();
       expect(screen.getByText("Farhan Ali")).toBeVisible();
       expect(screen.getByText("Pooja Verma")).toBeVisible();
@@ -473,7 +469,11 @@ describe("Navigator desktop", () => {
         }
         if (url.startsWith("/employees")) {
           return Promise.resolve([
-            { id: "emp-20", displayName: "Deepak Joshi", roleTitle: "Cinematographer" },
+            {
+              id: "emp-20",
+              displayName: "Deepak Joshi",
+              roleTitle: "Cinematographer",
+            },
           ]);
         }
         return Promise.resolve([]);
@@ -494,8 +494,12 @@ describe("Navigator desktop", () => {
       });
 
       await userEvent.type(screen.getByLabelText("Team Name"), "Lighting Unit");
-      await userEvent.click(screen.getByRole("checkbox", { name: /Deepak Joshi/i }));
-      await userEvent.click(screen.getByRole("button", { name: /Create Team/i }));
+      await userEvent.click(
+        screen.getByRole("checkbox", { name: /Deepak Joshi/i }),
+      );
+      await userEvent.click(
+        screen.getByRole("button", { name: /Create Team/i }),
+      );
 
       await waitFor(() => {
         expect(
@@ -513,7 +517,11 @@ describe("Navigator desktop", () => {
         }
         if (url.startsWith("/employees")) {
           return Promise.resolve([
-            { id: "emp-20", displayName: "Deepak Joshi", roleTitle: "Cinematographer" },
+            {
+              id: "emp-20",
+              displayName: "Deepak Joshi",
+              roleTitle: "Cinematographer",
+            },
           ]);
         }
         return Promise.resolve([]);
@@ -535,9 +543,16 @@ describe("Navigator desktop", () => {
         expect(screen.getByText("Deepak Joshi")).toBeVisible();
       });
 
-      await userEvent.type(screen.getByLabelText("Team Name"), "Overly Long Name");
-      await userEvent.click(screen.getByRole("checkbox", { name: /Deepak Joshi/i }));
-      await userEvent.click(screen.getByRole("button", { name: /Create Team/i }));
+      await userEvent.type(
+        screen.getByLabelText("Team Name"),
+        "Overly Long Name",
+      );
+      await userEvent.click(
+        screen.getByRole("checkbox", { name: /Deepak Joshi/i }),
+      );
+      await userEvent.click(
+        screen.getByRole("button", { name: /Create Team/i }),
+      );
 
       await waitFor(() => {
         expect(

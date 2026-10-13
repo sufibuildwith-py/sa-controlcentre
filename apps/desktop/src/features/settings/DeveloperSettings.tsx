@@ -1,10 +1,7 @@
 import { useState } from "react";
 import { Code2, Heart, Lock, ShieldCheck } from "lucide-react";
 import { SABentoCard, SAButton, StatusBadge } from "../../components/ui/sa";
-import {
-  useFinanceAccess,
-  useFinanceLock,
-} from "../finance/financeAccess.api";
+import { useFinanceAccess, useFinanceLock } from "../finance/financeAccess.api";
 import { DonateDeveloperModal } from "./DonateDeveloperModal";
 
 export function DeveloperSettings() {
@@ -30,9 +27,7 @@ export function DeveloperSettings() {
             <Code2 size={17} />
             <div>
               <strong>Developer Options</strong>
-              <small>
-                Application configuration and developer utilities.
-              </small>
+              <small>Application configuration and developer utilities.</small>
             </div>
           </span>
           {isUnlocked && (
@@ -42,7 +37,10 @@ export function DeveloperSettings() {
 
         <div className="settings-row" style={{ marginTop: "12px" }}>
           <span>
-            <Heart size={16} style={{ color: isUnlocked ? "#10b981" : "var(--text-3)" }} />
+            <Heart
+              size={16}
+              style={{ color: isUnlocked ? "#10b981" : "var(--text-3)" }}
+            />
             <div>
               <strong>
                 {isUnlocked ? "Finance Surface Active" : "Developer Support"}
@@ -72,7 +70,10 @@ export function DeveloperSettings() {
                 variant="primary"
                 onClick={() => setModalOpen(true)}
               >
-                <Heart size={13} style={{ marginRight: 5, fill: "currentColor" }} />
+                <Heart
+                  size={13}
+                  style={{ marginRight: 5, fill: "currentColor" }}
+                />
                 Donate Developer
               </SAButton>
             )}
@@ -80,10 +81,7 @@ export function DeveloperSettings() {
         </div>
       </SABentoCard>
 
-      <DonateDeveloperModal
-        open={modalOpen}
-        onOpenChange={setModalOpen}
-      />
+      <DonateDeveloperModal open={modalOpen} onOpenChange={setModalOpen} />
     </>
   );
 }

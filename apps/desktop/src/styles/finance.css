@@ -301,7 +301,10 @@
   font-size: 12.5px;
   color: var(--text-1);
   margin-bottom: 12px;
-  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease;
 }
 .billing-search:focus {
   outline: none;
@@ -328,7 +331,11 @@
   color: inherit;
   text-align: left;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
 }
 .billing-list-item:hover {
   background: var(--surface-raised);
@@ -386,7 +393,10 @@
   color: var(--text-1);
   font: inherit;
   font-size: 13px;
-  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease;
 }
 .billing-form-grid input:focus,
 .billing-form-grid select:focus,
@@ -442,7 +452,10 @@
   font-size: 13px;
   cursor: pointer;
   text-align: left;
-  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease;
   min-height: 38px;
 }
 
@@ -542,7 +555,9 @@
   background: var(--surface, #ffffff);
   border: 1px solid var(--border-soft);
   border-radius: 12px;
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.2), 0 4px 12px rgba(0, 0, 0, 0.08);
+  box-shadow:
+    0 16px 36px rgba(0, 0, 0, 0.2),
+    0 4px 12px rgba(0, 0, 0, 0.08);
   display: flex;
   flex-direction: column;
   max-height: 380px;
@@ -775,7 +790,10 @@
   color: var(--text-1);
   font: inherit;
   font-size: 12.5px;
-  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease;
 }
 .billing-line input:focus {
   outline: none;
@@ -990,7 +1008,9 @@
   margin: 20px;
   border-radius: 12px;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
   line-height: 1.4;
 }
 .billing-doc-header {
@@ -1568,4 +1588,3 @@
     min-width: 540px;
   }
 }
-

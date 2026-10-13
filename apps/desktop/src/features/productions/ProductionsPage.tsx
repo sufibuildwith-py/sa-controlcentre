@@ -135,7 +135,9 @@ export function ProductionsPage() {
       }
       const contractAmt = Number(form.contract.amount);
       if (isNaN(contractAmt) || contractAmt <= 0) {
-        throw new Error("A positive contract amount is required to create a production.");
+        throw new Error(
+          "A positive contract amount is required to create a production.",
+        );
       }
       const advanceAmt = Number(form.advance.amount || 0);
       if (advanceAmt < 0) {
@@ -150,7 +152,9 @@ export function ProductionsPage() {
       const payload = {
         title: form.title.trim(),
         clientName: form.clientName.trim(),
-        description: form.description?.trim() ? form.description.trim() : undefined,
+        description: form.description?.trim()
+          ? form.description.trim()
+          : undefined,
         eventDate,
         startTime: form.startTime.trim() || undefined,
         endTime: form.endTime.trim() || undefined,
@@ -176,17 +180,27 @@ export function ProductionsPage() {
           idempotencyKey: form.contract.idempotencyKey,
           amount: contractAmt,
           effectiveDate: form.contract.date || eventDate,
-          description: form.contract.description.trim() || `Contract for ${form.title.trim()}`,
+          description:
+            form.contract.description.trim() ||
+            `Contract for ${form.title.trim()}`,
         },
-        advance: advanceAmt > 0 ? {
-          idempotencyKey: form.advance.idempotencyKey,
-          amount: advanceAmt,
-          effectiveDate: form.advance.date || eventDate,
-          receiverAccount: form.advance.receiverAccount,
-          description: form.advance.description.trim() || `Client advance for ${form.title.trim()}`,
-        } : undefined,
+        advance:
+          advanceAmt > 0
+            ? {
+                idempotencyKey: form.advance.idempotencyKey,
+                amount: advanceAmt,
+                effectiveDate: form.advance.date || eventDate,
+                receiverAccount: form.advance.receiverAccount,
+                description:
+                  form.advance.description.trim() ||
+                  `Client advance for ${form.title.trim()}`,
+              }
+            : undefined,
       };
-      return api<Production>("/productions", { method: "POST", ...json(payload) });
+      return api<Production>("/productions", {
+        method: "POST",
+        ...json(payload),
+      });
     },
     onSuccess: (p) => {
       client.invalidateQueries({ queryKey: ["productions"] });
@@ -315,7 +329,8 @@ export function ProductionsPage() {
               <div className="production-meta">
                 <span>
                   <CalendarDays size={13} />
-                  {date(p.eventDate)} · {p.startTime ? p.startTime.slice(0, 5) : "TBD"}
+                  {date(p.eventDate)} ·{" "}
+                  {p.startTime ? p.startTime.slice(0, 5) : "TBD"}
                 </span>
                 <span>
                   <MapPin size={13} />
@@ -420,7 +435,8 @@ function ProductionForm({
     setContractModalAmount(form.contract.amount);
     setContractModalDate(form.contract.date || form.eventDate);
     setContractModalDescription(
-      form.contract.description || (form.title.trim() ? `Contract for ${form.title.trim()}` : ""),
+      form.contract.description ||
+        (form.title.trim() ? `Contract for ${form.title.trim()}` : ""),
     );
     setContractModalError("");
     setContractModalOpen(true);
@@ -441,7 +457,8 @@ function ProductionForm({
           amount: contractModalAmount,
           date: contractModalDate || prev.eventDate,
           description:
-            contractModalDescription.trim() || `Contract for ${prev.title.trim()}`,
+            contractModalDescription.trim() ||
+            `Contract for ${prev.title.trim()}`,
         },
         advance: {
           ...prev.advance,
@@ -456,7 +473,8 @@ function ProductionForm({
           amount: contractModalAmount,
           date: contractModalDate || prev.eventDate,
           description:
-            contractModalDescription.trim() || `Contract for ${prev.title.trim()}`,
+            contractModalDescription.trim() ||
+            `Contract for ${prev.title.trim()}`,
         },
       }));
     }
@@ -464,7 +482,9 @@ function ProductionForm({
   };
 
   const openAdvanceModal = () => {
-    setAdvanceModalAmount(form.advance.amount === "0" ? "" : form.advance.amount);
+    setAdvanceModalAmount(
+      form.advance.amount === "0" ? "" : form.advance.amount,
+    );
     setAdvanceModalDate(form.advance.date || form.eventDate);
     setAdvanceModalReceiver(
       form.advance.receiverAccount ||
@@ -502,7 +522,8 @@ function ProductionForm({
         date: advanceModalDate || prev.eventDate,
         receiverAccount: advanceModalReceiver,
         description:
-          advanceModalDescription.trim() || `Client advance for ${prev.title.trim()}`,
+          advanceModalDescription.trim() ||
+          `Client advance for ${prev.title.trim()}`,
       },
     }));
     setAdvanceModalOpen(false);
@@ -596,7 +617,16 @@ function ProductionForm({
         title="Create Production"
         description="Enter all operational details in one single intake. Crew, tasks, schedule and equipment will be orchestrated together."
       >
-        <div style={{ display: "flex", flexDirection: "column", gap: "16px", maxHeight: "70vh", overflowY: "auto", paddingRight: "4px" }}>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "16px",
+            maxHeight: "70vh",
+            overflowY: "auto",
+            paddingRight: "4px",
+          }}
+        >
           {/* SECTION 1: PRODUCTION CORE */}
           <div className="form-grid">
             <FormField label="Program" error={fieldErrors?.title}>
@@ -656,10 +686,19 @@ function ProductionForm({
           <div className="production-single-intake-section">
             <div className="production-single-intake-section-title">
               <span>
-                <Boxes size={13} style={{ verticalAlign: "middle", marginRight: "6px" }} />
+                <Boxes
+                  size={13}
+                  style={{ verticalAlign: "middle", marginRight: "6px" }}
+                />
                 Equipment Needed (Optional)
               </span>
-              <span style={{ fontSize: "11px", fontWeight: "normal", color: "var(--text-3)" }}>
+              <span
+                style={{
+                  fontSize: "11px",
+                  fontWeight: "normal",
+                  color: "var(--text-3)",
+                }}
+              >
                 {form.equipment.length} items
               </span>
             </div>
@@ -690,10 +729,14 @@ function ProductionForm({
               >
                 <option value="">Choose equipment...</option>
                 {equipmentQuery.data?.items
-                  ?.filter((item) => !form.equipment.some((e) => e.equipmentId === item.id))
+                  ?.filter(
+                    (item) =>
+                      !form.equipment.some((e) => e.equipmentId === item.id),
+                  )
                   .map((item) => (
                     <option key={item.id} value={item.id}>
-                      {item.name} {item.internalCode ? `(${item.internalCode})` : ""}
+                      {item.name}{" "}
+                      {item.internalCode ? `(${item.internalCode})` : ""}
                     </option>
                   ))}
               </select>
@@ -706,7 +749,11 @@ function ProductionForm({
                 onChange={(e) => setEqQty(e.target.value)}
                 style={{ width: "80px" }}
               />
-              <SAButton size="sm" disabled={!selectedEqId} onClick={addEquipment}>
+              <SAButton
+                size="sm"
+                disabled={!selectedEqId}
+                onClick={addEquipment}
+              >
                 + Add Gear
               </SAButton>
             </div>
@@ -716,21 +763,31 @@ function ProductionForm({
           <div className="production-single-intake-section">
             <div className="production-single-intake-section-title">
               <span>
-                <Receipt size={13} style={{ verticalAlign: "middle", marginRight: "6px" }} />
+                <Receipt
+                  size={13}
+                  style={{ verticalAlign: "middle", marginRight: "6px" }}
+                />
                 Financial Settlement
               </span>
               <span
                 style={{
                   fontSize: "11px",
                   fontWeight: "normal",
-                  color: contractAmtNum > 0 ? "var(--success)" : "var(--danger)",
+                  color:
+                    contractAmtNum > 0 ? "var(--success)" : "var(--danger)",
                 }}
               >
                 {contractAmtNum > 0 ? "Contract Set" : "Contract Required"}
               </span>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "12px",
+              }}
+            >
               <SABentoCard
                 style={{
                   padding: "12px",
@@ -756,8 +813,12 @@ function ProductionForm({
                   >
                     Contract
                   </span>
-                  <StatusBadge tone={contractAmtNum > 0 ? "success" : "neutral"}>
-                    {contractAmtNum > 0 ? financeAmount(contractAmtNum) : "Not set"}
+                  <StatusBadge
+                    tone={contractAmtNum > 0 ? "success" : "neutral"}
+                  >
+                    {contractAmtNum > 0
+                      ? financeAmount(contractAmtNum)
+                      : "Not set"}
                   </StatusBadge>
                 </div>
                 <SAButton
@@ -821,11 +882,17 @@ function ProductionForm({
           <div className="production-single-intake-section">
             <div className="production-single-intake-section-title">
               <span>
-                <Clock size={13} style={{ verticalAlign: "middle", marginRight: "6px" }} />
+                <Clock
+                  size={13}
+                  style={{ verticalAlign: "middle", marginRight: "6px" }}
+                />
                 Schedule (Optional)
               </span>
             </div>
-            <div className="form-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
+            <div
+              className="form-grid"
+              style={{ gridTemplateColumns: "1fr 1fr" }}
+            >
               <FormField label="Start Time">
                 <input
                   aria-label="Start time"
@@ -849,10 +916,19 @@ function ProductionForm({
           <div className="production-single-intake-section">
             <div className="production-single-intake-section-title">
               <span>
-                <Users size={13} style={{ verticalAlign: "middle", marginRight: "6px" }} />
+                <Users
+                  size={13}
+                  style={{ verticalAlign: "middle", marginRight: "6px" }}
+                />
                 Crew Assignments (Optional)
               </span>
-              <span style={{ fontSize: "11px", fontWeight: "normal", color: "var(--text-3)" }}>
+              <span
+                style={{
+                  fontSize: "11px",
+                  fontWeight: "normal",
+                  color: "var(--text-3)",
+                }}
+              >
                 {form.crew.length} assigned
               </span>
             </div>
@@ -907,10 +983,19 @@ function ProductionForm({
           <div className="production-single-intake-section">
             <div className="production-single-intake-section-title">
               <span>
-                <CheckSquare size={13} style={{ verticalAlign: "middle", marginRight: "6px" }} />
+                <CheckSquare
+                  size={13}
+                  style={{ verticalAlign: "middle", marginRight: "6px" }}
+                />
                 Operational Tasks (Optional)
               </span>
-              <span style={{ fontSize: "11px", fontWeight: "normal", color: "var(--text-3)" }}>
+              <span
+                style={{
+                  fontSize: "11px",
+                  fontWeight: "normal",
+                  color: "var(--text-3)",
+                }}
+              >
                 {form.tasks.length} tasks
               </span>
             </div>
@@ -920,7 +1005,13 @@ function ProductionForm({
                 {form.tasks.map((t, i) => (
                   <span key={i} className="intake-chip">
                     <span>{t.title}</span>
-                    <StatusBadge tone={t.priority === "HIGH" || t.priority === "URGENT" ? "warning" : "neutral"}>
+                    <StatusBadge
+                      tone={
+                        t.priority === "HIGH" || t.priority === "URGENT"
+                          ? "warning"
+                          : "neutral"
+                      }
+                    >
                       {t.priority}
                     </StatusBadge>
                     <button
@@ -959,7 +1050,11 @@ function ProductionForm({
                   <option key={p}>{p}</option>
                 ))}
               </select>
-              <SAButton size="sm" disabled={!taskTitle.trim()} onClick={addTask}>
+              <SAButton
+                size="sm"
+                disabled={!taskTitle.trim()}
+                onClick={addTask}
+              >
                 + Add Task
               </SAButton>
             </div>
@@ -967,7 +1062,10 @@ function ProductionForm({
 
           {/* SECTION 7: NOTES */}
           <div className="production-single-intake-section">
-            <FormField label="Operational Notes" error={fieldErrors?.description}>
+            <FormField
+              label="Operational Notes"
+              error={fieldErrors?.description}
+            >
               <textarea
                 aria-label="Production notes"
                 rows={2}
@@ -1044,9 +1142,13 @@ function ProductionForm({
             />
           </FormField>
         </div>
-        {contractModalError && <p className="form-error">{contractModalError}</p>}
+        {contractModalError && (
+          <p className="form-error">{contractModalError}</p>
+        )}
         <div className="modal-actions">
-          <SAButton onClick={() => setContractModalOpen(false)}>Cancel</SAButton>
+          <SAButton onClick={() => setContractModalOpen(false)}>
+            Cancel
+          </SAButton>
           <SAButton
             variant="primary"
             disabled={!contractModalAmount || Number(contractModalAmount) <= 0}
@@ -1087,7 +1189,8 @@ function ProductionForm({
               <option value="" disabled>
                 Select owner account...
               </option>
-              {financeConfigQuery.data?.accounts && financeConfigQuery.data.accounts.length > 0 ? (
+              {financeConfigQuery.data?.accounts &&
+              financeConfigQuery.data.accounts.length > 0 ? (
                 financeConfigQuery.data.accounts.map((a) => (
                   <option key={a.id || a.code} value={a.code}>
                     {a.displayName} ({a.code})

@@ -13,7 +13,11 @@ import {
   StatusBadge,
 } from "../../components/ui/sa";
 import { api } from "../../lib/api";
-import type { Employee, EmployeeStatus, PeopleSummary } from "../../types/domain";
+import type {
+  Employee,
+  EmployeeStatus,
+  PeopleSummary,
+} from "../../types/domain";
 
 type Filter = "ALL" | EmployeeStatus;
 
@@ -55,25 +59,35 @@ export function PeoplePage() {
       <div className="people-summary-strip">
         <div className="summary-pill">
           <span className="summary-label">Active</span>
-          <strong className="summary-value">{summary.data?.activeEmployees ?? "—"}</strong>
+          <strong className="summary-value">
+            {summary.data?.activeEmployees ?? "—"}
+          </strong>
         </div>
         <div className="summary-pill">
           <span className="summary-label">On Leave</span>
-          <strong className="summary-value">{summary.data?.onLeaveEmployees ?? "—"}</strong>
+          <strong className="summary-value">
+            {summary.data?.onLeaveEmployees ?? "—"}
+          </strong>
         </div>
         <div className="summary-pill">
           <span className="summary-label">Attendance today</span>
-          <strong className="summary-value">{summary.data?.attendanceToday ?? "—"}</strong>
+          <strong className="summary-value">
+            {summary.data?.attendanceToday ?? "—"}
+          </strong>
         </div>
         <div className="summary-pill">
           <span className="summary-label">Open tasks</span>
-          <strong className="summary-value">{summary.data?.openTasks ?? "—"}</strong>
+          <strong className="summary-value">
+            {summary.data?.openTasks ?? "—"}
+          </strong>
         </div>
         <div
           className={`summary-pill ${(summary.data?.overdueTasks ?? 0) > 0 ? "summary-pill--alert" : ""}`}
         >
           <span className="summary-label">Overdue tasks</span>
-          <strong className="summary-value">{summary.data?.overdueTasks ?? "—"}</strong>
+          <strong className="summary-value">
+            {summary.data?.overdueTasks ?? "—"}
+          </strong>
         </div>
       </div>
 
@@ -198,20 +212,24 @@ function EmployeeCard({
       <div className="employee-stats">
         <div>
           <span>Department</span>
-          <strong style={{ fontSize: "13px", fontWeight: 500, marginTop: "4px" }}>
+          <strong
+            style={{ fontSize: "13px", fontWeight: 500, marginTop: "4px" }}
+          >
             {employee.department}
           </strong>
         </div>
         <div>
           <span>Active work</span>
           <strong style={{ fontSize: "16px", marginTop: "3px" }}>
-            {employee.activeTasksCount ?? 0} {employee.activeTasksCount === 1 ? "task" : "tasks"}
+            {employee.activeTasksCount ?? 0}{" "}
+            {employee.activeTasksCount === 1 ? "task" : "tasks"}
           </strong>
         </div>
       </div>
       <footer>
         <span>
-          {employee.activeProductionsCount && employee.activeProductionsCount > 0
+          {employee.activeProductionsCount &&
+          employee.activeProductionsCount > 0
             ? `${employee.activeProductionsCount} active ${employee.activeProductionsCount === 1 ? "production" : "productions"}`
             : employee.employeeCode}
         </span>

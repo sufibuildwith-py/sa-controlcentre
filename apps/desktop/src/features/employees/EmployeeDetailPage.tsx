@@ -109,7 +109,8 @@ export function EmployeeDetailPage() {
     [confirm, setConfirm] = useState(false);
   const financeAccess = useFinanceAccess();
   const isUnlocked = financeAccess.data?.unlocked ?? false;
-  const activeTab = !isUnlocked && (tab === "payroll" || tab === "finance") ? "overview" : tab;
+  const activeTab =
+    !isUnlocked && (tab === "payroll" || tab === "finance") ? "overview" : tab;
 
   const employee = useQuery({
     queryKey: ["employee", id],
@@ -129,7 +130,10 @@ export function EmployeeDetailPage() {
   const operations = useQuery({
     queryKey: ["employee", id, "operations"],
     queryFn: () => api<EmployeeOperations>(`/employees/${id}/operations`),
-    enabled: !!id && ["work", "payroll", "performance"].includes(activeTab) && (activeTab !== "payroll" || isUnlocked),
+    enabled:
+      !!id &&
+      ["work", "payroll", "performance"].includes(activeTab) &&
+      (activeTab !== "payroll" || isUnlocked),
   });
   const finance = useQuery({
     queryKey: ["finance", "employee", id],
@@ -383,7 +387,9 @@ export function EmployeeDetailPage() {
               <div className="danger-zone">
                 <div>
                   <strong>Deactivate employee</strong>
-                  <span>Keeps historical operational and financial records.</span>
+                  <span>
+                    Keeps historical operational and financial records.
+                  </span>
                 </div>
                 <SAButton
                   variant="danger"
@@ -395,13 +401,13 @@ export function EmployeeDetailPage() {
               </div>
             </SABentoGrid>
           ) : (
-            <div className="e360-overview" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div
+              className="e360-overview"
+              style={{ display: "flex", flexDirection: "column", gap: 16 }}
+            >
               {/* Quick Action Strip */}
               <div className="e360-action-strip">
-                <SAButton
-                  variant="primary"
-                  onClick={openEarningModal}
-                >
+                <SAButton variant="primary" onClick={openEarningModal}>
                   <DollarSign size={15} />
                   Record Shift Earning
                 </SAButton>
@@ -414,13 +420,25 @@ export function EmployeeDetailPage() {
                   Record Disbursement
                 </SAButton>
                 <SAButton
-                  onClick={() => navigate(`/communications?compose=1&employeeId=${e.id}`)}
+                  onClick={() =>
+                    navigate(`/communications?compose=1&employeeId=${e.id}`)
+                  }
                 >
                   <MessageCircle size={15} />
                   Send Message
                 </SAButton>
-                <div style={{ marginLeft: "auto", display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <SAButton variant="ghost" onClick={() => setTab("attendance")}>
+                <div
+                  style={{
+                    marginLeft: "auto",
+                    display: "flex",
+                    gap: 8,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <SAButton
+                    variant="ghost"
+                    onClick={() => setTab("attendance")}
+                  >
                     Attendance
                     <ArrowUpRight size={13} />
                   </SAButton>
@@ -441,39 +459,63 @@ export function EmployeeDetailPage() {
                 <SpotlightCard className="e360-col-4">
                   <div className="e360-card-header">
                     <h3>Today's Status</h3>
-                    <SAButton variant="ghost" size="sm" onClick={() => setTab("attendance")}>
+                    <SAButton
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setTab("attendance")}
+                    >
                       Details
                       <ArrowUpRight size={12} />
                     </SAButton>
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      marginBottom: 12,
+                    }}
+                  >
                     <StatusBadge
                       tone={
                         e360.data.today.attendance?.status === "PRESENT"
                           ? "success"
-                          : e360.data.today.attendance?.status === "LATE" || e360.data.today.attendance?.status === "HALF_DAY" || e360.data.today.attendance?.status === "LEAVE"
+                          : e360.data.today.attendance?.status === "LATE" ||
+                              e360.data.today.attendance?.status ===
+                                "HALF_DAY" ||
+                              e360.data.today.attendance?.status === "LEAVE"
                             ? "warning"
                             : e360.data.today.attendance?.status === "ABSENT"
                               ? "danger"
                               : "neutral"
                       }
                     >
-                      {e360.data.today.attendance?.status?.replace("_", " ") ?? "NOT MARKED"}
+                      {e360.data.today.attendance?.status?.replace("_", " ") ??
+                        "NOT MARKED"}
                     </StatusBadge>
-                    {e360.data.today.attendance && e360.data.today.attendance.minutesLate > 0 && (
-                      <StatusBadge tone="warning">
-                        {e360.data.today.attendance.minutesLate}m late
-                      </StatusBadge>
-                    )}
+                    {e360.data.today.attendance &&
+                      e360.data.today.attendance.minutesLate > 0 && (
+                        <StatusBadge tone="warning">
+                          {e360.data.today.attendance.minutesLate}m late
+                        </StatusBadge>
+                      )}
                   </div>
                   <div className="e360-metrics-row">
                     <div className="e360-metric-box">
                       <span>Check In</span>
-                      <strong>{e360.data.today.attendance?.checkInTime?.slice(0, 5) ?? "—"}</strong>
+                      <strong>
+                        {e360.data.today.attendance?.checkInTime?.slice(0, 5) ??
+                          "—"}
+                      </strong>
                     </div>
                     <div className="e360-metric-box">
                       <span>Check Out</span>
-                      <strong>{e360.data.today.attendance?.checkOutTime?.slice(0, 5) ?? "—"}</strong>
+                      <strong>
+                        {e360.data.today.attendance?.checkOutTime?.slice(
+                          0,
+                          5,
+                        ) ?? "—"}
+                      </strong>
                     </div>
                   </div>
                   {e360.data.today.activeOrPendingLeave && (
@@ -481,14 +523,18 @@ export function EmployeeDetailPage() {
                       style={{
                         marginTop: 12,
                         padding: "8px 12px",
-                        background: "var(--warning-soft, rgba(234, 179, 8, 0.1))",
-                        border: "1px solid var(--warning-border, rgba(234, 179, 8, 0.2))",
+                        background:
+                          "var(--warning-soft, rgba(234, 179, 8, 0.1))",
+                        border:
+                          "1px solid var(--warning-border, rgba(234, 179, 8, 0.2))",
                         borderRadius: 8,
                         fontSize: 12,
                       }}
                     >
                       <strong>Active Leave: </strong>
-                      {e360.data.today.activeOrPendingLeave.leaveType} ({e360.data.today.activeOrPendingLeave.startDate} to {e360.data.today.activeOrPendingLeave.endDate})
+                      {e360.data.today.activeOrPendingLeave.leaveType} (
+                      {e360.data.today.activeOrPendingLeave.startDate} to{" "}
+                      {e360.data.today.activeOrPendingLeave.endDate})
                     </div>
                   )}
                 </SpotlightCard>
@@ -501,15 +547,31 @@ export function EmployeeDetailPage() {
                         <h3>Canonical Compensation & Ledger</h3>
                         <span>Zero-risk integer minor units</span>
                       </div>
-                      <SAButton variant="ghost" size="sm" onClick={() => setTab("finance")}>
+                      <SAButton
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setTab("finance")}
+                      >
                         Ledger
                         <ArrowUpRight size={12} />
                       </SAButton>
                     </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12, marginBottom: 14 }}>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                        gap: 12,
+                        marginBottom: 14,
+                      }}
+                    >
                       <div className="e360-metric-box">
                         <span>Base Salary</span>
-                        <strong>{money(e360.data.money.baseSalaryMinor, e360.data.money.salaryCurrency)}</strong>
+                        <strong>
+                          {money(
+                            e360.data.money.baseSalaryMinor,
+                            e360.data.money.salaryCurrency,
+                          )}
+                        </strong>
                       </div>
                       <div className="e360-metric-box">
                         <span>Total Earned</span>
@@ -519,32 +581,84 @@ export function EmployeeDetailPage() {
                         <span>Total Paid</span>
                         <strong>{financeAmount(e360.data.money.paid)}</strong>
                       </div>
-                      <div className="e360-metric-box" style={{ background: e360.data.money.outstanding > 0 ? "var(--warning-soft, rgba(234, 179, 8, 0.08))" : undefined }}>
+                      <div
+                        className="e360-metric-box"
+                        style={{
+                          background:
+                            e360.data.money.outstanding > 0
+                              ? "var(--warning-soft, rgba(234, 179, 8, 0.08))"
+                              : undefined,
+                        }}
+                      >
                         <span>Net Outstanding</span>
-                        <strong style={{ color: e360.data.money.outstanding > 0 ? "var(--warning, #f59e0b)" : undefined }}>
+                        <strong
+                          style={{
+                            color:
+                              e360.data.money.outstanding > 0
+                                ? "var(--warning, #f59e0b)"
+                                : undefined,
+                          }}
+                        >
                           {financeAmount(e360.data.money.outstanding)}
                         </strong>
                       </div>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 10, borderTop: "1px solid var(--border-soft, var(--border))", fontSize: 12, flexWrap: "wrap", gap: 8 }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        paddingTop: 10,
+                        borderTop:
+                          "1px solid var(--border-soft, var(--border))",
+                        fontSize: 12,
+                        flexWrap: "wrap",
+                        gap: 8,
+                      }}
+                    >
                       <div>
                         {e360.data.money.latestPayrollPeriod ? (
                           <span>
-                            Latest Payroll: <strong>{e360.data.money.latestPayrollPeriod}</strong> ·{" "}
-                            <StatusBadge tone={e360.data.money.currentPayrollStatus === "PAID" ? "success" : "warning"}>
+                            Latest Payroll:{" "}
+                            <strong>
+                              {e360.data.money.latestPayrollPeriod}
+                            </strong>{" "}
+                            ·{" "}
+                            <StatusBadge
+                              tone={
+                                e360.data.money.currentPayrollStatus === "PAID"
+                                  ? "success"
+                                  : "warning"
+                              }
+                            >
                               {e360.data.money.currentPayrollStatus ?? "DRAFT"}
                             </StatusBadge>
                           </span>
                         ) : (
-                          <span className="muted">No finalized payroll runs on record.</span>
+                          <span className="muted">
+                            No finalized payroll runs on record.
+                          </span>
                         )}
                       </div>
                       {e360.data.money.outstanding > 0 ? (
-                        <SAButton size="sm" variant="secondary" onClick={() => openPayoutModal(e360.data?.money.outstanding)}>
+                        <SAButton
+                          size="sm"
+                          variant="secondary"
+                          onClick={() =>
+                            openPayoutModal(e360.data?.money.outstanding)
+                          }
+                        >
                           Disburse {financeAmount(e360.data.money.outstanding)}
                         </SAButton>
                       ) : (
-                        <span style={{ color: "var(--success, #10b981)", display: "flex", alignItems: "center", gap: 4 }}>
+                        <span
+                          style={{
+                            color: "var(--success, #10b981)",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 4,
+                          }}
+                        >
                           <CheckCircle2 size={13} />
                           Ledger balanced
                         </span>
@@ -557,7 +671,11 @@ export function EmployeeDetailPage() {
                 <SpotlightCard className="e360-col-6">
                   <div className="e360-card-header">
                     <h3>Operations & Tasks</h3>
-                    <SAButton variant="ghost" size="sm" onClick={() => setTab("work")}>
+                    <SAButton
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setTab("work")}
+                    >
                       Tasks
                       <ArrowUpRight size={12} />
                     </SAButton>
@@ -567,16 +685,39 @@ export function EmployeeDetailPage() {
                       <span>Assigned Tasks</span>
                       <strong>{e360.data.operations.tasksAssigned}</strong>
                     </div>
-                    <div className="e360-metric-box" style={{ background: e360.data.operations.overdueTasks > 0 ? "var(--danger-soft, rgba(239, 68, 68, 0.08))" : undefined }}>
+                    <div
+                      className="e360-metric-box"
+                      style={{
+                        background:
+                          e360.data.operations.overdueTasks > 0
+                            ? "var(--danger-soft, rgba(239, 68, 68, 0.08))"
+                            : undefined,
+                      }}
+                    >
                       <span>Overdue Tasks</span>
-                      <strong style={{ color: e360.data.operations.overdueTasks > 0 ? "var(--danger, #ef4444)" : undefined }}>
+                      <strong
+                        style={{
+                          color:
+                            e360.data.operations.overdueTasks > 0
+                              ? "var(--danger, #ef4444)"
+                              : undefined,
+                        }}
+                      >
                         {e360.data.operations.overdueTasks}
                       </strong>
                     </div>
                   </div>
                   <div style={{ marginTop: 12 }}>
-                    <span style={{ fontSize: 11, textTransform: "uppercase", color: "var(--text-3)", letterSpacing: "0.04em" }}>
-                      Active Productions ({e360.data.operations.activeProductions.length})
+                    <span
+                      style={{
+                        fontSize: 11,
+                        textTransform: "uppercase",
+                        color: "var(--text-3)",
+                        letterSpacing: "0.04em",
+                      }}
+                    >
+                      Active Productions (
+                      {e360.data.operations.activeProductions.length})
                     </span>
                     {e360.data.operations.activeProductions.length > 0 ? (
                       <div className="e360-production-list">
@@ -584,14 +725,24 @@ export function EmployeeDetailPage() {
                           <div key={p.id} className="e360-production-row">
                             <div>
                               <strong>{p.title}</strong>
-                              {p.role && <span className="muted" style={{ marginLeft: 6 }}>· {p.role}</span>}
+                              {p.role && (
+                                <span
+                                  className="muted"
+                                  style={{ marginLeft: 6 }}
+                                >
+                                  · {p.role}
+                                </span>
+                              )}
                             </div>
                             <StatusBadge tone="neutral">{p.status}</StatusBadge>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <p className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+                      <p
+                        className="muted"
+                        style={{ fontSize: 12, marginTop: 6 }}
+                      >
                         No active production assignments.
                       </p>
                     )}
@@ -602,7 +753,11 @@ export function EmployeeDetailPage() {
                 <SpotlightCard className="e360-col-6">
                   <div className="e360-card-header">
                     <h3>Performance & Device Sync</h3>
-                    <SAButton variant="ghost" size="sm" onClick={() => setTab("performance")}>
+                    <SAButton
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setTab("performance")}
+                    >
                       Review
                       <ArrowUpRight size={12} />
                     </SAButton>
@@ -621,24 +776,59 @@ export function EmployeeDetailPage() {
                       <strong>{e360.data.communication.totalMessages}</strong>
                     </div>
                   </div>
-                  <div style={{ marginTop: 14, fontSize: 12, display: "flex", flexDirection: "column", gap: 6 }}>
+                  <div
+                    style={{
+                      marginTop: 14,
+                      fontSize: 12,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 6,
+                    }}
+                  >
                     <div>
                       <span className="muted">On-time completion: </span>
-                      <strong>{e360.data.performance.onTimeCompletionRate != null ? `${e360.data.performance.onTimeCompletionRate}%` : "—"}</strong>
+                      <strong>
+                        {e360.data.performance.onTimeCompletionRate != null
+                          ? `${e360.data.performance.onTimeCompletionRate}%`
+                          : "—"}
+                      </strong>
                     </div>
                     <div>
                       <span className="muted">Attended shifts: </span>
-                      <strong>{e360.data.performance.attended} / {e360.data.performance.attendanceRecords} days</strong>
+                      <strong>
+                        {e360.data.performance.attended} /{" "}
+                        {e360.data.performance.attendanceRecords} days
+                      </strong>
                     </div>
                     <div>
                       <span className="muted">Last contact: </span>
-                      <span>{e360.data.communication.lastContactAt ? dateLabel(e360.data.communication.lastContactAt.slice(0, 10)) : "Never"}</span>
+                      <span>
+                        {e360.data.communication.lastContactAt
+                          ? dateLabel(
+                              e360.data.communication.lastContactAt.slice(
+                                0,
+                                10,
+                              ),
+                            )
+                          : "Never"}
+                      </span>
                     </div>
                     {navigatorEnabled && (
-                      <div style={{ marginTop: 4, paddingTop: 8, borderTop: "1px solid var(--border-soft, var(--border))" }}>
+                      <div
+                        style={{
+                          marginTop: 4,
+                          paddingTop: 8,
+                          borderTop:
+                            "1px solid var(--border-soft, var(--border))",
+                        }}
+                      >
                         <span className="muted">Navigator device: </span>
                         <strong>{e360.data.navigator.deviceStatus}</strong>
-                        <span className="muted" style={{ marginLeft: 8 }}>({e360.data.navigator.isPaired ? "Paired" : "Unpaired"})</span>
+                        <span className="muted" style={{ marginLeft: 8 }}>
+                          (
+                          {e360.data.navigator.isPaired ? "Paired" : "Unpaired"}
+                          )
+                        </span>
                       </div>
                     )}
                   </div>
@@ -647,13 +837,30 @@ export function EmployeeDetailPage() {
                 {/* Identity & Details Card */}
                 <SABentoCard className="e360-col-8">
                   <h3>Employee Information</h3>
-                  <dl className="detail-info-list" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "10px 16px", marginTop: 12 }}>
+                  <dl
+                    className="detail-info-list"
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                      gap: "10px 16px",
+                      marginTop: 12,
+                    }}
+                  >
                     <Info label="Employee code" value={e.employeeCode} />
                     <Info label="Department" value={e.department} />
-                    <Info label="Joining date" value={dateLabel(e.joiningDate)} />
-                    <Info label="Employment" value={e.employmentType.replace("_", " ")} />
+                    <Info
+                      label="Joining date"
+                      value={dateLabel(e.joiningDate)}
+                    />
+                    <Info
+                      label="Employment"
+                      value={e.employmentType.replace("_", " ")}
+                    />
                     <Info label="Phone" value={e.phone} />
-                    <Info label="WhatsApp" value={e.whatsappPhone ?? "Not provided"} />
+                    <Info
+                      label="WhatsApp"
+                      value={e.whatsappPhone ?? "Not provided"}
+                    />
                     <Info label="Email" value={e.email ?? "Not provided"} />
                     <Info label="Status" value={e.status.replace("_", " ")} />
                   </dl>
@@ -668,10 +875,15 @@ export function EmployeeDetailPage() {
                 </SABentoCard>
 
                 {/* Deactivate Zone */}
-                <div className="danger-zone e360-col-12" style={{ marginTop: 8 }}>
+                <div
+                  className="danger-zone e360-col-12"
+                  style={{ marginTop: 8 }}
+                >
                   <div>
                     <strong>Deactivate employee</strong>
-                    <span>Keeps historical operational and financial records.</span>
+                    <span>
+                      Keeps historical operational and financial records.
+                    </span>
                   </div>
                   <SAButton
                     variant="danger"

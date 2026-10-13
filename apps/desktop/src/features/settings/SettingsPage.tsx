@@ -98,7 +98,9 @@ export function SettingsPage() {
         <NotificationRules />
         {import.meta.env.VITE_DESKTOP_RELEASE === "true" && <ReleaseSettings />}
         {import.meta.env.VITE_DESKTOP_RELEASE !== "true" && <Simulator />}
-        {navigatorEnabled && import.meta.env.VITE_APP_MODE === "demo" && <NavigatorSimulator />}
+        {navigatorEnabled && import.meta.env.VITE_APP_MODE === "demo" && (
+          <NavigatorSimulator />
+        )}
         <DeveloperSettings />
       </div>
     </>
@@ -298,7 +300,47 @@ function Simulator() {
     </SABentoCard>
   );
 }
-function NavigatorSimulator(){const client=useQueryClient(),[running,setRunning]=useState(false);const action=useMutation({mutationFn:(next:boolean)=>navigatorApi.simulator(next?"start":"stop"),onSuccess:(_,next)=>{setRunning(next);client.invalidateQueries({queryKey:["navigator","live"]});}});return <SABentoCard><div className="settings-section-title"><span><MapPinned size={17}/><div><strong>Navigator Simulator</strong><small>Demo only · routes movement through the Navigator gateway ingestion service.</small></div></span><StatusBadge tone={running?"success":"neutral"}>{running?"RUNNING":"STOPPED"}</StatusBadge></div><p className="muted">Sharma Wedding · Amaan moving, Rehan live, Farhan stale, Sarah paused.</p><SAButton variant={running?"danger":"primary"} onClick={()=>action.mutate(!running)} disabled={action.isPending}>{running?"Stop simulation":"Start simulation"}</SAButton></SABentoCard>}
+function NavigatorSimulator() {
+  const client = useQueryClient(),
+    [running, setRunning] = useState(false);
+  const action = useMutation({
+    mutationFn: (next: boolean) =>
+      navigatorApi.simulator(next ? "start" : "stop"),
+    onSuccess: (_, next) => {
+      setRunning(next);
+      client.invalidateQueries({ queryKey: ["navigator", "live"] });
+    },
+  });
+  return (
+    <SABentoCard>
+      <div className="settings-section-title">
+        <span>
+          <MapPinned size={17} />
+          <div>
+            <strong>Navigator Simulator</strong>
+            <small>
+              Demo only · routes movement through the Navigator gateway
+              ingestion service.
+            </small>
+          </div>
+        </span>
+        <StatusBadge tone={running ? "success" : "neutral"}>
+          {running ? "RUNNING" : "STOPPED"}
+        </StatusBadge>
+      </div>
+      <p className="muted">
+        Sharma Wedding · Amaan moving, Rehan live, Farhan stale, Sarah paused.
+      </p>
+      <SAButton
+        variant={running ? "danger" : "primary"}
+        onClick={() => action.mutate(!running)}
+        disabled={action.isPending}
+      >
+        {running ? "Stop simulation" : "Start simulation"}
+      </SAButton>
+    </SABentoCard>
+  );
+}
 const label = (value: string) =>
   value
     .toLowerCase()

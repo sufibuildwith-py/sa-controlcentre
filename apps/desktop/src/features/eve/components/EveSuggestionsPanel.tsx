@@ -1,5 +1,12 @@
 import React, { useState } from "react";
-import { ChevronDown, ChevronUp, Sparkles, RefreshCw, X, ArrowUpRight } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  Sparkles,
+  RefreshCw,
+  X,
+  ArrowUpRight,
+} from "lucide-react";
 import type { EveSuggestion } from "../eve.types";
 
 interface EveSuggestionsPanelProps {
@@ -17,7 +24,9 @@ export const EveSuggestionsPanel: React.FC<EveSuggestionsPanelProps> = ({
   onInvestigate,
   onRefresh,
 }) => {
-  const [expandedEvidence, setExpandedEvidence] = useState<Record<string, boolean>>({});
+  const [expandedEvidence, setExpandedEvidence] = useState<
+    Record<string, boolean>
+  >({});
   const [collapsed, setCollapsed] = useState(false);
 
   const toggleEvidence = (id: string) => {
@@ -64,7 +73,10 @@ export const EveSuggestionsPanel: React.FC<EveSuggestionsPanelProps> = ({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-1)" }}>
+              <span
+                className="text-xs font-semibold uppercase tracking-wider"
+                style={{ color: "var(--text-1)" }}
+              >
                 Continuous Intelligence
               </span>
               <span
@@ -94,7 +106,9 @@ export const EveSuggestionsPanel: React.FC<EveSuggestionsPanelProps> = ({
                 backgroundColor: "transparent",
               }}
             >
-              <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+              <RefreshCw
+                className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
+              />
             </button>
           )}
           <button
@@ -107,7 +121,11 @@ export const EveSuggestionsPanel: React.FC<EveSuggestionsPanelProps> = ({
             }}
             title={collapsed ? "Expand panel" : "Collapse panel"}
           >
-            {collapsed ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+            {collapsed ? (
+              <ChevronDown className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronUp className="h-3.5 w-3.5" />
+            )}
           </button>
         </div>
       </div>
@@ -122,7 +140,8 @@ export const EveSuggestionsPanel: React.FC<EveSuggestionsPanelProps> = ({
                 color: "var(--text-2)",
               }}
             >
-              No proactive suggestions at this time. EVE is observing canonical system mutations.
+              No proactive suggestions at this time. EVE is observing canonical
+              system mutations.
             </div>
           ) : (
             activeSuggestions.map((s) => {
@@ -136,7 +155,9 @@ export const EveSuggestionsPanel: React.FC<EveSuggestionsPanelProps> = ({
                   className="rounded-xl border p-3.5 transition-colors"
                   style={{
                     backgroundColor: "var(--surface-soft)",
-                    borderColor: isHigh ? "var(--danger, #ef4444)" : "var(--border)",
+                    borderColor: isHigh
+                      ? "var(--danger, #ef4444)"
+                      : "var(--border)",
                   }}
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -145,18 +166,28 @@ export const EveSuggestionsPanel: React.FC<EveSuggestionsPanelProps> = ({
                         <span
                           className="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider"
                           style={{
-                            backgroundColor: isHigh ? "rgba(239, 68, 68, 0.15)" : "var(--surface)",
-                            color: isHigh ? "var(--danger, #ef4444)" : "var(--text-2)",
+                            backgroundColor: isHigh
+                              ? "rgba(239, 68, 68, 0.15)"
+                              : "var(--surface)",
+                            color: isHigh
+                              ? "var(--danger, #ef4444)"
+                              : "var(--text-2)",
                             border: "1px solid var(--border)",
                           }}
                         >
                           {s.priority}
                         </span>
-                        <span className="text-xs font-semibold" style={{ color: "var(--text-1)" }}>
+                        <span
+                          className="text-xs font-semibold"
+                          style={{ color: "var(--text-1)" }}
+                        >
                           {s.title}
                         </span>
                       </div>
-                      <p className="text-xs leading-relaxed" style={{ color: "var(--text-2)" }}>
+                      <p
+                        className="text-xs leading-relaxed"
+                        style={{ color: "var(--text-2)" }}
+                      >
                         {s.summary}
                       </p>
                     </div>
@@ -202,9 +233,17 @@ export const EveSuggestionsPanel: React.FC<EveSuggestionsPanelProps> = ({
                           }}
                         >
                           {s.evidence.map((item, idx) => (
-                            <div key={idx} className="flex items-center justify-between text-[11px]">
-                              <span style={{ color: "var(--text-2)" }}>{item.label}</span>
-                              <span className="font-medium font-mono" style={{ color: "var(--text-1)" }}>
+                            <div
+                              key={idx}
+                              className="flex items-center justify-between text-[11px]"
+                            >
+                              <span style={{ color: "var(--text-2)" }}>
+                                {item.label}
+                              </span>
+                              <span
+                                className="font-medium font-mono"
+                                style={{ color: "var(--text-1)" }}
+                              >
                                 {item.value}
                               </span>
                             </div>
@@ -215,7 +254,10 @@ export const EveSuggestionsPanel: React.FC<EveSuggestionsPanelProps> = ({
                   )}
 
                   {/* Actions */}
-                  <div className="mt-3 flex items-center justify-end gap-2 border-t pt-2.5" style={{ borderColor: "var(--border)" }}>
+                  <div
+                    className="mt-3 flex items-center justify-end gap-2 border-t pt-2.5"
+                    style={{ borderColor: "var(--border)" }}
+                  >
                     <button
                       type="button"
                       onClick={() => onDismiss(s.id)}

@@ -119,7 +119,12 @@ export function MakeTeamModal({
       description="Organize field crew into a dedicated operational team for a specific shoot or event."
     >
       <div className="navigator-make-team-form">
-        <FormField label="Team Name *" error={!teamName.trim() && error ? "Team name is required" : undefined}>
+        <FormField
+          label="Team Name *"
+          error={
+            !teamName.trim() && error ? "Team name is required" : undefined
+          }
+        >
           <input
             aria-label="Team Name"
             placeholder="e.g. Camera Crew, Sound Crew, Lighting Crew"
@@ -185,9 +190,13 @@ export function MakeTeamModal({
 
           <div className="navigator-team-members-list" role="list">
             {employeesQuery.isPending ? (
-              <p className="muted" style={{ padding: "12px" }}>Loading employees...</p>
+              <p className="muted" style={{ padding: "12px" }}>
+                Loading employees...
+              </p>
             ) : !filteredEmployees.length ? (
-              <p className="muted" style={{ padding: "12px" }}>No matching employees found.</p>
+              <p className="muted" style={{ padding: "12px" }}>
+                No matching employees found.
+              </p>
             ) : (
               filteredEmployees.map((emp) => {
                 const isSelected = selectedIds.has(emp.id);

@@ -1,5 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { PeoplePage } from "./PeoplePage";
@@ -79,13 +85,17 @@ describe("PeoplePage — Summary Strip & Enriched Card", () => {
     });
 
     // Summary strip
-    const summaryStrip = container.querySelector(".people-summary-strip") as HTMLElement;
+    const summaryStrip = container.querySelector(
+      ".people-summary-strip",
+    ) as HTMLElement;
     expect(summaryStrip).toBeInTheDocument();
     expect(within(summaryStrip).getByText("Active")).toBeInTheDocument();
     expect(within(summaryStrip).getByText("14")).toBeInTheDocument();
     expect(within(summaryStrip).getByText("On Leave")).toBeInTheDocument();
     expect(within(summaryStrip).getByText("2")).toBeInTheDocument();
-    expect(within(summaryStrip).getByText("Attendance today")).toBeInTheDocument();
+    expect(
+      within(summaryStrip).getByText("Attendance today"),
+    ).toBeInTheDocument();
     expect(within(summaryStrip).getByText("11")).toBeInTheDocument();
     expect(within(summaryStrip).getByText("Open tasks")).toBeInTheDocument();
     expect(within(summaryStrip).getByText("28")).toBeInTheDocument();

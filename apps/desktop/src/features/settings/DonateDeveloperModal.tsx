@@ -52,17 +52,17 @@ export function DonateDeveloperModal({
         if (err instanceof ApiError) {
           if (err.code === "FINANCE_ACCESS_RATE_LIMITED") {
             setErrorMessage(
-              "Too many unlock attempts. Rate limited for 15 minutes."
+              "Too many unlock attempts. Rate limited for 15 minutes.",
             );
           } else if (err.code === "FORBIDDEN") {
             setErrorMessage(
-              "Access denied. Only workspace owners can unlock financial surfaces."
+              "Access denied. Only workspace owners can unlock financial surfaces.",
             );
           } else {
             // Wrong PIN: trigger simulated donation feedback
             setDonationSimulated(true);
             setErrorMessage(
-              "Invalid authorization code. Finance access was not granted."
+              "Invalid authorization code. Finance access was not granted.",
             );
           }
         } else {
@@ -80,7 +80,15 @@ export function DonateDeveloperModal({
       title="Developer Donation"
       description="Support the developer with a simulated $2 UPI contribution."
     >
-      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "16px", marginTop: "8px" }}>
+      <form
+        onSubmit={handleSubmit}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "16px",
+          marginTop: "8px",
+        }}
+      >
         {donationSimulated && (
           <div
             style={{
@@ -98,7 +106,13 @@ export function DonateDeveloperModal({
             <Sparkles size={18} style={{ color: "#10b981", flexShrink: 0 }} />
             <div>
               <strong>🎉 ₹160 ($2) donated to the developer!</strong>
-              <div style={{ fontSize: "11.5px", color: "var(--text-2)", marginTop: "2px" }}>
+              <div
+                style={{
+                  fontSize: "11.5px",
+                  color: "var(--text-2)",
+                  marginTop: "2px",
+                }}
+              >
                 Thank you for your generous simulated support!
               </div>
             </div>
@@ -209,7 +223,14 @@ export function DonateDeveloperModal({
           </div>
         </div>
 
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "4px" }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: "8px",
+            marginTop: "4px",
+          }}
+        >
           <SAButton
             type="button"
             variant="ghost"

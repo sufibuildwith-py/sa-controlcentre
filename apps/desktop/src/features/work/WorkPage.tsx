@@ -41,10 +41,12 @@ export function WorkPage() {
     (new URLSearchParams(location.search).get("view")?.toUpperCase() as View) ||
     "TODAY";
   const [view, setView] = useState<View>(
-    ["TODAY", "TEAM", "UPCOMING", "OVERDUE", "COMPLETED"].includes(initialView)
-      ? initialView
-      : "TODAY",
-  ),
+      ["TODAY", "TEAM", "UPCOMING", "OVERDUE", "COMPLETED"].includes(
+        initialView,
+      )
+        ? initialView
+        : "TODAY",
+    ),
     [open, setOpen] = useState(false),
     [editing, setEditing] = useState<WorkTask | null>(null),
     [selected, setSelected] = useState<WorkTask | null>(null),
@@ -55,7 +57,10 @@ export function WorkPage() {
     const params = new URLSearchParams(location.search);
     if (params.get("create") === "task") setOpen(true);
     const v = params.get("view")?.toUpperCase() as View | null;
-    if (v && ["TODAY", "TEAM", "UPCOMING", "OVERDUE", "COMPLETED"].includes(v)) {
+    if (
+      v &&
+      ["TODAY", "TEAM", "UPCOMING", "OVERDUE", "COMPLETED"].includes(v)
+    ) {
       setView(v);
     }
   }, [location.search]);

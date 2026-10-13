@@ -873,7 +873,8 @@ export function CommandPage() {
               {d.recentFinancialActivity.length > 0 ? (
                 d.recentFinancialActivity.map((tx) => {
                   const isPositive =
-                    tx.type.includes("RECEIPT") || tx.type === "INVOICE_PAYMENT";
+                    tx.type.includes("RECEIPT") ||
+                    tx.type === "INVOICE_PAYMENT";
                   const entity =
                     tx.counterpartyName ||
                     tx.employeeName ||
@@ -938,56 +939,54 @@ export function CommandPage() {
 
         <div className="command-dock-separator" aria-hidden="true" />
 
-        {(
-          [
-            {
-              id: "new-production",
-              label: "New Production",
-              hint: "Productions",
-              icon: <Clapperboard size={14} />,
-              route: "/productions?create=production",
-            },
-            ...(d.money
-              ? [
-                  {
-                    id: "record-receipt",
-                    label: "Record Receipt",
-                    hint: "Finance · Production Receipt",
-                    icon: <ArrowDownLeft size={14} />,
-                    route: "/finance?tab=PRODUCTIONS",
-                  },
-                  {
-                    id: "log-expense",
-                    label: "Log Expense",
-                    hint: "Finance overview",
-                    icon: <ReceiptText size={14} />,
-                    route: "/finance",
-                  },
-                  {
-                    id: "disburse-salary",
-                    label: "Disburse Salary",
-                    hint: "Payroll",
-                    icon: <Wallet size={14} />,
-                    route: "/payroll",
-                  },
-                  {
-                    id: "create-bill",
-                    label: "Create Bill",
-                    hint: "Billing",
-                    icon: <FileText size={14} />,
-                    route: "/billing",
-                  },
-                  {
-                    id: "finance-console",
-                    label: "Finance Console",
-                    hint: "Finance overview",
-                    icon: <PieChart size={14} />,
-                    route: "/finance",
-                  },
-                ]
-              : []),
-          ]
-        ).map((action, i) => (
+        {[
+          {
+            id: "new-production",
+            label: "New Production",
+            hint: "Productions",
+            icon: <Clapperboard size={14} />,
+            route: "/productions?create=production",
+          },
+          ...(d.money
+            ? [
+                {
+                  id: "record-receipt",
+                  label: "Record Receipt",
+                  hint: "Finance · Production Receipt",
+                  icon: <ArrowDownLeft size={14} />,
+                  route: "/finance?tab=PRODUCTIONS",
+                },
+                {
+                  id: "log-expense",
+                  label: "Log Expense",
+                  hint: "Finance overview",
+                  icon: <ReceiptText size={14} />,
+                  route: "/finance",
+                },
+                {
+                  id: "disburse-salary",
+                  label: "Disburse Salary",
+                  hint: "Payroll",
+                  icon: <Wallet size={14} />,
+                  route: "/payroll",
+                },
+                {
+                  id: "create-bill",
+                  label: "Create Bill",
+                  hint: "Billing",
+                  icon: <FileText size={14} />,
+                  route: "/billing",
+                },
+                {
+                  id: "finance-console",
+                  label: "Finance Console",
+                  hint: "Finance overview",
+                  icon: <PieChart size={14} />,
+                  route: "/finance",
+                },
+              ]
+            : []),
+        ].map((action, i) => (
           <motion.div
             key={action.id}
             initial={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 4 }}

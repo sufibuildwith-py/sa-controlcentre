@@ -99,7 +99,12 @@ export interface Employee360View {
 }
 export type EmployeeInput = Omit<
   Employee,
-  "id" | "createdAt" | "updatedAt" | "todayAttendance" | "activeTasksCount" | "activeProductionsCount"
+  | "id"
+  | "createdAt"
+  | "updatedAt"
+  | "todayAttendance"
+  | "activeTasksCount"
+  | "activeProductionsCount"
 >;
 export interface AttendanceRecord {
   id: string;

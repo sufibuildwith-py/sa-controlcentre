@@ -245,7 +245,9 @@ export function SACommandPalette({
                             icon={WalletCards}
                             onSelect={() =>
                               act(() =>
-                                onNavigate(`/people/${employee.id}?tab=payroll`),
+                                onNavigate(
+                                  `/people/${employee.id}?tab=payroll`,
+                                ),
                               )
                             }
                           >

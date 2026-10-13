@@ -60,7 +60,9 @@ describe("FinanceControlPlane", () => {
     renderPlane();
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "Financial Control" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("heading", { name: "Financial Control" }),
+      ).toBeInTheDocument();
     });
 
     expect(screen.getByText("WARNING")).toBeInTheDocument();
@@ -69,7 +71,11 @@ describe("FinanceControlPlane", () => {
     expect(screen.getByText("Invoice receivables")).toBeInTheDocument();
     expect(screen.getByText("Equipment payables")).toBeInTheDocument();
     expect(screen.getByText("3")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Open reconciliation/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Rebuild positions/ })).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /Open reconciliation/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Rebuild positions/ }),
+    ).toBeInTheDocument();
   });
 });

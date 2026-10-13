@@ -145,14 +145,22 @@ export function EvePage() {
     onSuccess: (data: PlanExecutionResponse) => {
       setMessages((prev) => [...prev, data.message]);
       setTrace(data.trace);
-      setActivePlan((prev) => (prev ? { ...prev, status: "COMPLETED", actions: data.actions } : null));
+      setActivePlan((prev) =>
+        prev ? { ...prev, status: "COMPLETED", actions: data.actions } : null,
+      );
       setStatus("COMPLETED");
       sessionQuery.refetch();
     },
     onError: (err: any) => {
       setStatus("FAILED");
-      if (err.code === "STALE_PLAN" || err.message?.includes("stale") || err.message?.includes("Preconditions changed")) {
-        setActivePlan((prev) => (prev ? { ...prev, status: "STALE_PLAN" } : null));
+      if (
+        err.code === "STALE_PLAN" ||
+        err.message?.includes("stale") ||
+        err.message?.includes("Preconditions changed")
+      ) {
+        setActivePlan((prev) =>
+          prev ? { ...prev, status: "STALE_PLAN" } : null,
+        );
       }
       setMessages((prev) => [
         ...prev,
@@ -182,7 +190,8 @@ export function EvePage() {
           id: `cancel-${Date.now()}`,
           sessionId: activeSessionId ?? "cancel",
           role: "ASSISTANT",
-          content: "Plan was cancelled. No changes were made to system of record.",
+          content:
+            "Plan was cancelled. No changes were made to system of record.",
           createdAt: new Date().toISOString(),
         },
       ]);
@@ -234,7 +243,8 @@ export function EvePage() {
       setReasoning([]);
       setStatus("READY");
       const plans = await eveApi.listPlansForSession(sessionId);
-      const pendingPlan = plans.find((p) => p.status === "PROPOSED") || plans[0] || null;
+      const pendingPlan =
+        plans.find((p) => p.status === "PROPOSED") || plans[0] || null;
       if (pendingPlan) {
         setActivePlan(pendingPlan);
       }
@@ -296,7 +306,8 @@ export function EvePage() {
               <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
                 <span className="w-2 h-2 rounded-full bg-emerald-500" />
                 <span className="font-semibold">
-                  Local Intelligence ({statusQuery.data.modelName || "Qwen3-4B-Thinking-2507"})
+                  Local Intelligence (
+                  {statusQuery.data.modelName || "Qwen3-4B-Thinking-2507"})
                 </span>
                 {statusQuery.data.modelVersion && (
                   <span className="text-[10px] text-[var(--text-3)] font-mono">
@@ -308,7 +319,9 @@ export function EvePage() {
             {statusQuery.data.status === "UNAVAILABLE" && (
               <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400">
                 <span className="w-2 h-2 rounded-full bg-rose-500" />
-                <span>EVE&apos;s local model isn&apos;t available right now</span>
+                <span>
+                  EVE&apos;s local model isn&apos;t available right now
+                </span>
               </div>
             )}
           </div>
@@ -362,7 +375,9 @@ export function EvePage() {
             {/* Continuous Intelligence Suggestions */}
             <EveSuggestionsPanel
               suggestions={suggestionsQuery.data ?? []}
-              loading={suggestionsQuery.isFetching || evaluateMutation.isPending}
+              loading={
+                suggestionsQuery.isFetching || evaluateMutation.isPending
+              }
               onDismiss={(id) => dismissMutation.mutate(id)}
               onInvestigate={(investigatePrompt) => {
                 setPrompt(investigatePrompt);
@@ -402,7 +417,9 @@ export function EvePage() {
 
               {/* Suggestions */}
               <div className="flex flex-wrap items-center gap-2 pt-1">
-                <span className="text-xs text-[var(--text-3)]">Suggestions:</span>
+                <span className="text-xs text-[var(--text-3)]">
+                  Suggestions:
+                </span>
                 {SUGGESTIONS.map((s) => (
                   <button
                     key={s}
@@ -499,17 +516,19 @@ export function EvePage() {
                     )}
 
                     {/* Active EvePlan Card if present on latest assistant message */}
-                    {msg.role === "ASSISTANT" && activePlan && index === messages.length - 1 && (
-                      <div className="mt-4">
-                        <EvePlanCard
-                          plan={activePlan}
-                          onConfirm={(p) => confirmMutation.mutate(p)}
-                          onCancel={(p) => cancelMutation.mutate(p)}
-                          isConfirming={confirmMutation.isPending}
-                          isCancelling={cancelMutation.isPending}
-                        />
-                      </div>
-                    )}
+                    {msg.role === "ASSISTANT" &&
+                      activePlan &&
+                      index === messages.length - 1 && (
+                        <div className="mt-4">
+                          <EvePlanCard
+                            plan={activePlan}
+                            onConfirm={(p) => confirmMutation.mutate(p)}
+                            onCancel={(p) => cancelMutation.mutate(p)}
+                            isConfirming={confirmMutation.isPending}
+                            isCancelling={cancelMutation.isPending}
+                          />
+                        </div>
+                      )}
                   </div>
                 ))}
                 {queryMutation.isPending && (
@@ -544,7 +563,8 @@ export function EvePage() {
 
             {trace.length === 0 ? (
               <p className="text-xs text-[var(--text-3)] italic py-4">
-                No activity yet. Execute a query to view live deterministic trace events.
+                No activity yet. Execute a query to view live deterministic
+                trace events.
               </p>
             ) : (
               <div className="flex flex-col gap-2.5 max-h-[300px] overflow-y-auto pr-1">
@@ -566,8 +586,8 @@ export function EvePage() {
                             t.status === "OK"
                               ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
                               : t.status === "BLOCKED"
-                              ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
-                              : "bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20"
+                                ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                                : "bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20"
                           }`}
                         >
                           {t.eventType}
@@ -647,14 +667,16 @@ export function EvePage() {
                                 ev.domain === "FINANCE"
                                   ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
                                   : ev.domain === "PRODUCTION"
-                                  ? "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20"
-                                  : ev.domain === "EQUIPMENT" || ev.domain === "HEADQUARTERS"
-                                  ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
-                                  : ev.domain === "WORK" || ev.domain === "TASK"
-                                  ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20"
-                                  : ev.domain === "CALENDAR"
-                                  ? "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20"
-                                  : "bg-[var(--surface)] text-[var(--text-2)] border-[var(--border)]"
+                                    ? "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20"
+                                    : ev.domain === "EQUIPMENT" ||
+                                        ev.domain === "HEADQUARTERS"
+                                      ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
+                                      : ev.domain === "WORK" ||
+                                          ev.domain === "TASK"
+                                        ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20"
+                                        : ev.domain === "CALENDAR"
+                                          ? "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20"
+                                          : "bg-[var(--surface)] text-[var(--text-2)] border-[var(--border)]"
                               }`}
                             >
                               {ev.domain}
@@ -672,9 +694,14 @@ export function EvePage() {
                 {/* Memory & Knowledge Indicators */}
                 {context.memoryHints && context.memoryHints.length > 0 && (
                   <div className="flex flex-col gap-1 p-2 rounded-lg bg-[var(--surface-soft)] border border-[var(--border)] text-[11px]">
-                    <span className="font-semibold text-[var(--text-2)]">Memory Hint Active</span>
+                    <span className="font-semibold text-[var(--text-2)]">
+                      Memory Hint Active
+                    </span>
                     {context.memoryHints.map((m) => (
-                      <span key={m.id} className="text-[var(--text-1)] font-mono">
+                      <span
+                        key={m.id}
+                        className="text-[var(--text-1)] font-mono"
+                      >
                         "{m.term}" → {m.canonicalName ?? m.canonicalType}
                       </span>
                     ))}
@@ -689,7 +716,8 @@ export function EvePage() {
               </div>
             ) : (
               <p className="text-xs text-[var(--text-3)] italic py-2">
-                Context envelope will populate automatically with verified PostgreSQL records when a query resolves.
+                Context envelope will populate automatically with verified
+                PostgreSQL records when a query resolves.
               </p>
             )}
           </SABentoCard>
@@ -710,7 +738,8 @@ export function EvePage() {
 
             {reasoning.length === 0 ? (
               <p className="text-xs text-[var(--text-3)] italic py-2">
-                Operational reasoning trace will appear here when cognitive runtime executes multi-step analysis.
+                Operational reasoning trace will appear here when cognitive
+                runtime executes multi-step analysis.
               </p>
             ) : (
               <div className="flex flex-col gap-2.5 max-h-[350px] overflow-y-auto pr-1">
@@ -732,10 +761,10 @@ export function EvePage() {
                             step.status === "COMPLETED"
                               ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
                               : step.status === "IN_PROGRESS"
-                              ? "bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20"
-                              : step.status === "SKIPPED"
-                              ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
-                              : "bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20"
+                                ? "bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20"
+                                : step.status === "SKIPPED"
+                                  ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                                  : "bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20"
                           }`}
                         >
                           {step.status}

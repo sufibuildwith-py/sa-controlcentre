@@ -146,7 +146,9 @@ export function NavigatorRoster({
         <div className="navigator-roster-head">
           <div>
             <h2>Team</h2>
-            <span className="navigator-roster-count">{items.length} paired</span>
+            <span className="navigator-roster-count">
+              {items.length} paired
+            </span>
           </div>
           <div className="navigator-roster-actions">
             <SAButton
@@ -226,7 +228,10 @@ export function NavigatorRoster({
 
         <div className="navigator-roster-list" role="list">
           {grouped.productions.map((prod) => (
-            <div key={prod.productionTitle} className="navigator-production-group">
+            <div
+              key={prod.productionTitle}
+              className="navigator-production-group"
+            >
               <div className="navigator-production-title">
                 <span>{prod.productionTitle.toUpperCase()}</span>
               </div>
@@ -238,13 +243,16 @@ export function NavigatorRoster({
                     <button
                       type="button"
                       className={`navigator-team-header-btn ${isTeamFocused ? "focused" : ""}`}
-                      onClick={() => handleTeamClick(team.teamName, team.members)}
+                      onClick={() =>
+                        handleTeamClick(team.teamName, team.members)
+                      }
                       title={`Click to ${isTeamFocused ? "unfocus" : "focus"} ${team.teamName} on map`}
                     >
                       <Users size={13} />
                       <strong>{team.teamName}</strong>
                       <span className="navigator-team-count">
-                        {team.members.length} {team.members.length === 1 ? "member" : "members"}
+                        {team.members.length}{" "}
+                        {team.members.length === 1 ? "member" : "members"}
                       </span>
                     </button>
 
@@ -323,7 +331,8 @@ function EmployeeRow({
         </strong>
         <small className="navigator-employee-sub">
           {item.roleTitle ?? "Field team"}
-          {item.teamName ? ` · ${item.teamName}` : ""} · {ageLabel(item.recordedAt)}
+          {item.teamName ? ` · ${item.teamName}` : ""} ·{" "}
+          {ageLabel(item.recordedAt)}
         </small>
       </span>
       <StatusBadge

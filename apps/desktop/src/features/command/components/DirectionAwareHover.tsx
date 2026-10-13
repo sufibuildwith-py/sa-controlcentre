@@ -1,5 +1,10 @@
 import { useRef, useState, type MouseEvent, type ReactNode } from "react";
-import { motion, useReducedMotion, AnimatePresence, type HTMLMotionProps } from "motion/react";
+import {
+  motion,
+  useReducedMotion,
+  AnimatePresence,
+  type HTMLMotionProps,
+} from "motion/react";
 
 type Direction = "top" | "bottom" | "left" | "right";
 
@@ -29,8 +34,10 @@ export function DirectionAwareHover({
   const getDirection = (e: MouseEvent<HTMLDivElement>): Direction => {
     if (!ref.current) return "top";
     const { width, height, top, left } = ref.current.getBoundingClientRect();
-    const x = e.clientX - left - (width / 2) * (width > height ? height / width : 1);
-    const y = e.clientY - top - (height / 2) * (height > width ? width / height : 1);
+    const x =
+      e.clientX - left - (width / 2) * (width > height ? height / width : 1);
+    const y =
+      e.clientY - top - (height / 2) * (height > width ? width / height : 1);
     const d = Math.round(Math.atan2(y, x) / 1.57079633 + 5) % 4;
 
     switch (d) {

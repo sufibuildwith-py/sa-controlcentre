@@ -541,8 +541,8 @@ export function ProductionDetailPage() {
           <h1>{p.title}</h1>
           <p>
             <CalendarDays size={14} />
-            {longDate(p.eventDate)} · {p.startTime ? p.startTime.slice(0, 5) : "TBD"}{" "}
-            <MapPin size={14} />
+            {longDate(p.eventDate)} ·{" "}
+            {p.startTime ? p.startTime.slice(0, 5) : "TBD"} <MapPin size={14} />
             {p.venueName}
           </p>
         </div>
@@ -629,10 +629,22 @@ export function ProductionDetailPage() {
             {/* Top Brief & Status Grid */}
             <SABentoGrid className="production-detail-grid">
               <SABentoCard>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                  }}
+                >
                   <div>
                     <h3>Operational Brief</h3>
-                    <p style={{ margin: "6px 0 12px", color: "var(--text-2)", fontSize: "13.5px" }}>
+                    <p
+                      style={{
+                        margin: "6px 0 12px",
+                        color: "var(--text-2)",
+                        fontSize: "13.5px",
+                      }}
+                    >
                       {p.description || "No production notes yet."}
                     </p>
                   </div>
@@ -660,11 +672,16 @@ export function ProductionDetailPage() {
                 <dl>
                   <div>
                     <dt>Client</dt>
-                    <dd><strong>{p.clientName}</strong></dd>
+                    <dd>
+                      <strong>{p.clientName}</strong>
+                    </dd>
                   </div>
                   <div>
                     <dt>Venue</dt>
-                    <dd>{p.venueName} {p.venueAddress ? `(${p.venueAddress})` : ""}</dd>
+                    <dd>
+                      {p.venueName}{" "}
+                      {p.venueAddress ? `(${p.venueAddress})` : ""}
+                    </dd>
                   </div>
                   <div>
                     <dt>Date</dt>
@@ -703,18 +720,30 @@ export function ProductionDetailPage() {
                       setScheduleModalOpen(true);
                     }}
                   >
-                    {p.startTime && p.endTime ? "Edit schedule" : "+ Add schedule"}
+                    {p.startTime && p.endTime
+                      ? "Edit schedule"
+                      : "+ Add schedule"}
                   </SAButton>
                 </div>
               </div>
               {p.startTime && p.endTime ? (
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
                   <div>
                     <strong style={{ fontSize: "16px" }}>
                       {p.startTime.slice(0, 5)} – {p.endTime.slice(0, 5)}
                     </strong>
-                    <p className="muted" style={{ margin: "4px 0 0", fontSize: "12px" }}>
-                      {longDate(p.eventDate)} · Synchronized with calendar conflict engine
+                    <p
+                      className="muted"
+                      style={{ margin: "4px 0 0", fontSize: "12px" }}
+                    >
+                      {longDate(p.eventDate)} · Synchronized with calendar
+                      conflict engine
                     </p>
                   </div>
                   <StatusBadge tone="success">Calendar Synced</StatusBadge>
@@ -743,7 +772,9 @@ export function ProductionDetailPage() {
               <div className="production-section-header">
                 <h3>
                   <CheckSquare size={16} />
-                  Operational Checklist ({tasks.data?.filter((t) => t.status === "DONE").length ?? 0}/{tasks.data?.length ?? 0})
+                  Operational Checklist (
+                  {tasks.data?.filter((t) => t.status === "DONE").length ?? 0}/
+                  {tasks.data?.length ?? 0})
                 </h3>
                 <div className="production-section-actions">
                   <SAButton size="sm" onClick={() => setTaskModalOpen(true)}>
@@ -751,7 +782,7 @@ export function ProductionDetailPage() {
                   </SAButton>
                 </div>
               </div>
-              {(!tasks.data || tasks.data.length === 0) ? (
+              {!tasks.data || tasks.data.length === 0 ? (
                 <EmptyState
                   title="No tasks on the checklist"
                   description="Add tasks to track venue setup, sound check, load-in and transport."
@@ -780,7 +811,9 @@ export function ProductionDetailPage() {
                               })
                             }
                           />
-                          <span className={`production-checklist-label ${isDone ? "completed" : ""}`}>
+                          <span
+                            className={`production-checklist-label ${isDone ? "completed" : ""}`}
+                          >
                             {t.title}
                           </span>
                         </div>
@@ -789,7 +822,10 @@ export function ProductionDetailPage() {
                             <StatusBadge tone="danger">Overdue</StatusBadge>
                           )}
                           {t.assigneeName && (
-                            <span className="muted" style={{ fontSize: "11px" }}>
+                            <span
+                              className="muted"
+                              style={{ fontSize: "11px" }}
+                            >
                               {t.assigneeName}
                             </span>
                           )}
@@ -839,7 +875,13 @@ export function ProductionDetailPage() {
                     <div key={m.id} className="production-crew-chip">
                       <div>
                         <strong>{m.employeeName}</strong>
-                        <span style={{ fontSize: "11px", color: "var(--text-3)", marginLeft: "6px" }}>
+                        <span
+                          style={{
+                            fontSize: "11px",
+                            color: "var(--text-3)",
+                            marginLeft: "6px",
+                          }}
+                        >
                           ({m.productionRole})
                         </span>
                       </div>
@@ -852,7 +894,9 @@ export function ProductionDetailPage() {
                               : "neutral"
                         }
                       >
-                        {m.conflictOverridden ? "Conflict Overridden" : m.assignmentStatus}
+                        {m.conflictOverridden
+                          ? "Conflict Overridden"
+                          : m.assignmentStatus}
                       </StatusBadge>
                       {m.assignmentStatus === "PENDING" && (
                         <div style={{ display: "flex", gap: "4px" }}>
@@ -883,8 +927,17 @@ export function ProductionDetailPage() {
                       <button
                         type="button"
                         aria-label={`Remove crew ${m.employeeName}`}
-                        style={{ background: "none", border: "none", color: "var(--text-3)", cursor: "pointer", display: "flex", alignItems: "center" }}
-                        onClick={() => removeMemberMutation.mutate(m.employeeId)}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          color: "var(--text-3)",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                        }}
+                        onClick={() =>
+                          removeMemberMutation.mutate(m.employeeId)
+                        }
                       >
                         <X size={13} />
                       </button>
@@ -920,7 +973,7 @@ export function ProductionDetailPage() {
                   </SAButton>
                 </div>
               </div>
-              {(!p.equipment || p.equipment.length === 0) ? (
+              {!p.equipment || p.equipment.length === 0 ? (
                 <EmptyState
                   title="No equipment assigned"
                   description="Reserve sound, lighting, video and stage equipment from Headquarters."
@@ -943,17 +996,39 @@ export function ProductionDetailPage() {
                     <div key={eq.id} className="production-equipment-card">
                       <div>
                         <strong>{eq.equipmentName}</strong>
-                        <div style={{ fontSize: "11px", color: "var(--text-3)", marginTop: "2px" }}>
-                          {eq.internalCode ? `${eq.internalCode} · ` : ""}{eq.quantity} {eq.unitSymbol || "units"}
+                        <div
+                          style={{
+                            fontSize: "11px",
+                            color: "var(--text-3)",
+                            marginTop: "2px",
+                          }}
+                        >
+                          {eq.internalCode ? `${eq.internalCode} · ` : ""}
+                          {eq.quantity} {eq.unitSymbol || "units"}
                         </div>
                       </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "8px",
+                        }}
+                      >
                         <StatusBadge tone="neutral">{eq.status}</StatusBadge>
                         <button
                           type="button"
                           aria-label={`Remove equipment ${eq.equipmentName}`}
-                          style={{ background: "none", border: "none", color: "var(--text-3)", cursor: "pointer", display: "flex", alignItems: "center" }}
-                          onClick={() => removeEquipmentMutation.mutate(eq.equipmentId)}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "var(--text-3)",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                          }}
+                          onClick={() =>
+                            removeEquipmentMutation.mutate(eq.equipmentId)
+                          }
                         >
                           <X size={13} />
                         </button>
@@ -981,7 +1056,15 @@ export function ProductionDetailPage() {
                 </div>
               </div>
               {p.description ? (
-                <p style={{ margin: 0, whiteSpace: "pre-wrap", lineHeight: 1.5, fontSize: "13.5px", color: "var(--text-2)" }}>
+                <p
+                  style={{
+                    margin: 0,
+                    whiteSpace: "pre-wrap",
+                    lineHeight: 1.5,
+                    fontSize: "13.5px",
+                    color: "var(--text-2)",
+                  }}
+                >
                   {p.description}
                 </p>
               ) : (
@@ -1016,23 +1099,44 @@ export function ProductionDetailPage() {
                 </div>
                 <SABentoGrid className="production-detail-grid">
                   <SABentoCard>
-                    <span className="muted" style={{ fontSize: "11px" }}>Contracted Revenue</span>
-                    <strong className="metric">{financeAmount(finance.data.production.contracted || 0)}</strong>
+                    <span className="muted" style={{ fontSize: "11px" }}>
+                      Contracted Revenue
+                    </span>
+                    <strong className="metric">
+                      {financeAmount(finance.data.production.contracted || 0)}
+                    </strong>
                   </SABentoCard>
                   <SABentoCard>
-                    <span className="muted" style={{ fontSize: "11px" }}>Received Advance</span>
-                    <strong className="metric" style={{ color: "var(--success, #22c55e)" }}>
+                    <span className="muted" style={{ fontSize: "11px" }}>
+                      Received Advance
+                    </span>
+                    <strong
+                      className="metric"
+                      style={{ color: "var(--success, #22c55e)" }}
+                    >
                       {financeAmount(finance.data.received || 0)}
                     </strong>
                   </SABentoCard>
                   <SABentoCard>
-                    <span className="muted" style={{ fontSize: "11px" }}>Outstanding Balance</span>
-                    <strong className="metric" style={{ color: (finance.data.outstanding || 0) > 0 ? "var(--warning, #f59e0b)" : "var(--text-1)" }}>
+                    <span className="muted" style={{ fontSize: "11px" }}>
+                      Outstanding Balance
+                    </span>
+                    <strong
+                      className="metric"
+                      style={{
+                        color:
+                          (finance.data.outstanding || 0) > 0
+                            ? "var(--warning, #f59e0b)"
+                            : "var(--text-1)",
+                      }}
+                    >
                       {financeAmount(finance.data.outstanding || 0)}
                     </strong>
                   </SABentoCard>
                   <SABentoCard>
-                    <span className="muted" style={{ fontSize: "11px" }}>Realized Margin</span>
+                    <span className="muted" style={{ fontSize: "11px" }}>
+                      Realized Margin
+                    </span>
                     <strong className="metric">
                       {financeAmount(finance.data.realizedMargin || 0)}
                     </strong>
@@ -1142,286 +1246,298 @@ export function ProductionDetailPage() {
         </SATabContent>
         {isUnlocked && (
           <SATabContent value="finance">
-          {finance.isPending ? (
-            <SkeletonCard />
-          ) : finance.isError || !finance.data ? (
-            <EmptyState
-              title="Finance unavailable"
-              description="This production's financial summary could not be loaded."
-            />
-          ) : (
-            (() => {
-              const contracted = finance.data.production.contracted || 0;
-              const received = finance.data.received || 0;
-              const outstanding = finance.data.outstanding || 0;
-              const transactions = finance.data.transactions || [];
-              const directExpenses = transactions
-                .filter((t) => t.type === "PRODUCTION_EXPENSE")
-                .reduce((sum, t) => sum + (t.amount || 0), 0);
-              const directExpensesCount = transactions.filter(
-                (t) => t.type === "PRODUCTION_EXPENSE",
-              ).length;
-              const crewLabor = transactions
-                .filter((t) => t.type === "EMPLOYEE_EARNING")
-                .reduce((sum, t) => sum + (t.amount || 0), 0);
-              const crewLaborCount = transactions.filter(
-                (t) => t.type === "EMPLOYEE_EARNING",
-              ).length;
-              const realizedMargin = finance.data.realizedMargin || 0;
-              const contractedMargin = finance.data.contractedMargin || 0;
+            {finance.isPending ? (
+              <SkeletonCard />
+            ) : finance.isError || !finance.data ? (
+              <EmptyState
+                title="Finance unavailable"
+                description="This production's financial summary could not be loaded."
+              />
+            ) : (
+              (() => {
+                const contracted = finance.data.production.contracted || 0;
+                const received = finance.data.received || 0;
+                const outstanding = finance.data.outstanding || 0;
+                const transactions = finance.data.transactions || [];
+                const directExpenses = transactions
+                  .filter((t) => t.type === "PRODUCTION_EXPENSE")
+                  .reduce((sum, t) => sum + (t.amount || 0), 0);
+                const directExpensesCount = transactions.filter(
+                  (t) => t.type === "PRODUCTION_EXPENSE",
+                ).length;
+                const crewLabor = transactions
+                  .filter((t) => t.type === "EMPLOYEE_EARNING")
+                  .reduce((sum, t) => sum + (t.amount || 0), 0);
+                const crewLaborCount = transactions.filter(
+                  (t) => t.type === "EMPLOYEE_EARNING",
+                ).length;
+                const realizedMargin = finance.data.realizedMargin || 0;
+                const contractedMargin = finance.data.contractedMargin || 0;
 
-              return (
-                <>
-                  <div className="production-finance-dock">
-                    <SAButton
-                      variant={contracted > 0 ? "secondary" : "primary"}
-                      disabled={contracted > 0}
-                      onClick={() => {
-                        setContractRequestKey(generateKey());
-                        setContractForm({
-                          amount: "",
-                          date:
-                            p.eventDate ||
-                            new Date().toISOString().slice(0, 10),
-                          description: `Contract for ${p.title}`,
-                        });
-                        setContractError("");
-                        setContractOpen(true);
-                      }}
-                    >
-                      {contracted > 0
-                        ? `Contract Set (${financeAmount(contracted)})`
-                        : "Set Contract"}
-                    </SAButton>
-                    <SAButton
-                      disabled={contracted <= 0 || outstanding <= 0}
-                      onClick={() => {
-                        setReceiptRequestKey(generateKey());
-                        setReceiptForm({
-                          amount: "",
-                          receiverAccount: "",
-                          date: new Date().toISOString().slice(0, 10),
-                          description: `Client receipt for ${p.title}`,
-                          counterpartyId: "",
-                          legacyType: "ADD",
-                        });
-                        setReceiptError("");
-                        setReceiptOpen(true);
-                      }}
-                    >
-                      Record Receipt
-                    </SAButton>
-                    <SAButton
-                      onClick={() => {
-                        setExpenseRequestKey(generateKey());
-                        setExpenseForm({
-                          amount: "",
-                          payerAccount: "",
-                          categoryCode: "TRANSPORT",
-                          date: new Date().toISOString().slice(0, 10),
-                          description: `Expense for ${p.title}`,
-                          counterpartyId: "",
-                          employeeId: "",
-                        });
-                        setExpenseError("");
-                        setExpenseOpen(true);
-                      }}
-                    >
-                      Log Expense
-                    </SAButton>
-                    <SAButton
-                      onClick={() => {
-                        setEarningRequestKey(generateKey());
-                        setEarningForm({
-                          employeeId: p.members[0]?.employeeId || "",
-                          amount: "",
-                          date:
-                            p.eventDate ||
-                            new Date().toISOString().slice(0, 10),
-                          description: `Crew shift for ${p.title}`,
-                        });
-                        setEarningError("");
-                        setEarningOpen(true);
-                      }}
-                    >
-                      Add Crew Earning
-                    </SAButton>
-                    <SAButton
-                      onClick={() => navigate(`/billing?productionId=${p.id}`)}
-                    >
-                      Create Bill
-                    </SAButton>
-                    <SAButton
-                      variant="ghost"
-                      onClick={() => navigate(`/finance?production=${p.id}`)}
-                    >
-                      Open Finance
-                    </SAButton>
-                  </div>
-
-                  <SABentoGrid className="finance-metrics">
-                    <SABentoCard>
-                      <span className="eyebrow">Contracted Revenue</span>
-                      <strong className="metric">
-                        {financeAmount(contracted)}
-                      </strong>
-                      <span className="muted">
+                return (
+                  <>
+                    <div className="production-finance-dock">
+                      <SAButton
+                        variant={contracted > 0 ? "secondary" : "primary"}
+                        disabled={contracted > 0}
+                        onClick={() => {
+                          setContractRequestKey(generateKey());
+                          setContractForm({
+                            amount: "",
+                            date:
+                              p.eventDate ||
+                              new Date().toISOString().slice(0, 10),
+                            description: `Contract for ${p.title}`,
+                          });
+                          setContractError("");
+                          setContractOpen(true);
+                        }}
+                      >
                         {contracted > 0
-                          ? "Commercial contract active"
-                          : "No contract set yet"}
-                      </span>
-                    </SABentoCard>
-                    <SABentoCard>
-                      <span className="eyebrow">Received</span>
-                      <strong className="metric">
-                        {financeAmount(received)}
-                      </strong>
-                      <span className="muted">
-                        Outstanding {financeAmount(outstanding)}
-                      </span>
-                    </SABentoCard>
-                    <SABentoCard>
-                      <span className="eyebrow">Direct Expenses</span>
-                      <strong className="metric">
-                        {financeAmount(directExpenses)}
-                      </strong>
-                      <span className="muted">
-                        {directExpensesCount} logged operational expenses
-                      </span>
-                    </SABentoCard>
-                    <SABentoCard>
-                      <span className="eyebrow">Crew Labor Costs</span>
-                      <strong className="metric">
-                        {financeAmount(crewLabor)}
-                      </strong>
-                      <span className="muted">
-                        {crewLaborCount} crew shift earnings accrued
-                      </span>
-                    </SABentoCard>
-                    <SABentoCard>
-                      <span className="eyebrow">Realized Margin</span>
-                      <strong className="metric">
-                        {financeAmount(realizedMargin)}
-                      </strong>
-                      <span className="muted">
-                        Contracted margin {financeAmount(contractedMargin)}
-                      </span>
-                    </SABentoCard>
-                    <SABentoCard>
-                      <span className="eyebrow">Profit Split (65% / 35%)</span>
-                      {realizedMargin > 0 ? (
-                        <>
-                          <strong
-                            className="metric"
-                            style={{ fontSize: "1.1rem" }}
-                          >
-                            AZ: {financeAmount(realizedMargin * 0.65)} · AK:{" "}
-                            {financeAmount(realizedMargin * 0.35)}
-                          </strong>
-                          <span className="muted">
-                            Distributed on realized margin
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <strong
-                            className="metric"
-                            style={{ fontSize: "1.1rem" }}
-                          >
-                            ₹0.00
-                          </strong>
-                          <span className="muted">No profit realized yet</span>
-                        </>
-                      )}
-                    </SABentoCard>
-                  </SABentoGrid>
+                          ? `Contract Set (${financeAmount(contracted)})`
+                          : "Set Contract"}
+                      </SAButton>
+                      <SAButton
+                        disabled={contracted <= 0 || outstanding <= 0}
+                        onClick={() => {
+                          setReceiptRequestKey(generateKey());
+                          setReceiptForm({
+                            amount: "",
+                            receiverAccount: "",
+                            date: new Date().toISOString().slice(0, 10),
+                            description: `Client receipt for ${p.title}`,
+                            counterpartyId: "",
+                            legacyType: "ADD",
+                          });
+                          setReceiptError("");
+                          setReceiptOpen(true);
+                        }}
+                      >
+                        Record Receipt
+                      </SAButton>
+                      <SAButton
+                        onClick={() => {
+                          setExpenseRequestKey(generateKey());
+                          setExpenseForm({
+                            amount: "",
+                            payerAccount: "",
+                            categoryCode: "TRANSPORT",
+                            date: new Date().toISOString().slice(0, 10),
+                            description: `Expense for ${p.title}`,
+                            counterpartyId: "",
+                            employeeId: "",
+                          });
+                          setExpenseError("");
+                          setExpenseOpen(true);
+                        }}
+                      >
+                        Log Expense
+                      </SAButton>
+                      <SAButton
+                        onClick={() => {
+                          setEarningRequestKey(generateKey());
+                          setEarningForm({
+                            employeeId: p.members[0]?.employeeId || "",
+                            amount: "",
+                            date:
+                              p.eventDate ||
+                              new Date().toISOString().slice(0, 10),
+                            description: `Crew shift for ${p.title}`,
+                          });
+                          setEarningError("");
+                          setEarningOpen(true);
+                        }}
+                      >
+                        Add Crew Earning
+                      </SAButton>
+                      <SAButton
+                        onClick={() =>
+                          navigate(`/billing?productionId=${p.id}`)
+                        }
+                      >
+                        Create Bill
+                      </SAButton>
+                      <SAButton
+                        variant="ghost"
+                        onClick={() => navigate(`/finance?production=${p.id}`)}
+                      >
+                        Open Finance
+                      </SAButton>
+                    </div>
 
-                  <SABentoCard className="production-timeline-card">
-                    <h3>Financial Activity Timeline</h3>
-                    <p className="subtitle">
-                      Chronological audit record of all canonical double-entry
-                      postings for this production.
-                    </p>
-                    {transactions.length === 0 ? (
-                      <EmptyState
-                        title="No financial activity recorded"
-                        description="Use the action bar above to set the contract, record advances, log operational expenses, or accrue crew labor."
-                      />
-                    ) : (
-                      <div className="production-timeline">
-                        {transactions.map((tx) => {
-                          const isReceipt = tx.type === "PRODUCTION_RECEIPT";
-                          const isCost =
-                            tx.type === "PRODUCTION_EXPENSE" ||
-                            tx.type === "EMPLOYEE_EARNING";
-                          const tone = isReceipt
-                            ? "success"
-                            : tx.type === "PRODUCTION_EXPENSE"
-                              ? "warning"
-                              : tx.type === "EMPLOYEE_EARNING"
-                                ? "info"
-                                : "neutral";
-                          const label =
-                            tx.type === "PRODUCTION_CONTRACT"
-                              ? "Contract"
-                              : tx.type === "PRODUCTION_RECEIPT"
-                                ? "Receipt"
-                                : tx.type === "PRODUCTION_EXPENSE"
-                                  ? "Expense"
-                                  : tx.type === "EMPLOYEE_EARNING"
-                                    ? "Crew Earning"
-                                    : tx.type === "INVOICE_ISSUED"
-                                      ? "Invoice"
-                                      : tx.type.replaceAll("_", " ");
-                          return (
-                            <div
-                              key={tx.id}
-                              className="production-timeline-item"
+                    <SABentoGrid className="finance-metrics">
+                      <SABentoCard>
+                        <span className="eyebrow">Contracted Revenue</span>
+                        <strong className="metric">
+                          {financeAmount(contracted)}
+                        </strong>
+                        <span className="muted">
+                          {contracted > 0
+                            ? "Commercial contract active"
+                            : "No contract set yet"}
+                        </span>
+                      </SABentoCard>
+                      <SABentoCard>
+                        <span className="eyebrow">Received</span>
+                        <strong className="metric">
+                          {financeAmount(received)}
+                        </strong>
+                        <span className="muted">
+                          Outstanding {financeAmount(outstanding)}
+                        </span>
+                      </SABentoCard>
+                      <SABentoCard>
+                        <span className="eyebrow">Direct Expenses</span>
+                        <strong className="metric">
+                          {financeAmount(directExpenses)}
+                        </strong>
+                        <span className="muted">
+                          {directExpensesCount} logged operational expenses
+                        </span>
+                      </SABentoCard>
+                      <SABentoCard>
+                        <span className="eyebrow">Crew Labor Costs</span>
+                        <strong className="metric">
+                          {financeAmount(crewLabor)}
+                        </strong>
+                        <span className="muted">
+                          {crewLaborCount} crew shift earnings accrued
+                        </span>
+                      </SABentoCard>
+                      <SABentoCard>
+                        <span className="eyebrow">Realized Margin</span>
+                        <strong className="metric">
+                          {financeAmount(realizedMargin)}
+                        </strong>
+                        <span className="muted">
+                          Contracted margin {financeAmount(contractedMargin)}
+                        </span>
+                      </SABentoCard>
+                      <SABentoCard>
+                        <span className="eyebrow">
+                          Profit Split (65% / 35%)
+                        </span>
+                        {realizedMargin > 0 ? (
+                          <>
+                            <strong
+                              className="metric"
+                              style={{ fontSize: "1.1rem" }}
                             >
-                              <div className="production-timeline-left">
-                                <span className="production-timeline-date">
-                                  {longDate(tx.date)}
-                                </span>
-                                <StatusBadge tone={tone}>{label}</StatusBadge>
-                                <div className="production-timeline-content">
-                                  <strong>{tx.description}</strong>
-                                  <span>
-                                    TX #{tx.transactionNo} · {tx.status}
+                              AZ: {financeAmount(realizedMargin * 0.65)} · AK:{" "}
+                              {financeAmount(realizedMargin * 0.35)}
+                            </strong>
+                            <span className="muted">
+                              Distributed on realized margin
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <strong
+                              className="metric"
+                              style={{ fontSize: "1.1rem" }}
+                            >
+                              ₹0.00
+                            </strong>
+                            <span className="muted">
+                              No profit realized yet
+                            </span>
+                          </>
+                        )}
+                      </SABentoCard>
+                    </SABentoGrid>
+
+                    <SABentoCard className="production-timeline-card">
+                      <h3>Financial Activity Timeline</h3>
+                      <p className="subtitle">
+                        Chronological audit record of all canonical double-entry
+                        postings for this production.
+                      </p>
+                      {transactions.length === 0 ? (
+                        <EmptyState
+                          title="No financial activity recorded"
+                          description="Use the action bar above to set the contract, record advances, log operational expenses, or accrue crew labor."
+                        />
+                      ) : (
+                        <div className="production-timeline">
+                          {transactions.map((tx) => {
+                            const isReceipt = tx.type === "PRODUCTION_RECEIPT";
+                            const isCost =
+                              tx.type === "PRODUCTION_EXPENSE" ||
+                              tx.type === "EMPLOYEE_EARNING";
+                            const tone = isReceipt
+                              ? "success"
+                              : tx.type === "PRODUCTION_EXPENSE"
+                                ? "warning"
+                                : tx.type === "EMPLOYEE_EARNING"
+                                  ? "info"
+                                  : "neutral";
+                            const label =
+                              tx.type === "PRODUCTION_CONTRACT"
+                                ? "Contract"
+                                : tx.type === "PRODUCTION_RECEIPT"
+                                  ? "Receipt"
+                                  : tx.type === "PRODUCTION_EXPENSE"
+                                    ? "Expense"
+                                    : tx.type === "EMPLOYEE_EARNING"
+                                      ? "Crew Earning"
+                                      : tx.type === "INVOICE_ISSUED"
+                                        ? "Invoice"
+                                        : tx.type.replaceAll("_", " ");
+                            return (
+                              <div
+                                key={tx.id}
+                                className="production-timeline-item"
+                              >
+                                <div className="production-timeline-left">
+                                  <span className="production-timeline-date">
+                                    {longDate(tx.date)}
+                                  </span>
+                                  <StatusBadge tone={tone}>{label}</StatusBadge>
+                                  <div className="production-timeline-content">
+                                    <strong>{tx.description}</strong>
+                                    <span>
+                                      TX #{tx.transactionNo} · {tx.status}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="production-timeline-right">
+                                  <span
+                                    className={`production-timeline-amount ${
+                                      isReceipt
+                                        ? "positive"
+                                        : isCost
+                                          ? "negative"
+                                          : ""
+                                    }`}
+                                  >
+                                    {isReceipt
+                                      ? `+${financeAmount(tx.amount)}`
+                                      : isCost
+                                        ? `-${financeAmount(tx.amount)}`
+                                        : financeAmount(tx.amount)}
                                   </span>
                                 </div>
                               </div>
-                              <div className="production-timeline-right">
-                                <span
-                                  className={`production-timeline-amount ${
-                                    isReceipt
-                                      ? "positive"
-                                      : isCost
-                                        ? "negative"
-                                        : ""
-                                  }`}
-                                >
-                                  {isReceipt
-                                    ? `+${financeAmount(tx.amount)}`
-                                    : isCost
-                                      ? `-${financeAmount(tx.amount)}`
-                                      : financeAmount(tx.amount)}
-                                </span>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </SABentoCard>
-                </>
-              );
-            })()
-          )}
-        </SATabContent>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </SABentoCard>
+                  </>
+                );
+              })()
+            )}
+          </SATabContent>
         )}
         <SATabContent value="schedule">
           <SABentoCard>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
               <div>
                 <h3>Linked calendar event</h3>
                 <p>
@@ -1449,10 +1565,22 @@ export function ProductionDetailPage() {
         </SATabContent>
         <SATabContent value="notes">
           <SABentoCard>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+              }}
+            >
               <div>
                 <h3>Production notes</h3>
-                <p style={{ margin: "6px 0 0", whiteSpace: "pre-wrap", color: "var(--text-2)" }}>
+                <p
+                  style={{
+                    margin: "6px 0 0",
+                    whiteSpace: "pre-wrap",
+                    color: "var(--text-2)",
+                  }}
+                >
                   {p.description || "No notes have been added."}
                 </p>
               </div>
@@ -2104,7 +2232,9 @@ export function ProductionDetailPage() {
               aria-label="New task title"
               placeholder="e.g. Confirm generator backup"
               value={taskForm.title}
-              onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })}
+              onChange={(e) =>
+                setTaskForm({ ...taskForm, title: e.target.value })
+              }
             />
           </FormField>
           <FormField label="Priority">
@@ -2112,7 +2242,10 @@ export function ProductionDetailPage() {
               aria-label="New task priority"
               value={taskForm.priority}
               onChange={(e) =>
-                setTaskForm({ ...taskForm, priority: e.target.value as Priority })
+                setTaskForm({
+                  ...taskForm,
+                  priority: e.target.value as Priority,
+                })
               }
             >
               {["LOW", "NORMAL", "HIGH", "URGENT"].map((x) => (
@@ -2184,17 +2317,25 @@ export function ProductionDetailPage() {
               value={equipmentForm.equipmentId}
               onChange={(e) => {
                 setEquipmentError("");
-                setEquipmentForm({ ...equipmentForm, equipmentId: e.target.value });
+                setEquipmentForm({
+                  ...equipmentForm,
+                  equipmentId: e.target.value,
+                });
               }}
             >
               <option value="">Select equipment...</option>
               {equipmentCatalog.data?.items
                 ?.filter(
-                  (item) => !(p.equipment ?? []).some((e) => e.equipmentId === item.id)
+                  (item) =>
+                    !(p.equipment ?? []).some((e) => e.equipmentId === item.id),
                 )
                 .map((item) => (
                   <option key={item.id} value={item.id}>
-                    {item.name} {item.internalCode ? `(${item.internalCode})` : ""}{item.available != null ? ` · ${item.available} ${item.symbol ?? "units"} available` : ""}
+                    {item.name}{" "}
+                    {item.internalCode ? `(${item.internalCode})` : ""}
+                    {item.available != null
+                      ? ` · ${item.available} ${item.symbol ?? "units"} available`
+                      : ""}
                   </option>
                 ))}
             </select>
@@ -2215,7 +2356,10 @@ export function ProductionDetailPage() {
               value={equipmentForm.quantity}
               onChange={(e) => {
                 setEquipmentError("");
-                setEquipmentForm({ ...equipmentForm, quantity: e.target.value });
+                setEquipmentForm({
+                  ...equipmentForm,
+                  quantity: e.target.value,
+                });
               }}
             />
           </FormField>
@@ -2245,7 +2389,7 @@ export function ProductionDetailPage() {
                 Number(equipmentForm.quantity) > selectedEquipment.available
               ) {
                 setEquipmentError(
-                  `Only ${selectedEquipment.available} ${selectedEquipment.symbol ?? "units"} available in inventory.`
+                  `Only ${selectedEquipment.available} ${selectedEquipment.symbol ?? "units"} available in inventory.`,
                 );
                 return;
               }
@@ -2314,7 +2458,9 @@ export function ProductionDetailPage() {
           </FormField>
         </div>
         <div className="modal-actions">
-          <SAButton onClick={() => setScheduleModalOpen(false)}>Cancel</SAButton>
+          <SAButton onClick={() => setScheduleModalOpen(false)}>
+            Cancel
+          </SAButton>
           <SAButton
             variant="primary"
             disabled={updateScheduleMutation.isPending}

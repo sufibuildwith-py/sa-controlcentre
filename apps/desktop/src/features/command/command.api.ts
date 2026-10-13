@@ -29,7 +29,14 @@ export type CommandAttentionItem = {
   id: string;
   severity: "CRITICAL" | "HIGH" | "MEDIUM" | "INFO" | string;
   type: string;
-  category: "RECONCILIATION" | "FINANCE" | "PAYROLL" | "PRODUCTION" | "WORK" | "ATTENDANCE" | string;
+  category:
+    | "RECONCILIATION"
+    | "FINANCE"
+    | "PAYROLL"
+    | "PRODUCTION"
+    | "WORK"
+    | "ATTENDANCE"
+    | string;
   title: string;
   reason: string;
   description: string;

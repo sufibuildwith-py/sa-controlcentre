@@ -1,6 +1,13 @@
 import { useCallback, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Radio, RefreshCw, UserPlus, Users, UsersRound, WifiOff } from "lucide-react";
+import {
+  Radio,
+  RefreshCw,
+  UserPlus,
+  Users,
+  UsersRound,
+  WifiOff,
+} from "lucide-react";
 import { WorkspaceHeader } from "../../components/layout/AppShell";
 import {
   EmptyState,
@@ -10,7 +17,11 @@ import {
 } from "../../components/ui/sa";
 import { navigatorApi } from "./navigator.api";
 import { NavigatorMap } from "./NavigatorMap";
-import { NavigatorRoster, type Filter, type FocusedTeam } from "./NavigatorRoster";
+import {
+  NavigatorRoster,
+  type Filter,
+  type FocusedTeam,
+} from "./NavigatorRoster";
 import { NavigatorEmployeeCard } from "./NavigatorEmployeeCard";
 import { AddEmployeeModal } from "./AddEmployeeModal";
 import { MakeTeamModal } from "./MakeTeamModal";
@@ -157,10 +168,7 @@ export function NavigatorPage() {
         pairedItems={items}
       />
 
-      <MakeTeamModal
-        open={makeTeamOpen}
-        onOpenChange={setMakeTeamOpen}
-      />
+      <MakeTeamModal open={makeTeamOpen} onOpenChange={setMakeTeamOpen} />
     </>
   );
 }

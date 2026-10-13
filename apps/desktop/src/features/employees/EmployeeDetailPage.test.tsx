@@ -389,7 +389,10 @@ describe("EmployeeDetailPage — Phase 2 Employee Finance", () => {
     vi.mocked(api).mockImplementation((path: string) => {
       if (path === "/employees/e1") return Promise.resolve(mockEmployee);
       if (path === "/employees/e1/360") return Promise.resolve(mockEmployee360);
-      if (path === "/productions") return Promise.resolve([{ id: "prod-1", title: "Royal Wedding Lucknow" }]);
+      if (path === "/productions")
+        return Promise.resolve([
+          { id: "prod-1", title: "Royal Wedding Lucknow" },
+        ]);
       return Promise.resolve(null);
     });
 
@@ -401,13 +404,17 @@ describe("EmployeeDetailPage — Phase 2 Employee Finance", () => {
 
     // Overview 360 pillars
     expect(screen.getByText("Today's Status")).toBeInTheDocument();
-    expect(screen.getByText("Canonical Compensation & Ledger")).toBeInTheDocument();
+    expect(
+      screen.getByText("Canonical Compensation & Ledger"),
+    ).toBeInTheDocument();
     expect(screen.getByText("Operations & Tasks")).toBeInTheDocument();
     expect(screen.getByText("Royal Wedding Lucknow")).toBeInTheDocument();
     expect(screen.getByText("Performance & Device Sync")).toBeInTheDocument();
 
     // Verify 360 action strip
-    const disburseBtn = screen.getByRole("button", { name: /Record Disbursement/i });
+    const disburseBtn = screen.getByRole("button", {
+      name: /Record Disbursement/i,
+    });
     expect(disburseBtn).toBeInTheDocument();
     expect(disburseBtn).not.toBeDisabled();
 

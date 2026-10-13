@@ -33,10 +33,13 @@ export function EvePlanCard({
   const isCancelled = plan.status === "CANCELLED";
 
   const riskBadgeStyles: Record<string, string> = {
-    FINANCIAL_WRITE: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
-    SAFE_OPERATION: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
+    FINANCIAL_WRITE:
+      "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
+    SAFE_OPERATION:
+      "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
     READ: "bg-[var(--surface-soft)] text-[var(--text-2)] border-[var(--border)]",
-    BLOCKED: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20",
+    BLOCKED:
+      "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20",
   };
 
   return (
@@ -55,11 +58,16 @@ export function EvePlanCard({
               <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-3)]">
                 Governed Execution Plan
               </span>
-              <span className="font-mono text-[10px] text-[var(--text-3)]" title={plan.planHash}>
+              <span
+                className="font-mono text-[10px] text-[var(--text-3)]"
+                title={plan.planHash}
+              >
                 #{plan.planHash.substring(0, 10)}
               </span>
             </div>
-            <h4 className="text-sm font-medium text-[var(--text-1)]">{plan.summary}</h4>
+            <h4 className="text-sm font-medium text-[var(--text-1)]">
+              {plan.summary}
+            </h4>
           </div>
         </div>
 
@@ -107,7 +115,9 @@ export function EvePlanCard({
         {plan.actions.map((act) => {
           const params = act.parameters || {};
           const amount = params.amount ? `₹${params.amount}` : null;
-          const payer = params.payerAccount ? String(params.payerAccount) : null;
+          const payer = params.payerAccount
+            ? String(params.payerAccount)
+            : null;
 
           return (
             <div
@@ -115,7 +125,9 @@ export function EvePlanCard({
               className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] p-3 text-xs"
             >
               <div className="flex items-center justify-between text-[var(--text-3)]">
-                <span className="font-mono text-[11px] text-[var(--text-3)]">Action {act.seq}</span>
+                <span className="font-mono text-[11px] text-[var(--text-3)]">
+                  Action {act.seq}
+                </span>
                 <span className="font-mono text-[11px] uppercase tracking-wide text-[var(--text-2)]">
                   {act.commandType}
                 </span>
@@ -123,28 +135,45 @@ export function EvePlanCard({
 
               <div className="mt-2 grid grid-cols-2 gap-2 text-[var(--text-2)] sm:grid-cols-4">
                 <div>
-                  <span className="block text-[10px] text-[var(--text-3)]">Target Entity</span>
+                  <span className="block text-[10px] text-[var(--text-3)]">
+                    Target Entity
+                  </span>
                   <span className="font-medium text-[var(--text-1)]">
                     {act.targetEntityName || "N/A"}
                   </span>
                 </div>
                 {amount && (
                   <div>
-                    <span className="block text-[10px] text-[var(--text-3)]">Amount</span>
-                    <span className="font-mono font-medium text-amber-600 dark:text-amber-400">{amount}</span>
+                    <span className="block text-[10px] text-[var(--text-3)]">
+                      Amount
+                    </span>
+                    <span className="font-mono font-medium text-amber-600 dark:text-amber-400">
+                      {amount}
+                    </span>
                   </div>
                 )}
                 {payer && (
                   <div>
-                    <span className="block text-[10px] text-[var(--text-3)]">Payer Account</span>
+                    <span className="block text-[10px] text-[var(--text-3)]">
+                      Payer Account
+                    </span>
                     <span className="font-medium text-[var(--text-1)]">
-                      {payer} {payer === "AZ-2" ? "(Azeem Khan)" : payer === "AK-2" ? "(Akash)" : ""}
+                      {payer}{" "}
+                      {payer === "AZ-2"
+                        ? "(Azeem Khan)"
+                        : payer === "AK-2"
+                          ? "(Akash)"
+                          : ""}
                     </span>
                   </div>
                 )}
                 <div>
-                  <span className="block text-[10px] text-[var(--text-3)]">Permission</span>
-                  <span className="font-mono text-[var(--text-2)]">{act.requiredPermission}</span>
+                  <span className="block text-[10px] text-[var(--text-3)]">
+                    Permission
+                  </span>
+                  <span className="font-mono text-[var(--text-2)]">
+                    {act.requiredPermission}
+                  </span>
                 </div>
               </div>
 
@@ -159,7 +188,10 @@ export function EvePlanCard({
               {act.status === "VERIFIED" && (
                 <div className="mt-2 flex items-center gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400">
                   <FileCheck className="h-3.5 w-3.5" />
-                  <span>Verified in PostgreSQL (double-entry allocations & audit confirmed)</span>
+                  <span>
+                    Verified in PostgreSQL (double-entry allocations & audit
+                    confirmed)
+                  </span>
                 </div>
               )}
             </div>
@@ -172,8 +204,9 @@ export function EvePlanCard({
         <div className="mt-3 flex items-center gap-2 rounded-xl border border-rose-500/20 bg-rose-500/10 p-3 text-xs text-rose-700 dark:text-rose-300">
           <AlertTriangle className="h-4 w-4 shrink-0 text-rose-500" />
           <span>
-            This plan is stale. The underlying canonical database records changed after this plan
-            was proposed. Please submit a new query to calculate a fresh plan.
+            This plan is stale. The underlying canonical database records
+            changed after this plan was proposed. Please submit a new query to
+            calculate a fresh plan.
           </span>
         </div>
       )}

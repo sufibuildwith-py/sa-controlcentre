@@ -111,13 +111,20 @@ describe("Headquarters command surface", () => {
 
     const user = userEvent.setup();
     await user.click(await screen.findByRole("button", { name: "Equipment" }));
-    expect(await screen.findByRole("heading", { name: "Add equipment" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Add equipment" }),
+    ).toBeInTheDocument();
 
-    await user.type(screen.getByLabelText("Equipment name"), "Stage Backdrop Truss Cover");
+    await user.type(
+      screen.getByLabelText("Equipment name"),
+      "Stage Backdrop Truss Cover",
+    );
 
     const unitSelect = screen.getByLabelText("Unit");
     expect(unitSelect).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Square Foot (sqft)" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("option", { name: "Square Foot (sqft)" }),
+    ).toBeInTheDocument();
 
     await user.selectOptions(unitSelect, "unit-sqft");
     expect((unitSelect as HTMLSelectElement).value).toBe("unit-sqft");
@@ -132,4 +139,3 @@ describe("Headquarters command surface", () => {
     );
   });
 });
-

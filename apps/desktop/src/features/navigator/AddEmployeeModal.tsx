@@ -1,7 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Copy, Radio, Search, Smartphone, UserCheck, Users } from "lucide-react";
+import {
+  Check,
+  Copy,
+  Radio,
+  Search,
+  Smartphone,
+  UserCheck,
+  Users,
+} from "lucide-react";
 import { useMemo, useState } from "react";
-import { FormField, SAButton, SABentoCard, SAModal, StatusBadge } from "../../components/ui/sa";
+import {
+  FormField,
+  SAButton,
+  SABentoCard,
+  SAModal,
+  StatusBadge,
+} from "../../components/ui/sa";
 import { api } from "../../lib/api";
 import { initials } from "../employees/PeoplePage";
 import { navigatorApi } from "./navigator.api";
@@ -108,7 +122,9 @@ export function AddEmployeeModal({
             </div>
 
             <div className="navigator-code-display">
-              <code>{activePairing.code.replace(/(\d{3})(\d{3})/, "$1 $2")}</code>
+              <code>
+                {activePairing.code.replace(/(\d{3})(\d{3})/, "$1 $2")}
+              </code>
               <SAButton
                 size="sm"
                 variant="secondary"
@@ -125,8 +141,12 @@ export function AddEmployeeModal({
                 <strong>Next steps on mobile:</strong>
               </p>
               <ol>
-                <li>Open <em>SA Navigator</em> on the employee&apos;s phone.</li>
-                <li>Tap <strong>&ldquo;Pair with Code&rdquo;</strong>.</li>
+                <li>
+                  Open <em>SA Navigator</em> on the employee&apos;s phone.
+                </li>
+                <li>
+                  Tap <strong>&ldquo;Pair with Code&rdquo;</strong>.
+                </li>
                 <li>Enter the 6-digit code above.</li>
               </ol>
               <small className="muted">
@@ -162,7 +182,9 @@ export function AddEmployeeModal({
           </div>
 
           {employeesQuery.isPending ? (
-            <div className="navigator-picker-loading">Loading team members...</div>
+            <div className="navigator-picker-loading">
+              Loading team members...
+            </div>
           ) : employeesQuery.isError ? (
             <div className="navigator-picker-error">
               Unable to load employees. Please try again.
@@ -203,7 +225,10 @@ export function AddEmployeeModal({
                       {paired ? (
                         <div className="navigator-paired-badge">
                           <StatusBadge tone="success">
-                            <UserCheck size={12} style={{ marginRight: "4px" }} />
+                            <UserCheck
+                              size={12}
+                              style={{ marginRight: "4px" }}
+                            />
                             Paired
                           </StatusBadge>
                           <small className="muted">
@@ -230,7 +255,8 @@ export function AddEmployeeModal({
 
           {pairMutation.isError && (
             <p className="form-error">
-              Pairing initiation failed. Please ensure the Navigator service is running.
+              Pairing initiation failed. Please ensure the Navigator service is
+              running.
             </p>
           )}
 

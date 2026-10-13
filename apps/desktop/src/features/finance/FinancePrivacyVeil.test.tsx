@@ -225,7 +225,9 @@ describe("Finance Privacy Veil — Frontend Tests", () => {
         expect(screen.getByText("Developer Options")).toBeInTheDocument();
       });
 
-      const donateBtn = screen.getByRole("button", { name: /Donate Developer/i });
+      const donateBtn = screen.getByRole("button", {
+        name: /Donate Developer/i,
+      });
       expect(donateBtn).toBeInTheDocument();
 
       // Open donation modal
@@ -233,7 +235,9 @@ describe("Finance Privacy Veil — Frontend Tests", () => {
 
       expect(screen.getByText("Developer Donation")).toBeInTheDocument();
       expect(
-        screen.getByText("Support the developer with a simulated $2 UPI contribution."),
+        screen.getByText(
+          "Support the developer with a simulated $2 UPI contribution.",
+        ),
       ).toBeInTheDocument();
 
       // Enter 6-digit wrong PIN
@@ -250,7 +254,9 @@ describe("Finance Privacy Veil — Frontend Tests", () => {
       });
 
       expect(
-        screen.getByText(/Invalid authorization code. Finance access was not granted./i),
+        screen.getByText(
+          /Invalid authorization code. Finance access was not granted./i,
+        ),
       ).toBeInTheDocument();
     });
 
@@ -325,7 +331,10 @@ describe("Finance Privacy Veil — Frontend Tests", () => {
         <QueryClientProvider client={client}>
           <MemoryRouter initialEntries={["/productions/p1"]}>
             <Routes>
-              <Route path="/productions/:id" element={<ProductionDetailPage />} />
+              <Route
+                path="/productions/:id"
+                element={<ProductionDetailPage />}
+              />
             </Routes>
           </MemoryRouter>
         </QueryClientProvider>,
@@ -335,8 +344,12 @@ describe("Finance Privacy Veil — Frontend Tests", () => {
         expect(screen.getByText("Summer Wedding")).toBeInTheDocument();
       });
 
-      expect(screen.queryByRole("tab", { name: /finance/i })).not.toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: /create bill/i })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("tab", { name: /finance/i }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /create bill/i }),
+      ).not.toBeInTheDocument();
       expect(screen.queryByText(/Financial Summary/i)).not.toBeInTheDocument();
     });
   });

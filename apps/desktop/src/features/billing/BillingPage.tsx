@@ -605,8 +605,7 @@ export function BillingPage() {
   const selectedProduction = productionList.find(
     (p) => p.id === form.productionId,
   );
-  const linkedProductionClient =
-    selectedProduction?.clientName?.trim() || null;
+  const linkedProductionClient = selectedProduction?.clientName?.trim() || null;
 
   const exactMatch =
     productionClients.some((c) => c.toLowerCase() === trimmedQuery) ||
@@ -1066,9 +1065,7 @@ export function BillingPage() {
               <select
                 disabled={!isDraftOrNew}
                 value={form.productionId ?? ""}
-                onChange={(e) =>
-                  handleProductionChange(e.target.value || null)
-                }
+                onChange={(e) => handleProductionChange(e.target.value || null)}
               >
                 <option value="">None (General Client Bill)</option>
                 {productionList.map((p) => (
@@ -1112,7 +1109,9 @@ export function BillingPage() {
                 <span>AMOUNT (₹)</span>
               </div>
               {form.lines.map((line, index) => {
-                const isPopulated = Boolean(line.description.trim() || Number(line.rate) > 0);
+                const isPopulated = Boolean(
+                  line.description.trim() || Number(line.rate) > 0,
+                );
                 return (
                   <div
                     className={`billing-line ${isPopulated ? "billing-line--populated" : ""}`}
@@ -1129,7 +1128,8 @@ export function BillingPage() {
                       value={line.quantity || ""}
                       onChange={(e) => {
                         const raw = e.target.value;
-                        const val = raw === "" ? 0 : Math.max(1, Math.trunc(Number(raw)));
+                        const val =
+                          raw === "" ? 0 : Math.max(1, Math.trunc(Number(raw)));
                         updateLine(index, { quantity: val });
                       }}
                     />
@@ -1143,7 +1143,8 @@ export function BillingPage() {
                       value={line.days || ""}
                       onChange={(e) => {
                         const raw = e.target.value;
-                        const val = raw === "" ? 0 : Math.max(1, Math.trunc(Number(raw)));
+                        const val =
+                          raw === "" ? 0 : Math.max(1, Math.trunc(Number(raw)));
                         updateLine(index, { days: val });
                       }}
                     />
@@ -1201,7 +1202,8 @@ export function BillingPage() {
                     disabled={!isDraftOrNew}
                     value={form.taxMode}
                     onChange={(e) => {
-                      const taxMode = e.target.value as BillingCreate["taxMode"];
+                      const taxMode = e.target
+                        .value as BillingCreate["taxMode"];
                       setForm({
                         ...form,
                         taxMode,
@@ -1324,7 +1326,9 @@ export function BillingPage() {
                     disabled={!isDraftOrNew}
                     rows={2}
                     value={form.notes ?? ""}
-                    onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, notes: e.target.value })
+                    }
                     placeholder="Internal or customer notes..."
                   />
                 </label>
@@ -1340,7 +1344,10 @@ export function BillingPage() {
               {totals.discount > 0 && (
                 <div className="billing-summary-row">
                   <span>Less: Discount</span>
-                  <span className="val" style={{ color: "var(--danger, #c9534b)" }}>
+                  <span
+                    className="val"
+                    style={{ color: "var(--danger, #c9534b)" }}
+                  >
                     -{money(totals.discount)}
                   </span>
                 </div>
@@ -1353,9 +1360,7 @@ export function BillingPage() {
               )}
               {totals.tax > 0 && (
                 <div className="billing-summary-row">
-                  <span>
-                    Tax ({form.taxMode})
-                  </span>
+                  <span>Tax ({form.taxMode})</span>
                   <span className="val">{money(totals.tax)}</span>
                 </div>
               )}
@@ -1367,7 +1372,10 @@ export function BillingPage() {
               {totals.advancePaid > 0 && (
                 <div className="billing-summary-row">
                   <span>Less: Advance Received</span>
-                  <span className="val" style={{ color: "var(--success, #2e9f65)" }}>
+                  <span
+                    className="val"
+                    style={{ color: "var(--success, #2e9f65)" }}
+                  >
                     -{money(totals.advancePaid)}
                   </span>
                 </div>
@@ -1571,7 +1579,8 @@ export function BillingPage() {
                     onClick={() => void handleExportPdf(selected)}
                     disabled={exportingPdf}
                   >
-                    <FileDown size={14} /> {exportingPdf ? "Exporting..." : "Download PDF"}
+                    <FileDown size={14} />{" "}
+                    {exportingPdf ? "Exporting..." : "Download PDF"}
                   </SAButton>
                 )}
                 <SAButton
@@ -1588,11 +1597,18 @@ export function BillingPage() {
               <div className="billing-doc-header">
                 <div className="billing-doc-brand">
                   <h2>SA PRODUCTION</h2>
-                  <p className="sub">Executive Live Events & Technical Production</p>
-                  <p className="desc">Sound · Intelligent Lighting · High-Resolution LED · Trussing · Power Systems</p>
+                  <p className="sub">
+                    Executive Live Events & Technical Production
+                  </p>
+                  <p className="desc">
+                    Sound · Intelligent Lighting · High-Resolution LED ·
+                    Trussing · Power Systems
+                  </p>
                 </div>
                 <div className="billing-doc-meta">
-                  <strong className="bill-no">INVOICE #{form.billNumber || "DRAFT"}</strong>
+                  <strong className="bill-no">
+                    INVOICE #{form.billNumber || "DRAFT"}
+                  </strong>
                   <span>Date: {form.billDate}</span>
                   <span>FY: {form.financialYear}</span>
                   <span>Status: {currentStatus || "DRAFT"}</span>
@@ -1604,15 +1620,26 @@ export function BillingPage() {
               <div className="billing-doc-info-grid">
                 <div className="billing-doc-info-col">
                   <span className="label">BILLED TO</span>
-                  <strong className="val">{selectedCustomer?.displayName || customerName || selectedBill?.customer || "Client"}</strong>
+                  <strong className="val">
+                    {selectedCustomer?.displayName ||
+                      customerName ||
+                      selectedBill?.customer ||
+                      "Client"}
+                  </strong>
                   {form.gstin && <p className="detail">GSTIN: {form.gstin}</p>}
-                  {form.paymentTerms && <p className="detail">Payment Terms: {form.paymentTerms}</p>}
+                  {form.paymentTerms && (
+                    <p className="detail">Payment Terms: {form.paymentTerms}</p>
+                  )}
                 </div>
                 <div className="billing-doc-info-col">
                   <span className="label">PRODUCTION & VENUE</span>
-                  <strong className="val">{form.eventName || "Live Production & Event"}</strong>
+                  <strong className="val">
+                    {form.eventName || "Live Production & Event"}
+                  </strong>
                   {form.venue && <p className="detail">Venue: {form.venue}</p>}
-                  {form.taxMode !== "NONE" && <p className="detail">Tax Mode: {form.taxMode}</p>}
+                  {form.taxMode !== "NONE" && (
+                    <p className="detail">Tax Mode: {form.taxMode}</p>
+                  )}
                 </div>
               </div>
 
@@ -1625,19 +1652,27 @@ export function BillingPage() {
                     <th style={{ width: "50px", textAlign: "center" }}>QTY</th>
                     <th style={{ width: "50px", textAlign: "center" }}>DAYS</th>
                     <th style={{ width: "95px", textAlign: "right" }}>RATE</th>
-                    <th style={{ width: "105px", textAlign: "right" }}>TOTAL</th>
+                    <th style={{ width: "105px", textAlign: "right" }}>
+                      TOTAL
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {activeLines.length > 0 ? (
                     activeLines.map((line, idx) => (
                       <tr key={idx}>
-                        <td style={{ textAlign: "center", color: "#878f9b" }}>{idx + 1}</td>
+                        <td style={{ textAlign: "center", color: "#878f9b" }}>
+                          {idx + 1}
+                        </td>
                         <td style={{ fontWeight: 600 }}>{line.description}</td>
-                        <td style={{ color: "#555d69" }}>{line.reference || "—"}</td>
+                        <td style={{ color: "#555d69" }}>
+                          {line.reference || "—"}
+                        </td>
                         <td style={{ textAlign: "center" }}>{line.quantity}</td>
                         <td style={{ textAlign: "center" }}>{line.days}</td>
-                        <td style={{ textAlign: "right" }}>{money(line.rate)}</td>
+                        <td style={{ textAlign: "right" }}>
+                          {money(line.rate)}
+                        </td>
                         <td style={{ textAlign: "right", fontWeight: 700 }}>
                           {money(line.quantity * line.days * line.rate)}
                         </td>
@@ -1645,7 +1680,14 @@ export function BillingPage() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={7} style={{ textAlign: "center", padding: "20px", color: "#878f9b" }}>
+                      <td
+                        colSpan={7}
+                        style={{
+                          textAlign: "center",
+                          padding: "20px",
+                          color: "#878f9b",
+                        }}
+                      >
                         No billable line items populated yet.
                       </td>
                     </tr>
@@ -1664,7 +1706,9 @@ export function BillingPage() {
                     <div className="billing-doc-notes-box">
                       <span className="label">Commercial Certification</span>
                       <p>
-                        Authentic commercial invoice issued by SA Production. This document represents complete delivery of technical services.
+                        Authentic commercial invoice issued by SA Production.
+                        This document represents complete delivery of technical
+                        services.
                       </p>
                     </div>
                   )}
@@ -1678,7 +1722,9 @@ export function BillingPage() {
                   {totals.discount > 0 && (
                     <div className="billing-doc-totals-row">
                       <span>Less: Discount</span>
-                      <span className="val" style={{ color: "#c9534b" }}>-{money(totals.discount)}</span>
+                      <span className="val" style={{ color: "#c9534b" }}>
+                        -{money(totals.discount)}
+                      </span>
                     </div>
                   )}
                   {totals.freight > 0 && (
@@ -1689,7 +1735,13 @@ export function BillingPage() {
                   )}
                   {totals.tax > 0 && (
                     <div className="billing-doc-totals-row">
-                      <span>GST ({form.taxMode === "CGST_SGST" ? `${form.cgstRate + form.sgstRate}%` : `${form.igstRate}%`})</span>
+                      <span>
+                        GST (
+                        {form.taxMode === "CGST_SGST"
+                          ? `${form.cgstRate + form.sgstRate}%`
+                          : `${form.igstRate}%`}
+                        )
+                      </span>
                       <span className="val">{money(totals.tax)}</span>
                     </div>
                   )}
@@ -1700,7 +1752,9 @@ export function BillingPage() {
                   {totals.advancePaid > 0 && (
                     <div className="billing-doc-totals-row">
                       <span>Less: Advance Received</span>
-                      <span className="val" style={{ color: "#2e9f65" }}>-{money(totals.advancePaid)}</span>
+                      <span className="val" style={{ color: "#2e9f65" }}>
+                        -{money(totals.advancePaid)}
+                      </span>
                     </div>
                   )}
                   <div className="billing-doc-net-due">
@@ -1711,7 +1765,8 @@ export function BillingPage() {
               </div>
 
               <div className="billing-doc-footer">
-                SA PRODUCTION · TECHNICAL OPERATIONS & COMMERCIAL DESK · INQUIRIES@SAPRODUCTION.COM
+                SA PRODUCTION · TECHNICAL OPERATIONS & COMMERCIAL DESK ·
+                INQUIRIES@SAPRODUCTION.COM
               </div>
             </div>
           </div>

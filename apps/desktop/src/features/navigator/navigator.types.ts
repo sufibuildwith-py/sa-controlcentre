@@ -119,4 +119,3 @@ export const resolveInitialMapCenter = (
   const bestHistorical = valid[0];
   return [bestHistorical.longitude!, bestHistorical.latitude!];
 };
-

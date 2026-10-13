@@ -16,7 +16,10 @@
   gap: 2px 10px;
   padding: 16px;
   cursor: pointer;
-  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    transform 0.15s ease;
 }
 .navigator-metric-card.active {
   border-color: var(--accent);
@@ -82,7 +85,10 @@
   font: 700 12px inherit;
   box-shadow: var(--shadow-floating);
   cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    opacity 0.15s ease;
 }
 .navigator-marker[data-state="STALE"] {
   background: var(--warning);
@@ -96,7 +102,9 @@
   z-index: 6;
 }
 .navigator-marker.in-focused-team {
-  box-shadow: 0 0 0 3px var(--accent), var(--shadow-floating);
+  box-shadow:
+    0 0 0 3px var(--accent),
+    var(--shadow-floating);
   transform: scale(1.1);
   z-index: 5;
 }
