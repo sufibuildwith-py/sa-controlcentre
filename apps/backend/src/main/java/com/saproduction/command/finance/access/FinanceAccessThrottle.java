@@ -59,9 +59,12 @@ public class FinanceAccessThrottle {
     String cleanIp = sanitizeIp(ip);
     String cleanUser = userId != null ? userId.trim() : null;
 
-    add("ip:" + cleanIp, now, 5, Duration.ofMinutes(10));
-    if (cleanUser != null) {
-      add("user:" + cleanUser, now, 5, Duration.ofMinutes(15));
+    String ipKey = "ip:" + cleanIp;
+    String userKey = cleanUser != null ? "user:" + cleanUser : null;
+
+    add(ipKey, now, 5, Duration.ofMinutes(10), userKey);
+    if (userKey != null) {
+      add(userKey, now, 5, Duration.ofMinutes(15), ipKey);
     }
     audit.record("FINANCE_ACCESS", "FINANCE_ACCESS_DENIED", cleanUser != null ? cleanUser : "anonymous", null, Map.of("ip", cleanIp, "reason", "INVALID_CODE"));
 
@@ -96,17 +99,14 @@ public class FinanceAccessThrottle {
     });
   }
 
-  private void add(String key, Instant now, int blockThreshold, Duration window) {
+  private void add(String key, Instant now, int blockThreshold, Duration window, String siblingKey) {
     Deque<Instant> bucket = failures.get(key);
     if (bucket == null) {
       if (failures.size() >= maxEntries) {
         cleanupExpired();
       }
       if (failures.size() >= maxEntries) {
-        evictUnblockedCandidate();
-      }
-      if (failures.size() >= maxEntries && !failures.containsKey(key)) {
-        return;
+        evictCandidate(siblingKey);
       }
       bucket = failures.computeIfAbsent(key, ignored -> new ArrayDeque<>());
     }
@@ -116,12 +116,16 @@ public class FinanceAccessThrottle {
     }
   }
 
-  private void evictUnblockedCandidate() {
+  private void evictCandidate(String protectedKey) {
     Instant now = clock.instant();
     String candidateKey = null;
     int minSize = Integer.MAX_VALUE;
 
+    // Pass 1: Anti-churn eviction - prefer unblocked, lowest-count entries (excluding current operation sibling)
     for (Map.Entry<String, Deque<Instant>> entry : failures.entrySet()) {
+      if (protectedKey != null && entry.getKey().equals(protectedKey)) {
+        continue;
+      }
       Deque<Instant> q = entry.getValue();
       synchronized (q) {
         boolean isIp = entry.getKey().startsWith("ip:");
@@ -133,7 +137,7 @@ public class FinanceAccessThrottle {
           if (t.isAfter(cutoff)) activeCount++;
         }
 
-        // Strictly protect blocked entries from eviction
+        // Strictly protect blocked entries from eviction in Pass 1
         if (activeCount >= 5) {
           continue;
         }
@@ -143,6 +147,25 @@ public class FinanceAccessThrottle {
           candidateKey = entry.getKey();
           if (minSize <= 1) {
             break;
+          }
+        }
+      }
+    }
+
+    // Pass 2 fallback: If ALL entries are actively blocked, evict the entry with the
+    // oldest activity so new attacker attempts are ALWAYS tracked and throttled.
+    if (candidateKey == null) {
+      Instant oldestLastActivity = Instant.MAX;
+      for (Map.Entry<String, Deque<Instant>> entry : failures.entrySet()) {
+        if (protectedKey != null && entry.getKey().equals(protectedKey)) {
+          continue;
+        }
+        Deque<Instant> q = entry.getValue();
+        synchronized (q) {
+          Instant last = q.peekLast();
+          if (last != null && last.isBefore(oldestLastActivity)) {
+            oldestLastActivity = last;
+            candidateKey = entry.getKey();
           }
         }
       }

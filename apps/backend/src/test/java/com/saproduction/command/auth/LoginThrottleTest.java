@@ -203,4 +203,40 @@ class LoginThrottleTest {
     expThrottle.cleanupExpired();
     org.junit.jupiter.api.Assertions.assertEquals(0, expThrottle.size(), "Expired entries were not pruned");
   }
+
+  @Test
+  @DisplayName("Rate limiting cannot be bypassed when all entries in map are currently blocked")
+  void rateLimitingCannotBeBypassedWhenAllEntriesAreBlocked() {
+    // Capacity of 4 entries
+    LoginThrottle smallThrottle = new LoginThrottle(audit, clock, 4);
+
+    // Fill all 4 entries with blocked accounts/IPs (2 pairs = 4 entries)
+    for (int i = 0; i < 5; i++) {
+      smallThrottle.failed("blocked1@saproduction.com", "192.168.1.1");
+      smallThrottle.failed("blocked2@saproduction.com", "192.168.1.2");
+    }
+
+    // Verify both are blocked and map is at capacity
+    assertThatThrownBy(() -> smallThrottle.check("blocked1@saproduction.com", "192.168.1.1"))
+        .isInstanceOf(ApiException.class);
+    assertThatThrownBy(() -> smallThrottle.check("blocked2@saproduction.com", "192.168.1.2"))
+        .isInstanceOf(ApiException.class);
+
+    // New attacker tries to bypass rate limiting
+    String newAttackerIp = "203.0.113.50";
+    String newAttackerEmail = "attacker@evil.com";
+
+    for (int i = 0; i < 5; i++) {
+      smallThrottle.failed(newAttackerEmail, newAttackerIp);
+    }
+
+    // The new attacker MUST BE BLOCKED — capacity exhaustion must NOT permit bypass!
+    assertThatThrownBy(() -> smallThrottle.check(newAttackerEmail, newAttackerIp))
+        .isInstanceOf(ApiException.class)
+        .satisfies(ex -> {
+          ApiException apiEx = (ApiException) ex;
+          org.junit.jupiter.api.Assertions.assertEquals(HttpStatus.TOO_MANY_REQUESTS, apiEx.status);
+          org.junit.jupiter.api.Assertions.assertEquals("LOGIN_RATE_LIMITED", apiEx.code);
+        });
+  }
 }

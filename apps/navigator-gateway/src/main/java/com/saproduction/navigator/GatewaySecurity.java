@@ -72,10 +72,15 @@ class RateLimits {
         windows.entrySet().removeIf(e -> e.getValue().start.plus(duration).isBefore(now));
       }
       if(windows.size()>=MAX_WINDOWS && !windows.containsKey(id)){
-        windows.entrySet().stream()
+        var toEvict = windows.entrySet().stream()
           .filter(e -> e.getValue().count < max)
           .min(Comparator.comparingInt(e -> e.getValue().count))
-          .ifPresent(e -> windows.remove(e.getKey()));
+          .map(Map.Entry::getKey)
+          .orElseGet(() -> windows.entrySet().stream()
+            .min(Comparator.comparing(e -> e.getValue().start))
+            .map(Map.Entry::getKey)
+            .orElse(null));
+        if(toEvict!=null) windows.remove(toEvict);
       }
       windows.put(id,new Window(now,1));
       return;

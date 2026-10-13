@@ -55,8 +55,11 @@ public class LoginThrottle {
     String cleanIp = sanitizeIp(ip);
     String cleanEmail = email != null ? email.trim().toLowerCase(Locale.ROOT) : "unknown";
 
-    add("ip:" + cleanIp, now, 5, Duration.ofMinutes(10));
-    add("account:" + cleanEmail, now, 10, Duration.ofMinutes(30));
+    String ipKey = "ip:" + cleanIp;
+    String accountKey = "account:" + cleanEmail;
+
+    add(ipKey, now, 5, Duration.ofMinutes(10), accountKey);
+    add(accountKey, now, 10, Duration.ofMinutes(30), ipKey);
     audit.record("AUTH", "AUTH_LOGIN_FAILED", cleanEmail, null, Map.of("ip", cleanIp));
 
     // Periodic cleanup of expired entries
@@ -89,20 +92,14 @@ public class LoginThrottle {
     });
   }
 
-  private void add(String key, Instant now, int blockThreshold, Duration window) {
+  private void add(String key, Instant now, int blockThreshold, Duration window, String siblingKey) {
     Deque<Instant> bucket = failures.get(key);
     if (bucket == null) {
       if (failures.size() >= maxEntries) {
         cleanupExpired();
       }
       if (failures.size() >= maxEntries) {
-        // Anti-churn eviction: Evict only unblocked, low-count entries.
-        // Protected: Entries that are currently BLOCKED (active count >= threshold).
-        evictUnblockedCandidate();
-      }
-      // If map is still at capacity (all entries are actively blocked), skip adding new key
-      if (failures.size() >= maxEntries && !failures.containsKey(key)) {
-        return;
+        evictCandidate(siblingKey);
       }
       bucket = failures.computeIfAbsent(key, ignored -> new ArrayDeque<>());
     }
@@ -112,12 +109,16 @@ public class LoginThrottle {
     }
   }
 
-  private void evictUnblockedCandidate() {
+  private void evictCandidate(String protectedKey) {
     Instant now = clock.instant();
     String candidateKey = null;
     int minSize = Integer.MAX_VALUE;
 
+    // Pass 1: Anti-churn eviction - prefer unblocked, lowest-count entries (excluding current operation sibling)
     for (Map.Entry<String, Deque<Instant>> entry : failures.entrySet()) {
+      if (protectedKey != null && entry.getKey().equals(protectedKey)) {
+        continue;
+      }
       Deque<Instant> q = entry.getValue();
       synchronized (q) {
         boolean isIp = entry.getKey().startsWith("ip:");
@@ -130,7 +131,7 @@ public class LoginThrottle {
           if (t.isAfter(cutoff)) activeCount++;
         }
 
-        // If currently blocked, strictly protect from eviction!
+        // If currently blocked, protect from eviction during Pass 1
         if (activeCount >= threshold) {
           continue;
         }
@@ -140,6 +141,25 @@ public class LoginThrottle {
           candidateKey = entry.getKey();
           if (minSize <= 1) {
             break;
+          }
+        }
+      }
+    }
+
+    // Pass 2 fallback: If ALL entries are actively blocked, evict the entry with the
+    // oldest activity so new attacker attempts are ALWAYS tracked and throttled.
+    if (candidateKey == null) {
+      Instant oldestLastActivity = Instant.MAX;
+      for (Map.Entry<String, Deque<Instant>> entry : failures.entrySet()) {
+        if (protectedKey != null && entry.getKey().equals(protectedKey)) {
+          continue;
+        }
+        Deque<Instant> q = entry.getValue();
+        synchronized (q) {
+          Instant last = q.peekLast();
+          if (last != null && last.isBefore(oldestLastActivity)) {
+            oldestLastActivity = last;
+            candidateKey = entry.getKey();
           }
         }
       }
